@@ -40,10 +40,6 @@ const parseJson = (value: string, label: string): unknown => {
   }
 };
 
-const collectModifiers = (value: string, previous: string[]): string[] => {
-  return [...(previous ?? []), value];
-};
-
 export const registerDriveCommands = (program: Command): void => {
   const drive = program.command('drive').description('Drive commands');
 
@@ -359,7 +355,7 @@ export const registerDriveCommands = (program: Command): void => {
     .option(
       '--modifier <modifier>',
       'Modifier key (ctrl, alt, shift, meta)',
-      collectModifiers,
+      (value: string, previous: string[]) => [...(previous ?? []), value],
       []
     )
     .option('--repeat <count>', 'Number of times to press')
