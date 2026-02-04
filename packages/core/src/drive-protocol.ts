@@ -83,7 +83,8 @@ export type DriveAction =
   | 'drive.tab_activate'
   | 'drive.tab_close'
   | 'drive.hello'
-  | 'drive.tab_report';
+  | 'drive.tab_report'
+  | 'drive.ping';
 
 export type DriveRequestStatus = 'request';
 export type DriveResponseStatus = 'ok' | 'error';

@@ -64,6 +64,10 @@ export class ExtensionBridge {
   private connected = false;
   private lastSeenAt?: string;
   private tabs: DriveTabInfo[] = [];
+  private heartbeatInterval: ReturnType<typeof setInterval> | null = null;
+  private awaitingHeartbeat = false;
+  private readonly heartbeatIntervalMs = 15000;
+  private readonly heartbeatTimeoutMs = 5000;
   private readonly path: string;
   private readonly registry?: SessionRegistry;
   private readonly debuggerListeners = new Set<DebuggerEventListener>();
@@ -175,6 +179,53 @@ export class ExtensionBridge {
     return response;
   }
 
+  private startHeartbeat(): void {
+    if (this.heartbeatInterval) {
+      return;
+    }
+    this.heartbeatInterval = setInterval(() => {
+      void this.sendHeartbeat();
+    }, this.heartbeatIntervalMs);
+    void this.sendHeartbeat();
+  }
+
+  private stopHeartbeat(): void {
+    if (this.heartbeatInterval) {
+      clearInterval(this.heartbeatInterval);
+      this.heartbeatInterval = null;
+    }
+    this.awaitingHeartbeat = false;
+  }
+
+  private async sendHeartbeat(): Promise<void> {
+    if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
+      return;
+    }
+    if (this.awaitingHeartbeat) {
+      return;
+    }
+    this.awaitingHeartbeat = true;
+    try {
+      await this.requestInternal("drive.ping", undefined, this.heartbeatTimeoutMs);
+    } catch (error) {
+      console.warn("Extension heartbeat failed:", error);
+      this.forceDisconnect();
+    } finally {
+      this.awaitingHeartbeat = false;
+    }
+  }
+
+  private forceDisconnect(): void {
+    if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+      try {
+        this.socket.terminate();
+      } catch {
+        this.socket.close();
+      }
+    }
+    this.handleDisconnect();
+  }
+
   private handleConnection(socket: WebSocket): void {
     if (this.socket && this.socket.readyState === WebSocket.OPEN) {
       this.socket.close();
@@ -185,6 +236,7 @@ export class ExtensionBridge {
     this.lastSeenAt = new Date().toISOString();
 
     this.applyDriveConnected();
+    this.startHeartbeat();
 
     socket.on('message', (data) => {
       this.handleMessage(data);
@@ -204,6 +256,7 @@ export class ExtensionBridge {
       return;
     }
 
+    this.stopHeartbeat();
     this.connected = false;
     this.socket = null;
     this.lastSeenAt = new Date().toISOString();

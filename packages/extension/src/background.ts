@@ -533,6 +533,10 @@ class DriveSocket {
 
     try {
       switch (message.action) {
+        case 'drive.ping': {
+          respondOk({ ok: true });
+          return;
+        }
         case 'drive.navigate': {
           const params = (message.params ?? {}) as Record<string, unknown>;
           const url = params.url;
