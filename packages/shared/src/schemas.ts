@@ -274,6 +274,17 @@ export const DriveKeyPressInputSchema = z.object({
 });
 export const DriveKeyPressOutputSchema = OpResultSchema;
 
+export const DriveKeyModifierSchema = z.enum(["ctrl", "alt", "shift", "meta"]);
+
+export const DriveKeyInputSchema = z.object({
+  session_id: z.string().min(1),
+  key: z.string().min(1),
+  modifiers: z.array(DriveKeyModifierSchema).optional(),
+  repeat: z.number().int().min(1).max(50).optional(),
+  tab_id: z.number().finite().optional(),
+});
+export const DriveKeyOutputSchema = OpResultSchema;
+
 export const DriveScrollInputSchema = z
   .object({
     session_id: z.string().min(1),

@@ -362,6 +362,38 @@ const runDriveAction = async (
     return key;
   };
 
+  const normalizeModifiers = (
+    modifiers: unknown
+  ): { ctrl: boolean; alt: boolean; shift: boolean; meta: boolean } => {
+    const state = { ctrl: false, alt: false, shift: false, meta: false };
+    if (Array.isArray(modifiers)) {
+      modifiers.forEach((modifier) => {
+        if (typeof modifier !== "string") {
+          return;
+        }
+        const normalized = modifier.toLowerCase();
+        if (normalized === "ctrl") {
+          state.ctrl = true;
+        } else if (normalized === "alt") {
+          state.alt = true;
+        } else if (normalized === "shift") {
+          state.shift = true;
+        } else if (normalized === "meta") {
+          state.meta = true;
+        }
+      });
+      return state;
+    }
+    if (modifiers && typeof modifiers === "object") {
+      const record = modifiers as Record<string, unknown>;
+      state.ctrl = Boolean(record.ctrl);
+      state.alt = Boolean(record.alt);
+      state.shift = Boolean(record.shift);
+      state.meta = Boolean(record.meta);
+    }
+    return state;
+  };
+
   const activeEditableElement = (): HTMLElement | null => {
     const active = document.activeElement;
     if (!active || !(active instanceof HTMLElement)) {
@@ -672,19 +704,55 @@ const runDriveAction = async (
         if (!target) {
           return buildError('INVALID_ARGUMENT', 'No target for key press.');
         }
-        const mods = (modifiers ?? {}) as Record<string, unknown>;
+        const mods = normalizeModifiers(modifiers);
         const eventInit = {
           key,
           code: keyToCode(key),
           bubbles: true,
           cancelable: true,
-          ctrlKey: Boolean(mods.ctrl),
-          altKey: Boolean(mods.alt),
-          shiftKey: Boolean(mods.shift),
-          metaKey: Boolean(mods.meta),
+          ctrlKey: mods.ctrl,
+          altKey: mods.alt,
+          shiftKey: mods.shift,
+          metaKey: mods.meta,
         };
         target.dispatchEvent(new KeyboardEvent('keydown', eventInit));
         target.dispatchEvent(new KeyboardEvent('keyup', eventInit));
+        return ok();
+      }
+      case 'drive.key': {
+        const { key, modifiers, repeat } = parseParams();
+        if (typeof key !== 'string' || key.length === 0) {
+          return buildError(
+            'INVALID_ARGUMENT',
+            'key must be a non-empty string.'
+          );
+        }
+        const target =
+          document.activeElement instanceof HTMLElement
+            ? document.activeElement
+            : document.body;
+        if (!target) {
+          return buildError('INVALID_ARGUMENT', 'No target for key press.');
+        }
+        const mods = normalizeModifiers(modifiers);
+        const eventInit = {
+          key,
+          code: keyToCode(key),
+          bubbles: true,
+          cancelable: true,
+          ctrlKey: mods.ctrl,
+          altKey: mods.alt,
+          shiftKey: mods.shift,
+          metaKey: mods.meta,
+        };
+        const count =
+          typeof repeat === 'number' && Number.isFinite(repeat)
+            ? Math.max(1, Math.min(50, Math.floor(repeat)))
+            : 1;
+        for (let i = 0; i < count; i += 1) {
+          target.dispatchEvent(new KeyboardEvent('keydown', eventInit));
+          target.dispatchEvent(new KeyboardEvent('keyup', eventInit));
+        }
         return ok();
       }
       case 'drive.scroll': {

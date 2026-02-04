@@ -8,6 +8,7 @@ import {
   DriveHandleDialogInputSchema,
   DriveHoverInputSchema,
   DriveSelectInputSchema,
+  DriveKeyInputSchema,
   DriveKeyPressInputSchema,
   DriveNavigateInputSchema,
   DriveScrollInputSchema,
@@ -35,6 +36,10 @@ const parseJson = (value: string, label: string): unknown => {
   } catch {
     throw new Error(`${label} must be valid JSON.`);
   }
+};
+
+const collectModifiers = (value: string, previous: string[]): string[] => {
+  return [...(previous ?? []), value];
 };
 
 export const registerDriveCommands = (program: Command): void => {
@@ -311,6 +316,32 @@ export const registerDriveCommands = (program: Command): void => {
           tab_id: parseNumber(options.tabId),
         });
         return client.post('/drive/key_press', payload);
+      });
+    });
+
+  drive
+    .command('key')
+    .description('Press a keyboard key with modifiers')
+    .requiredOption('--session-id <id>', 'Session identifier')
+    .requiredOption('--key <key>', 'Key to press (e.g. Enter, ArrowDown)')
+    .option(
+      '--modifier <modifier>',
+      'Modifier key (ctrl, alt, shift, meta)',
+      collectModifiers,
+      []
+    )
+    .option('--repeat <count>', 'Number of times to press')
+    .option('--tab-id <id>', 'Tab identifier')
+    .action(async (options, command) => {
+      await runCommand(command, (client) => {
+        const payload = parseInput(DriveKeyInputSchema, {
+          session_id: options.sessionId,
+          key: options.key,
+          modifiers: options.modifier,
+          repeat: parseNumber(options.repeat),
+          tab_id: parseNumber(options.tabId),
+        });
+        return client.post('/drive/key', payload);
       });
     });
 

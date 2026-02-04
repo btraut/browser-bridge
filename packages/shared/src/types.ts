@@ -27,6 +27,9 @@ import {
   DriveHoverOutputSchema,
   DriveSelectInputSchema,
   DriveSelectOutputSchema,
+  DriveKeyInputSchema,
+  DriveKeyModifierSchema,
+  DriveKeyOutputSchema,
   DriveKeyModifiersSchema,
   DriveKeyPressInputSchema,
   DriveKeyPressOutputSchema,
@@ -127,6 +130,9 @@ export type DriveHoverInput = z.infer<typeof DriveHoverInputSchema>;
 export type DriveHoverOutput = z.infer<typeof DriveHoverOutputSchema>;
 export type DriveSelectInput = z.infer<typeof DriveSelectInputSchema>;
 export type DriveSelectOutput = z.infer<typeof DriveSelectOutputSchema>;
+export type DriveKeyModifier = z.infer<typeof DriveKeyModifierSchema>;
+export type DriveKeyInput = z.infer<typeof DriveKeyInputSchema>;
+export type DriveKeyOutput = z.infer<typeof DriveKeyOutputSchema>;
 export type DriveTypeInput = z.infer<typeof DriveTypeInputSchema>;
 export type DriveTypeOutput = z.infer<typeof DriveTypeOutputSchema>;
 export type DriveFillFormInput = z.infer<typeof DriveFillFormInputSchema>;
