@@ -4,6 +4,7 @@ import { SessionRegistry } from '../session';
 import type { ExtensionBridge } from '../extension-bridge';
 import {
   InspectConsoleListInputSchema,
+  InspectDomDiffInputSchema,
   InspectDomSnapshotInputSchema,
   InspectEvaluateInputSchema,
   InspectNetworkHarInputSchema,
@@ -186,6 +187,12 @@ export const registerInspectRoutes = (
         consistency: body.consistency,
         targetHint: resolveTargetHint(body.target, options),
       });
+    })
+  );
+  router.post(
+    '/inspect/dom_diff',
+    makeHandler(InspectDomDiffInputSchema, async (body) => {
+      return inspect.domDiff({ sessionId: body.session_id });
     })
   );
   router.post(

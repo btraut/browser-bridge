@@ -13,7 +13,9 @@ import {
   DriveTypeInputSchema,
   DriveWaitForInputSchema,
   InspectConsoleListInputSchema,
+  InspectDomDiffInputSchema,
   InspectDomSnapshotInputSchema,
+  InspectDomDiffOutputSchema,
   InspectEvaluateInputSchema,
   LocatorSchema,
   OpResultSchema,
@@ -126,6 +128,18 @@ describe('shared schemas', () => {
     });
     expect(parsed.format).toBe('ax');
     expect(parsed.consistency).toBe('best_effort');
+  });
+
+  it('parses dom diff schemas', () => {
+    const input = InspectDomDiffInputSchema.parse({ session_id: 'session-1' });
+    expect(input.session_id).toBe('session-1');
+    const output = InspectDomDiffOutputSchema.parse({
+      added: ['div#new'],
+      removed: [],
+      changed: ['span.title'],
+      summary: 'Added 1, removed 0, changed 1.',
+    });
+    expect(output.added).toHaveLength(1);
   });
 
   it('accepts inspect target hints', () => {

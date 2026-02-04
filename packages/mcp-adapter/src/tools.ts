@@ -29,6 +29,8 @@ import {
   DriveWaitForOutputSchema,
   InspectConsoleListInputSchema,
   InspectConsoleListOutputSchema,
+  InspectDomDiffInputSchema,
+  InspectDomDiffOutputSchema,
   InspectDomSnapshotInputSchema,
   InspectDomSnapshotOutputSchema,
   InspectEvaluateInputSchema,
@@ -252,6 +254,16 @@ export const TOOL_DEFINITIONS: Array<{ name: string; config: ToolConfig }> = [
       inputSchema: InspectDomSnapshotInputSchema,
       outputSchema: envelope(InspectDomSnapshotOutputSchema),
       corePath: '/inspect/dom_snapshot',
+    },
+  },
+  {
+    name: 'inspect.dom_diff',
+    config: {
+      title: 'Inspect DOM Diff',
+      description: 'Compare recent DOM snapshots.',
+      inputSchema: InspectDomDiffInputSchema,
+      outputSchema: envelope(InspectDomDiffOutputSchema),
+      corePath: '/inspect/dom_diff',
     },
   },
   {

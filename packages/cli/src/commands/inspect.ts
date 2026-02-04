@@ -1,6 +1,7 @@
 import { Command } from 'commander';
 import {
   InspectConsoleListInputSchema,
+  InspectDomDiffInputSchema,
   InspectDomSnapshotInputSchema,
   InspectEvaluateInputSchema,
   InspectNetworkHarInputSchema,
@@ -26,6 +27,19 @@ export const registerInspectCommands = (program: Command): void => {
           consistency: options.consistency,
         });
         return client.post('/inspect/dom_snapshot', payload);
+      });
+    });
+
+  inspect
+    .command('dom-diff')
+    .description('Compare recent DOM snapshots')
+    .requiredOption('--session-id <id>', 'Session identifier')
+    .action(async (options, command) => {
+      await runCommand(command, (client) => {
+        const payload = parseInput(InspectDomDiffInputSchema, {
+          session_id: options.sessionId,
+        });
+        return client.post('/inspect/dom_diff', payload);
       });
     });
 

@@ -49,6 +49,13 @@ export type DomSnapshotResult = {
   warnings?: string[];
 };
 
+type SnapshotRecord = {
+  sessionId: string;
+  format: "ax" | "html";
+  entries: Map<string, string>;
+  capturedAt: string;
+};
+
 export type ConsoleEntry = {
   level?: string;
   text?: string;
@@ -95,6 +102,8 @@ export class InspectService {
   };
   private lastError?: InspectError;
   private lastErrorAt?: string;
+  private readonly snapshotHistory: SnapshotRecord[] = [];
+  private readonly maxSnapshots = 20;
 
   constructor(options: InspectServiceOptions) {
     this.registry = options.registry;
@@ -211,12 +220,61 @@ export class InspectService {
 
     if (input.consistency === 'quiesce') {
       const result = await driveMutex.runExclusive(work);
+      this.recordSnapshot(input.sessionId, result);
       this.markInspectConnected(input.sessionId);
       return result;
     }
     const result = await work();
+    this.recordSnapshot(input.sessionId, result);
     this.markInspectConnected(input.sessionId);
     return result;
+  }
+
+  domDiff(input: { sessionId: string }): {
+    added: string[];
+    removed: string[];
+    changed: string[];
+    summary: string;
+  } {
+    this.requireSession(input.sessionId);
+    this.markInspectConnected(input.sessionId);
+    const snapshots = this.snapshotHistory.filter(
+      (record) => record.sessionId === input.sessionId
+    );
+    if (snapshots.length < 2) {
+      return {
+        added: [],
+        removed: [],
+        changed: [],
+        summary: "Not enough snapshots to diff.",
+      };
+    }
+    const previous = snapshots[snapshots.length - 2];
+    const current = snapshots[snapshots.length - 1];
+
+    const added: string[] = [];
+    const removed: string[] = [];
+    const changed: string[] = [];
+
+    for (const [key, value] of current.entries.entries()) {
+      if (!previous.entries.has(key)) {
+        added.push(key);
+      } else if (previous.entries.get(key) !== value) {
+        changed.push(key);
+      }
+    }
+    for (const key of previous.entries.keys()) {
+      if (!current.entries.has(key)) {
+        removed.push(key);
+      }
+    }
+
+    return {
+      added,
+      removed,
+      changed,
+      summary: `Added ${added.length}, removed ${removed.length}, changed ${changed.length}.`,
+    };
   }
 
   async consoleList(input: {
@@ -507,6 +565,108 @@ export class InspectService {
 
   private async enableAccessibility(tabId: number): Promise<void> {
     await this.debuggerCommand(tabId, 'Accessibility.enable', {});
+  }
+
+  private recordSnapshot(sessionId: string, snapshot: DomSnapshotResult): void {
+    const entries = this.collectSnapshotEntries(snapshot);
+    if (!entries) {
+      return;
+    }
+    this.snapshotHistory.push({
+      sessionId,
+      format: snapshot.format,
+      entries,
+      capturedAt: new Date().toISOString(),
+    });
+    let count = 0;
+    for (const record of this.snapshotHistory) {
+      if (record.sessionId === sessionId) {
+        count += 1;
+      }
+    }
+    while (count > this.maxSnapshots) {
+      const index = this.snapshotHistory.findIndex(
+        (record) => record.sessionId === sessionId
+      );
+      if (index === -1) {
+        break;
+      }
+      this.snapshotHistory.splice(index, 1);
+      count -= 1;
+    }
+  }
+
+  private collectSnapshotEntries(
+    snapshot: DomSnapshotResult
+  ): Map<string, string> | null {
+    if (snapshot.format === "html" && typeof snapshot.snapshot === "string") {
+      return this.collectHtmlEntries(snapshot.snapshot);
+    }
+    if (snapshot.format === "ax") {
+      return this.collectAxEntries(snapshot.snapshot);
+    }
+    return null;
+  }
+
+  private collectHtmlEntries(html: string): Map<string, string> {
+    const entries = new Map<string, string>();
+    const tagPattern = /<([a-zA-Z0-9-]+)([^>]*)>/g;
+    let match: RegExpExecArray | null;
+    let index = 0;
+    while ((match = tagPattern.exec(html)) && entries.size < 1000) {
+      const tag = match[1].toLowerCase();
+      const attrs = match[2] ?? "";
+      const idMatch = /\bid=["']([^"']+)["']/.exec(attrs);
+      const classMatch = /\bclass=["']([^"']+)["']/.exec(attrs);
+      const id = idMatch?.[1];
+      const className = classMatch?.[1]?.split(/\s+/)[0];
+      let key = tag;
+      if (id) {
+        key = `${tag}#${id}`;
+      } else if (className) {
+        key = `${tag}.${className}`;
+      } else {
+        key = `${tag}:nth-${index}`;
+      }
+      entries.set(key, attrs.trim());
+      index += 1;
+    }
+    return entries;
+  }
+
+  private collectAxEntries(snapshot: unknown): Map<string, string> {
+    const entries = new Map<string, string>();
+    const nodes = Array.isArray(snapshot)
+      ? snapshot
+      : (snapshot as { nodes?: unknown[] })?.nodes;
+    if (!Array.isArray(nodes)) {
+      return entries;
+    }
+    nodes.forEach((node, index) => {
+      if (!node || typeof node !== "object") {
+        return;
+      }
+      const record = node as {
+        nodeId?: string;
+        backendDOMNodeId?: number;
+        role?: { value?: string } | string;
+        name?: { value?: string } | string;
+      };
+      const role =
+        typeof record.role === "string"
+          ? record.role
+          : record.role?.value ?? "node";
+      const name =
+        typeof record.name === "string" ? record.name : record.name?.value ?? "";
+      const nodeId =
+        record.nodeId ??
+        (record.backendDOMNodeId !== undefined
+          ? String(record.backendDOMNodeId)
+          : undefined);
+      const key = nodeId ? `node-${nodeId}` : `${role}:${name}:${index}`;
+      entries.set(key, `${role}:${name}`);
+    });
+    return entries;
   }
 
   private async captureHtml(tabId: number): Promise<string> {

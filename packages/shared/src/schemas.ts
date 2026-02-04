@@ -303,6 +303,16 @@ export const InspectDomSnapshotInputSchema = z.object({
 });
 export const InspectDomSnapshotOutputSchema = DomSnapshotSchema;
 
+export const DomDiffResultSchema = z.object({
+  added: z.array(z.string()),
+  removed: z.array(z.string()),
+  changed: z.array(z.string()),
+  summary: z.string(),
+});
+
+export const InspectDomDiffInputSchema = SessionIdSchema;
+export const InspectDomDiffOutputSchema = DomDiffResultSchema;
+
 export const InspectConsoleListInputSchema = SessionIdSchema.extend({
   target: TargetHintSchema.optional(),
 });

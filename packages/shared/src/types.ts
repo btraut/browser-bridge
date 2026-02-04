@@ -10,6 +10,7 @@ import {
   DiagnosticsDoctorInputSchema,
   DiagnosticsDoctorOutputSchema,
   DomSnapshotSchema,
+  DomDiffResultSchema,
   DriveClickInputSchema,
   DriveClickOutputSchema,
   DriveDragInputSchema,
@@ -41,6 +42,8 @@ import {
   InspectDomFormatSchema,
   InspectDomSnapshotInputSchema,
   InspectDomSnapshotOutputSchema,
+  InspectDomDiffInputSchema,
+  InspectDomDiffOutputSchema,
   InspectEvaluateInputSchema,
   InspectEvaluateOutputSchema,
   InspectNetworkHarInputSchema,
@@ -123,12 +126,15 @@ export type DriveTabCloseOutput = z.infer<typeof DriveTabCloseOutputSchema>;
 export type InspectDomFormat = z.infer<typeof InspectDomFormatSchema>;
 export type InspectConsistency = z.infer<typeof InspectConsistencySchema>;
 export type DomSnapshot = z.infer<typeof DomSnapshotSchema>;
+export type DomDiffResult = z.infer<typeof DomDiffResultSchema>;
 export type InspectDomSnapshotInput = z.infer<
   typeof InspectDomSnapshotInputSchema
 >;
 export type InspectDomSnapshotOutput = z.infer<
   typeof InspectDomSnapshotOutputSchema
 >;
+export type InspectDomDiffInput = z.infer<typeof InspectDomDiffInputSchema>;
+export type InspectDomDiffOutput = z.infer<typeof InspectDomDiffOutputSchema>;
 export type InspectConsoleListInput = z.infer<
   typeof InspectConsoleListInputSchema
 >;
