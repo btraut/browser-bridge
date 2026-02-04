@@ -4,6 +4,7 @@ import {
   ArtifactsScreenshotOutputSchema,
   DiagnosticsDoctorInputSchema,
   DiagnosticsDoctorOutputSchema,
+  ErrorEnvelopeSchema,
   DriveClickInputSchema,
   DriveClickOutputSchema,
   DriveNavigateInputSchema,
@@ -43,6 +44,7 @@ import type {
   AnySchema,
   ZodRawShapeCompat,
 } from "@modelcontextprotocol/sdk/server/zod-compat";
+import type { McpServer, ToolCallback } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types";
 import { CoreClient } from "./core-client";
 
@@ -56,28 +58,20 @@ type ToolConfig = {
   corePath: string;
 };
 
-type ToolRegistrar = {
-  registerTool: <
-    OutputArgs extends ZodRawShapeCompat | AnySchema,
-    InputArgs extends undefined | ZodRawShapeCompat | AnySchema = undefined
-  >(
-    name: string,
-    config: {
-      title?: string;
-      description?: string;
-      inputSchema?: InputArgs;
-      outputSchema?: OutputArgs;
-    },
-    handler: (args: unknown, extra?: unknown) => Promise<ToolResult>
-  ) => unknown;
-};
+type ToolRegistrar = Pick<McpServer, "registerTool">;
 
 type EnvelopeInput = Parameters<typeof apiEnvelopeSchema>[0];
 
-const toToolResult = (payload: unknown): ToolResult => ({
-  content: [{ type: "text", text: JSON.stringify(payload) }],
-  structuredContent: payload,
-});
+const toToolResult = (payload: unknown): ToolResult => {
+  const content = [{ type: "text" as const, text: JSON.stringify(payload) }];
+  if (payload && typeof payload === "object") {
+    return {
+      content,
+      structuredContent: payload as Record<string, unknown>,
+    };
+  }
+  return { content };
+};
 
 const toInternalErrorEnvelope = (error: unknown) => ({
   ok: false as const,
@@ -283,12 +277,19 @@ export const TOOL_DEFINITIONS: Array<{ name: string; config: ToolConfig }> = [
   },
 ];
 
-export const createToolHandler = (client: CoreClient, corePath: string) => {
-  return async (args: unknown, _extra?: unknown): Promise<ToolResult> => {
+export const createToolHandler = (
+  client: CoreClient,
+  corePath: string
+): ToolCallback<AnySchema> => {
+  return async (args, _extra): Promise<ToolResult> => {
     try {
       const envelopeResult = await client.post(corePath, args);
       return toToolResult(envelopeResult);
     } catch (error) {
+      const parsed = ErrorEnvelopeSchema.safeParse(error);
+      if (parsed.success) {
+        return toToolResult(parsed.data);
+      }
       return toToolResult(toInternalErrorEnvelope(error));
     }
   };
