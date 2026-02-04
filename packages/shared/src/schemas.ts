@@ -126,6 +126,7 @@ export const DriveWaitConditionSchema = z.object({
 export const DriveNavigateInputSchema = z.object({
   session_id: z.string().min(1),
   url: z.string().min(1),
+  tab_id: z.number().finite().optional(),
   wait: z.enum(['none', 'domcontentloaded']).default('domcontentloaded'),
 });
 export const DriveNavigateOutputSchema = OpResultSchema;
@@ -133,6 +134,7 @@ export const DriveNavigateOutputSchema = OpResultSchema;
 export const DriveClickInputSchema = z.object({
   session_id: z.string().min(1),
   locator: LocatorSchema,
+  tab_id: z.number().finite().optional(),
   click_count: z.number().finite().optional(),
 });
 export const DriveClickOutputSchema = OpResultSchema;
@@ -141,26 +143,40 @@ export const DriveTypeInputSchema = z.object({
   session_id: z.string().min(1),
   locator: LocatorSchema.optional(),
   text: z.string().min(1),
+  tab_id: z.number().finite().optional(),
   clear: z.boolean().default(false),
   submit: z.boolean().default(false),
 });
 export const DriveTypeOutputSchema = OpResultSchema;
 
-export const DriveScrollInputSchema = z.object({
-  session_id: z.string().min(1),
-  delta_x: z.number().finite().optional(),
-  delta_y: z.number().finite().optional(),
-  top: z.number().finite().optional(),
-  left: z.number().finite().optional(),
-  behavior: z.enum(['auto', 'smooth']).optional(),
-  tab_id: z.number().finite().optional(),
-});
+export const DriveScrollInputSchema = z
+  .object({
+    session_id: z.string().min(1),
+    delta_x: z.number().finite().optional(),
+    delta_y: z.number().finite().optional(),
+    top: z.number().finite().optional(),
+    left: z.number().finite().optional(),
+    behavior: z.enum(['auto', 'smooth']).optional(),
+    tab_id: z.number().finite().optional(),
+  })
+  .refine(
+    (value) =>
+      value.delta_x !== undefined ||
+      value.delta_y !== undefined ||
+      value.top !== undefined ||
+      value.left !== undefined,
+    {
+      message: 'scroll requires delta_x/delta_y or top/left.',
+      path: ['scroll'],
+    }
+  );
 export const DriveScrollOutputSchema = OpResultSchema;
 
 export const DriveWaitForInputSchema = z.object({
   session_id: z.string().min(1),
   condition: DriveWaitConditionSchema,
   timeout_ms: z.number().finite().optional(),
+  tab_id: z.number().finite().optional(),
 });
 export const DriveWaitForOutputSchema = OpResultSchema;
 
@@ -193,6 +209,13 @@ export const DriveTabCloseOutputSchema = OpResultSchema;
 export const InspectDomFormatSchema = z.enum(['ax', 'html']);
 export const InspectConsistencySchema = z.enum(['best_effort', 'quiesce']);
 
+export const TargetHintSchema = z.object({
+  url: z.string().min(1).optional(),
+  title: z.string().min(1).optional(),
+  last_active_at: z.string().optional(),
+  lastActiveAt: z.string().optional(),
+});
+
 export const DomSnapshotSchema = z
   .object({
     format: InspectDomFormatSchema,
@@ -204,10 +227,13 @@ export const InspectDomSnapshotInputSchema = z.object({
   session_id: z.string().min(1),
   format: InspectDomFormatSchema.default('ax'),
   consistency: InspectConsistencySchema.default('best_effort'),
+  target: TargetHintSchema.optional(),
 });
 export const InspectDomSnapshotOutputSchema = DomSnapshotSchema;
 
-export const InspectConsoleListInputSchema = SessionIdSchema;
+export const InspectConsoleListInputSchema = SessionIdSchema.extend({
+  target: TargetHintSchema.optional(),
+});
 // Console output shape is not specified yet; allow passthrough fields.
 export const ConsoleEntrySchema = z
   .object({
@@ -229,12 +255,15 @@ export const ArtifactInfoSchema = z.object({
   mime: z.string(),
 });
 
-export const InspectNetworkHarInputSchema = SessionIdSchema;
+export const InspectNetworkHarInputSchema = SessionIdSchema.extend({
+  target: TargetHintSchema.optional(),
+});
 export const InspectNetworkHarOutputSchema = ArtifactInfoSchema;
 
 export const InspectEvaluateInputSchema = z.object({
   session_id: z.string().min(1),
   expression: z.string().min(1).optional(),
+  target: TargetHintSchema.optional(),
 });
 // Evaluate output is implementation-defined; allow passthrough fields.
 export const EvaluateResultSchema = z
@@ -245,7 +274,9 @@ export const EvaluateResultSchema = z
   .passthrough();
 export const InspectEvaluateOutputSchema = EvaluateResultSchema;
 
-export const InspectPerformanceMetricsInputSchema = SessionIdSchema;
+export const InspectPerformanceMetricsInputSchema = SessionIdSchema.extend({
+  target: TargetHintSchema.optional(),
+});
 // Performance metrics output shape may expand; allow passthrough metadata.
 export const PerformanceMetricSchema = z
   .object({

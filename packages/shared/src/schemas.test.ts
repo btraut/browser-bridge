@@ -4,9 +4,14 @@ import {
   ArtifactsScreenshotInputSchema,
   DiagnosticsDoctorInputSchema,
   DiagnosticReportSchema,
+  DriveClickInputSchema,
   DriveNavigateInputSchema,
   DriveScrollInputSchema,
+  DriveTypeInputSchema,
+  DriveWaitForInputSchema,
+  InspectConsoleListInputSchema,
   InspectDomSnapshotInputSchema,
+  InspectEvaluateInputSchema,
   LocatorSchema,
   OpResultSchema,
   SessionCreateInputSchema,
@@ -36,6 +41,37 @@ describe('shared schemas', () => {
     expect(parsed.wait).toBe('domcontentloaded');
   });
 
+  it('accepts tab_id on drive requests', () => {
+    expect(
+      DriveNavigateInputSchema.parse({
+        session_id: 'session-1',
+        url: 'https://example.com',
+        tab_id: 5,
+      }).tab_id
+    ).toBe(5);
+    expect(
+      DriveClickInputSchema.parse({
+        session_id: 'session-1',
+        locator: { css: '.cta' },
+        tab_id: 2,
+      }).tab_id
+    ).toBe(2);
+    expect(
+      DriveTypeInputSchema.parse({
+        session_id: 'session-1',
+        text: 'hello',
+        tab_id: 3,
+      }).tab_id
+    ).toBe(3);
+    expect(
+      DriveWaitForInputSchema.parse({
+        session_id: 'session-1',
+        condition: { kind: 'text_present', value: 'ready' },
+        tab_id: 9,
+      }).tab_id
+    ).toBe(9);
+  });
+
   it('parses drive scroll input', () => {
     const parsed = DriveScrollInputSchema.parse({
       session_id: 'session-1',
@@ -44,12 +80,44 @@ describe('shared schemas', () => {
     expect(parsed.delta_y).toBe(120);
   });
 
+  it('requires a scroll delta or position', () => {
+    expect(() =>
+      DriveScrollInputSchema.parse({
+        session_id: 'session-1',
+      })
+    ).toThrow();
+  });
+
   it('parses inspect dom snapshot defaults', () => {
     const parsed = InspectDomSnapshotInputSchema.parse({
       session_id: 'session-1',
     });
     expect(parsed.format).toBe('ax');
     expect(parsed.consistency).toBe('best_effort');
+  });
+
+  it('accepts inspect target hints', () => {
+    const parsed = InspectDomSnapshotInputSchema.parse({
+      session_id: 'session-1',
+      target: {
+        url: 'https://example.com',
+        last_active_at: '2025-01-01T00:00:00Z',
+      },
+    });
+    expect(parsed.target?.url).toBe('https://example.com');
+
+    const evalParsed = InspectEvaluateInputSchema.parse({
+      session_id: 'session-1',
+      expression: '1+1',
+      target: { title: 'Example', lastActiveAt: '2025-01-01T00:00:00Z' },
+    });
+    expect(evalParsed.target?.title).toBe('Example');
+
+    const consoleParsed = InspectConsoleListInputSchema.parse({
+      session_id: 'session-1',
+      target: { title: 'Console' },
+    });
+    expect(consoleParsed.target?.title).toBe('Console');
   });
 
   it('parses artifacts screenshot defaults', () => {

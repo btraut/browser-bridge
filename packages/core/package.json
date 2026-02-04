@@ -9,6 +9,7 @@
     "dist"
   ],
   "dependencies": {
+    "@browser-vision/shared": "file:../shared",
     "express": "^5.0.0",
     "ws": "^8.19.0"
   },
