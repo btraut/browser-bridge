@@ -9,7 +9,7 @@ type ContentResult =
   | { ok: true; result?: unknown }
   | { ok: false; error: DriveErrorInfo };
 
-const runDriveAction = async (
+export const runDriveAction = async (
   action: string,
   params: Record<string, unknown> | undefined
 ): Promise<ContentResult> => {
@@ -659,6 +659,7 @@ const runDriveAction = async (
         const startY = fromRect.top + fromRect.height / 2;
         const endX = toRect.left + toRect.width / 2;
         const endY = toRect.top + toRect.height / 2;
+        // Defensive bounds in case content script receives unvalidated inputs.
         const totalSteps =
           typeof steps === 'number' && Number.isFinite(steps)
             ? Math.max(1, Math.min(50, Math.floor(steps)))
@@ -856,8 +857,8 @@ const runDriveAction = async (
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
-chrome.runtime.onMessage.addListener(
-  (
+if (typeof chrome !== 'undefined' && chrome.runtime?.onMessage) {
+  chrome.runtime.onMessage.addListener((
     message: Record<string, unknown>,
     _sender: unknown,
     sendResponse: (response: ContentResult) => void
@@ -874,10 +875,7 @@ chrome.runtime.onMessage.addListener(
       return;
     }
 
-    void runDriveAction(
-      message.action,
-      message.params as Record<string, unknown>
-    )
+    void runDriveAction(message.action, message.params as Record<string, unknown>)
       .then(sendResponse)
       .catch((error) => {
         const messageText =
@@ -893,5 +891,5 @@ chrome.runtime.onMessage.addListener(
       });
 
     return true;
-  }
-);
+  });
+}
