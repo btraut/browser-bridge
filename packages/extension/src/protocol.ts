@@ -128,6 +128,7 @@ export type DriveAction =
   | 'drive.navigate'
   | 'drive.go_back'
   | 'drive.go_forward'
+  | 'drive.keepalive'
   | 'drive.click'
   | 'drive.hover'
   | 'drive.type'

@@ -351,6 +351,8 @@ class DriveSocket {
   private reconnectTimer: number | null = null;
   private reconnectDelayMs = 1000;
   private readonly maxReconnectDelayMs = 10000;
+  private keepAliveTimer: number | null = null;
+  private readonly keepAliveIntervalMs = 30000;
   private readonly debuggerSessions = new Map<number, DebuggerSession>();
   private debuggerIdleTimeoutMs: number | null = null;
 
@@ -365,6 +367,7 @@ class DriveSocket {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
     }
+    this.stopKeepAlive();
     if (this.socket) {
       this.socket.close();
       this.socket = null;
@@ -402,6 +405,7 @@ class DriveSocket {
 
       socket.addEventListener('open', () => {
         this.reconnectDelayMs = 1000;
+        this.startKeepAlive();
         void this.sendHello().catch((error) => {
           console.error("DriveSocket hello failed:", error);
         });
@@ -413,11 +417,13 @@ class DriveSocket {
 
       socket.addEventListener('close', () => {
         this.socket = null;
+        this.stopKeepAlive();
         this.scheduleReconnect();
       });
 
       socket.addEventListener('error', () => {
         this.socket = null;
+        this.stopKeepAlive();
         this.scheduleReconnect();
       });
     } catch (error) {
@@ -462,6 +468,23 @@ class DriveSocket {
       params,
     };
     this.sendMessage(message);
+  }
+
+  private startKeepAlive(): void {
+    this.stopKeepAlive();
+    this.keepAliveTimer = self.setInterval(() => {
+      if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
+        return;
+      }
+      this.sendEvent('drive.keepalive', {});
+    }, this.keepAliveIntervalMs);
+  }
+
+  private stopKeepAlive(): void {
+    if (this.keepAliveTimer !== null) {
+      clearInterval(this.keepAliveTimer);
+      this.keepAliveTimer = null;
+    }
   }
 
   private sendDebuggerEvent(params: DebuggerEvent['params']): void {
