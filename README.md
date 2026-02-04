@@ -19,6 +19,19 @@ These commands are provided by the workspace scaffolding at the repo root. If th
 - Lint: `npm run lint`
 - Test: `npm test`
 
+## Demo
+- Manual checklist: `docs/manual-test.md`
+- Scripted run: `scripts/demo.sh` (requires build output and extension loaded)
+
+## MCP Adapter
+The MCP adapter runs over stdio and forwards tool calls to Core.
+
+- Start the adapter: `node -e "require('@browser-vision/mcp-adapter').startMcpServer()"`
+- Use your MCP client to call `tools/list`, then `session.create`
+
+## Diagnostics
+- CLI: `node packages/cli/dist/index.js diagnostics doctor --session-id <id>`
+
 ## Extension (Drive Plane) - Load Unpacked
 1. Open Chrome and navigate to `chrome://extensions`.
 2. Enable **Developer mode**.
@@ -42,3 +55,6 @@ packages/
   cli/          # CLI wrapping core API
   extension/    # Chrome extension (drive plane)
 ```
+
+## Versioning and Release
+All packages are private and intended for local development use in v1. Build artifacts are emitted to `dist/` via `npm run build`.
