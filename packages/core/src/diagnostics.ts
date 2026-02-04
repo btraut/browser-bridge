@@ -1,4 +1,5 @@
 import { getArtifactRootDir } from './artifacts';
+import type { RecoveryAttempt, RecoveryMetrics } from './recovery';
 
 export type DiagnosticCheck = {
   name: string;
@@ -30,6 +31,27 @@ export type DiagnosticReport = {
   };
   artifacts?: {
     root_dir?: string;
+  };
+  recovery?: {
+    last_attempt?: {
+      session_id: string;
+      recovered: boolean;
+      state: string;
+      message?: string;
+      at: string;
+    };
+    attempts?: {
+      session_id: string;
+      recovered: boolean;
+      state: string;
+      message?: string;
+      at: string;
+    }[];
+    success_count?: number;
+    failure_count?: number;
+    success_rate?: number;
+    recent_failure_count?: number;
+    loop_detected?: boolean;
   };
   warnings?: string[];
   notes?: string[];
@@ -72,6 +94,7 @@ export type DiagnosticsContext = {
     message?: string;
     at: string;
   };
+  recoveryMetrics?: RecoveryMetrics;
 };
 
 export const buildDiagnosticReport = (
@@ -151,6 +174,18 @@ export const buildDiagnosticReport = (
     });
   }
 
+  const formatRecoveryAttempt = (attempt: RecoveryAttempt) => ({
+    session_id: attempt.sessionId,
+    recovered: attempt.recovered,
+    state: attempt.state,
+    message: attempt.message,
+    at: attempt.at,
+  });
+  const recoveryAttempts = context.recoveryMetrics?.attempts;
+  const lastRecoveryAttempt =
+    context.recoveryAttempt ??
+    (recoveryAttempts && recoveryAttempts[recoveryAttempts.length - 1]);
+
   const report: DiagnosticReport = {
     ok: checks.every((check) => check.ok),
     session_id: sessionId,
@@ -173,6 +208,26 @@ export const buildDiagnosticReport = (
           root_dir: getArtifactRootDir(sessionId),
         }
       : undefined,
+    recovery:
+      context.recoveryMetrics || lastRecoveryAttempt
+        ? {
+            ...(lastRecoveryAttempt
+              ? { last_attempt: formatRecoveryAttempt(lastRecoveryAttempt) }
+              : {}),
+            ...(recoveryAttempts
+              ? { attempts: recoveryAttempts.map(formatRecoveryAttempt) }
+              : {}),
+            ...(context.recoveryMetrics
+              ? {
+                  success_count: context.recoveryMetrics.successCount,
+                  failure_count: context.recoveryMetrics.failureCount,
+                  success_rate: context.recoveryMetrics.successRate,
+                  recent_failure_count: context.recoveryMetrics.recentFailureCount,
+                  loop_detected: context.recoveryMetrics.loopDetected,
+                }
+              : {}),
+          }
+        : undefined,
     notes: ['Diagnostics include runtime status; some checks may be stubbed.'],
   };
 

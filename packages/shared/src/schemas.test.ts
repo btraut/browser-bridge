@@ -155,6 +155,35 @@ describe('shared schemas', () => {
     expect(report.success).toBe(true);
   });
 
+  it('parses diagnostics recovery metrics', () => {
+    const parsed = DiagnosticReportSchema.parse({
+      ok: true,
+      recovery: {
+        last_attempt: {
+          session_id: 'session-1',
+          recovered: false,
+          state: 'READY',
+          at: '2025-01-01T00:00:00Z',
+        },
+        attempts: [
+          {
+            session_id: 'session-1',
+            recovered: false,
+            state: 'READY',
+            at: '2025-01-01T00:00:00Z',
+          },
+        ],
+        success_count: 1,
+        failure_count: 2,
+        success_rate: 0.33,
+        recent_failure_count: 2,
+        loop_detected: false,
+      },
+    });
+
+    expect(parsed.recovery?.success_count).toBe(1);
+  });
+
   it('validates the error envelope shape', () => {
     const parsed = ErrorEnvelopeSchema.parse({
       ok: false,

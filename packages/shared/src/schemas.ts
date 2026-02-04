@@ -96,6 +96,35 @@ export const DiagnosticReportSchema = z.object({
       root_dir: z.string().optional(),
     })
     .optional(),
+  recovery: z
+    .object({
+      last_attempt: z
+        .object({
+          session_id: z.string(),
+          recovered: z.boolean(),
+          state: SessionStateSchema,
+          message: z.string().optional(),
+          at: z.string(),
+        })
+        .optional(),
+      attempts: z
+        .array(
+          z.object({
+            session_id: z.string(),
+            recovered: z.boolean(),
+            state: SessionStateSchema,
+            message: z.string().optional(),
+            at: z.string(),
+          })
+        )
+        .optional(),
+      success_count: z.number().finite().optional(),
+      failure_count: z.number().finite().optional(),
+      success_rate: z.number().finite().optional(),
+      recent_failure_count: z.number().finite().optional(),
+      loop_detected: z.boolean().optional(),
+    })
+    .optional(),
   warnings: z.array(z.string()).optional(),
   notes: z.array(z.string()).optional(),
 });

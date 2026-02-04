@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { buildDiagnosticReport } from './diagnostics';
 import { DiagnosticReportSchema } from '../../shared/src/schemas';
+import { SessionState } from './state';
 import { getArtifactRootDir } from './artifacts';
 
 describe('buildDiagnosticReport', () => {
@@ -36,5 +37,34 @@ describe('buildDiagnosticReport', () => {
     expect(
       (report.debugger as Record<string, unknown> | undefined)?.idleTimeoutMs
     ).toBe(undefined);
+  });
+
+  it('includes recovery metrics in the report', () => {
+    const report = buildDiagnosticReport('session-123', {
+      recoveryAttempt: {
+        sessionId: 'session-123',
+        recovered: false,
+        state: SessionState.READY,
+        at: '2025-01-01T00:00:00Z',
+      },
+      recoveryMetrics: {
+        attempts: [
+          {
+            sessionId: 'session-123',
+            recovered: false,
+            state: SessionState.READY,
+            at: '2025-01-01T00:00:00Z',
+          },
+        ],
+        successCount: 1,
+        failureCount: 2,
+        successRate: 1 / 3,
+        recentFailureCount: 2,
+        loopDetected: false,
+      },
+    });
+
+    expect(report.recovery?.success_count).toBe(1);
+    expect(report.recovery?.attempts?.length).toBe(1);
   });
 });

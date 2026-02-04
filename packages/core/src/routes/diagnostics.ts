@@ -163,6 +163,7 @@ export const registerDiagnosticsRoutes = (
             at: attempt.at,
           };
         }
+        context.recoveryMetrics = options.recoveryTracker.getMetrics();
       }
 
       const report = buildDiagnosticReport(sessionId, context);
