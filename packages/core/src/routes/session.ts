@@ -1,14 +1,7 @@
-import { Response, Router } from 'express';
+import { Router } from 'express';
 import { InvalidSessionTransition, SessionState } from '../state';
 import { SessionError, SessionRegistry } from '../session';
 import { isRecord, sendError, sendResult } from './shared';
-
-type ErrorInfo = {
-  code: string;
-  message: string;
-  retryable: boolean;
-  details?: Record<string, unknown>;
-};
 
 const readSessionId = (body: unknown): string | undefined => {
   if (!isRecord(body)) {

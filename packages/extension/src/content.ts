@@ -398,7 +398,7 @@ const runDriveAction = async (
         const rect = target.getBoundingClientRect();
         const centerX = rect.left + rect.width / 2;
         const centerY = rect.top + rect.height / 2;
-        const eventInit: MouseEventInit = {
+        const eventInit = {
           bubbles: true,
           cancelable: true,
           view: window,
@@ -628,7 +628,7 @@ const runDriveAction = async (
           return buildError('INVALID_ARGUMENT', 'No target for key press.');
         }
         const mods = (modifiers ?? {}) as Record<string, unknown>;
-        const eventInit: KeyboardEventInit = {
+        const eventInit = {
           key,
           code: keyToCode(key),
           bubbles: true,

@@ -501,18 +501,18 @@ export class InspectService {
       "    });",
       "  return { forms, localStorage, sessionStorage, cookies };",
       "})()",
-    ].join(\"\\n\");
+    ].join("\n");
 
-    const result = await this.debuggerCommand(selection.tabId, \"Runtime.evaluate\", {
+    const result = await this.debuggerCommand(selection.tabId, "Runtime.evaluate", {
       expression,
       returnByValue: true,
       awaitPromise: true,
     });
 
-    if (result && typeof result === \"object\" && \"exceptionDetails\" in result) {
+    if (result && typeof result === "object" && "exceptionDetails" in result) {
       const error = new InspectError(
-        \"EVALUATION_FAILED\",
-        \"Failed to capture page state.\",
+        "EVALUATION_FAILED",
+        "Failed to capture page state.",
         { retryable: false }
       );
       this.recordError(error);
@@ -520,7 +520,7 @@ export class InspectService {
     }
 
     const value = (result as { result?: { value?: unknown } })?.result?.value;
-    const raw = value && typeof value === \"object\" ? (value as Partial<PageStateResult>) : {};
+    const raw = value && typeof value === "object" ? (value as Partial<PageStateResult>) : {};
     const warnings = [
       ...(Array.isArray(raw.warnings) ? raw.warnings : []),
       ...(selection.warnings ?? []),

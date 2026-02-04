@@ -27,16 +27,6 @@ type DiagnosticsRoutesOptions = {
   recoveryTracker?: RecoveryTracker;
 };
 
-type ErrorEnvelope = {
-  ok: false;
-  error: {
-    code: 'INVALID_ARGUMENT' | 'INTERNAL';
-    message: string;
-    retryable: boolean;
-    details?: Record<string, unknown>;
-  };
-};
-
 export const registerDiagnosticsRoutes = (
   router: RouteRegistry,
   options: DiagnosticsRoutesOptions = {}

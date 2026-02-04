@@ -50,11 +50,6 @@ const makeEventId = (() => {
 
 const lastActiveAtByTab = new Map<number, string>();
 
-const isDebuggerRequest = (
-  message: ExtensionRequest
-): message is DebuggerRequest =>
-  typeof message.action === 'string' && message.action.startsWith('debugger.');
-
 const ensureLastActiveAt = (tabId: number): string => {
   const existing = lastActiveAtByTab.get(tabId);
   if (existing) {
@@ -494,7 +489,7 @@ class DriveSocket {
     try {
       message = JSON.parse(raw) as ExtensionMessage;
     } catch (error) {
-      console.debug("DriveSocket received invalid JSON message.", error);
+      console.debug('DriveSocket received invalid JSON message.', error);
       return;
     }
     if (!message || typeof message !== 'object') {
@@ -508,11 +503,6 @@ class DriveSocket {
   }
 
   private async handleRequest(message: ExtensionRequest): Promise<void> {
-    if (isDebuggerRequest(message)) {
-      await this.handleDebuggerRequest(message);
-      return;
-    }
-
     const driveMessage = message as DriveRequest;
     const respondOk = (result?: unknown): void => {
       const response: DriveResponse = {
@@ -535,6 +525,13 @@ class DriveSocket {
     };
 
     try {
+      if (
+        typeof message.action === 'string' &&
+        message.action.startsWith('debugger.')
+      ) {
+        await this.handleDebuggerRequest(message as DebuggerRequest);
+        return;
+      }
       switch (message.action) {
         case 'drive.ping': {
           respondOk({ ok: true });

@@ -59,7 +59,7 @@ type SchemaLike<T> = {
     | { success: true; data: T }
     | {
         success: false;
-        error: { issues: { message: string; path: (string | number)[] }[] };
+        error: { issues: { message: string; path: PropertyKey[] }[] };
       };
 };
 

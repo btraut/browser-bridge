@@ -87,13 +87,7 @@ export type DiagnosticsContext = {
     retryable: boolean;
     at: string;
   };
-  recoveryAttempt?: {
-    sessionId: string;
-    recovered: boolean;
-    state: string;
-    message?: string;
-    at: string;
-  };
+  recoveryAttempt?: RecoveryAttempt;
   recoveryMetrics?: RecoveryMetrics;
 };
 
