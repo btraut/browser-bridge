@@ -608,7 +608,9 @@ class DriveSocket {
           return;
         }
         case 'drive.go_back':
-        case 'drive.go_forward': {
+        case 'drive.back':
+        case 'drive.go_forward':
+        case 'drive.forward': {
           const params = (message.params ?? {}) as Record<string, unknown>;
           let tabId = params.tab_id;
           if (tabId !== undefined && typeof tabId !== 'number') {
@@ -623,8 +625,10 @@ class DriveSocket {
             tabId = await getActiveTabId();
           }
           try {
+            const isBack =
+              message.action === 'drive.go_back' || message.action === 'drive.back';
             await wrapChromeVoid((callback) => {
-              if (message.action === 'drive.go_back') {
+              if (isBack) {
                 chrome.tabs.goBack(tabId as number, () => callback());
               } else {
                 chrome.tabs.goForward(tabId as number, () => callback());

@@ -17,6 +17,10 @@ import {
   DriveDragOutputSchema,
   DriveFillFormInputSchema,
   DriveFillFormOutputSchema,
+  DriveBackInputSchema,
+  DriveBackOutputSchema,
+  DriveForwardInputSchema,
+  DriveForwardOutputSchema,
   DriveGoBackInputSchema,
   DriveGoBackOutputSchema,
   DriveGoForwardInputSchema,
@@ -120,6 +124,10 @@ export type SessionCloseOutput = z.infer<typeof SessionCloseOutputSchema>;
 export type DriveWaitCondition = z.infer<typeof DriveWaitConditionSchema>;
 export type DriveNavigateInput = z.infer<typeof DriveNavigateInputSchema>;
 export type DriveNavigateOutput = z.infer<typeof DriveNavigateOutputSchema>;
+export type DriveBackInput = z.infer<typeof DriveBackInputSchema>;
+export type DriveBackOutput = z.infer<typeof DriveBackOutputSchema>;
+export type DriveForwardInput = z.infer<typeof DriveForwardInputSchema>;
+export type DriveForwardOutput = z.infer<typeof DriveForwardOutputSchema>;
 export type DriveGoBackInput = z.infer<typeof DriveGoBackInputSchema>;
 export type DriveGoBackOutput = z.infer<typeof DriveGoBackOutputSchema>;
 export type DriveGoForwardInput = z.infer<typeof DriveGoForwardInputSchema>;

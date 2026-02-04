@@ -172,6 +172,12 @@ export const DriveGoForwardInputSchema = z.object({
 });
 export const DriveGoForwardOutputSchema = OpResultSchema;
 
+export const DriveBackInputSchema = DriveGoBackInputSchema;
+export const DriveBackOutputSchema = OpResultSchema;
+
+export const DriveForwardInputSchema = DriveGoForwardInputSchema;
+export const DriveForwardOutputSchema = OpResultSchema;
+
 export const DriveClickInputSchema = z.object({
   session_id: z.string().min(1),
   locator: LocatorSchema,

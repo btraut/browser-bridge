@@ -3,6 +3,8 @@ import {
   DriveClickInputSchema,
   DriveDragInputSchema,
   DriveFillFormInputSchema,
+  DriveBackInputSchema,
+  DriveForwardInputSchema,
   DriveGoBackInputSchema,
   DriveGoForwardInputSchema,
   DriveHandleDialogInputSchema,
@@ -78,6 +80,21 @@ export const registerDriveCommands = (program: Command): void => {
     });
 
   drive
+    .command('back')
+    .description('Go back in browser history')
+    .requiredOption('--session-id <id>', 'Session identifier')
+    .option('--tab-id <id>', 'Tab identifier')
+    .action(async (options, command) => {
+      await runCommand(command, (client) => {
+        const payload = parseInput(DriveBackInputSchema, {
+          session_id: options.sessionId,
+          tab_id: parseNumber(options.tabId),
+        });
+        return client.post('/drive/back', payload);
+      });
+    });
+
+  drive
     .command('go-forward')
     .description('Go forward in browser history')
     .requiredOption('--session-id <id>', 'Session identifier')
@@ -89,6 +106,21 @@ export const registerDriveCommands = (program: Command): void => {
           tab_id: parseNumber(options.tabId),
         });
         return client.post('/drive/go_forward', payload);
+      });
+    });
+
+  drive
+    .command('forward')
+    .description('Go forward in browser history')
+    .requiredOption('--session-id <id>', 'Session identifier')
+    .option('--tab-id <id>', 'Tab identifier')
+    .action(async (options, command) => {
+      await runCommand(command, (client) => {
+        const payload = parseInput(DriveForwardInputSchema, {
+          session_id: options.sessionId,
+          tab_id: parseNumber(options.tabId),
+        });
+        return client.post('/drive/forward', payload);
       });
     });
 
