@@ -115,3 +115,92 @@ This plan should be translated into Beads epics and issues. Suggested epics alig
 - `npm run build`
 - `npm test`
 - `npm run lint`
+
+## Refactor Plan: Debugger-Based Inspect (2026-02-04)
+
+### Context
+Replace the Core's external CDP/Puppeteer integration with a debugger-mode inspect plane implemented inside the Chrome extension via `chrome.debugger`. The inspect plane must run against the user's normal Chrome profile with no special launch flags, no separate Chrome instance, and no second extension install. The Drive plane remains extension-based and must keep its single-operation mutex, while inspect calls can run concurrently. All MCP tool schemas and CLI commands should remain stable; changes must be backward-compatible (additive only).
+
+### Assumptions and Constraints
+- No Chrome launch flags (no `--remote-debugging-port`), no Puppeteer/Playwright/CDP websocket clients.
+- Inspect runs against normal Chrome tabs; `chrome.debugger` must handle attach/detach and restricted pages.
+- Drive and inspect concurrency rules remain: one drive op at a time; inspect in parallel; `inspect.dom_snapshot` supports `consistency: "best_effort" | "quiesce"`.
+- Maintain artifact behavior and standard error envelope.
+
+### Implementation Tasks
+
+1. Remove CDP/Puppeteer dependencies and config
+Files to touch: `packages/core/package.json`, `package.json`, `package-lock.json`, `packages/core/src/cdp.ts`, `packages/core/src/inspect.ts`, `packages/core/src/index.ts`, `docs/requirements.md`, `docs/manual-test.md`, `README.md`
+Code changes: delete Puppeteer/CDP wiring, remove env var knobs for CDP endpoints, and strip any “launch Chrome” logic. Keep `session.create` inputs backward-compatible (ignore legacy `mode` values and document the new behavior). Remove CDP-only exports from Core.
+Tests: update or remove unit tests tied to CDP; keep inspect tests but re-target them to the new debugger bridge.
+Docs: remove references to CDP/Puppeteer, remote debugging flags, and managed Chrome profiles.
+Verify: `npm run lint`, `npm test` (or targeted tests) and ensure Core compiles without Puppeteer.
+
+2. Define the debugger protocol between Core and extension
+Files to touch: `packages/core/src/drive-protocol.ts`, `packages/extension/src/protocol.ts`, `packages/core/src/extension-bridge.ts`, `packages/core/src/index.ts`
+Code changes: extend the existing WS protocol with `debugger.attach`, `debugger.detach`, `debugger.command`, `debugger.event`, `debugger.attached`, `debugger.detached`, `debugger.error`. Add a shared type for debugger messages and keep drive messages intact. Add a dedicated handler in the Core bridge to route debugger responses and events.
+Tests: add protocol unit tests for message validation and event routing.
+Docs: note the protocol additions in `docs/requirements.md` and `docs/spec.md`.
+Verify: run a local extension build and ensure it can connect and send a `debugger.attached` event without errors.
+
+3. Add `chrome.debugger` support in the extension
+Files to touch: `packages/extension/manifest.json`, `packages/extension/src/background.ts`, `packages/extension/src/protocol.ts`
+Code changes: add `"debugger"` permission, implement attach/detach lifecycle per tab, and implement a `sendCommand` wrapper with timeouts and standard error mapping. Maintain a per-tab attach state machine with idle auto-detach. Subscribe to `chrome.debugger.onEvent` and forward `{ tabId, method, params, timestamp }` to Core.
+Tests: add unit tests for state transitions and timeout handling where feasible; otherwise add a manual test checklist for attaching and detaching.
+Docs: update extension dev instructions if needed (permissions and infobar behavior).
+Verify: load extension, attach to an active tab, run `Runtime.evaluate`, confirm `debugger.event` flows to Core.
+
+4. Build the Core debugger bridge and ring buffers
+Files to touch: `packages/core/src/extension-bridge.ts`, `packages/core/src/inspect.ts`, `packages/core/src/diagnostics.ts`, `packages/core/src/routes/inspect.ts`
+Code changes: add a debugger bridge that sends `debugger.attach/detach/command` via the extension socket, handles timeouts, and normalizes errors. Maintain per-session/per-tab ring buffers for console and network events fed by `debugger.event`. Add an "inspection session" idle timeout to avoid re-attaching for repeated inspect calls.
+Tests: add unit tests for ring buffer behavior, idle detach, and error normalization.
+Docs: update diagnostics description to include debugger availability and buffer sizes.
+Verify: start Core, attach to a tab, and confirm `inspect.console_list` returns buffered entries.
+
+5. Implement inspect capabilities via debugger domains
+Files to touch: `packages/core/src/inspect.ts`, `packages/core/src/routes/inspect.ts`, `packages/core/src/artifacts.ts`
+Code changes: implement the mapping below using `debugger.command` and buffered events:
+- `inspect.console_list`: enable `Runtime`/`Log` domains, return entries since timestamp.
+- `inspect.network_har`: enable `Network` events, aggregate request/response/timing, optionally fetch response bodies with size limits and truncation metadata.
+- `inspect.evaluate`: use `Runtime.evaluate` with `returnByValue`; handle unserializable values.
+- `inspect.dom_snapshot`: use `DOM.getDocument` + `DOM.getOuterHTML` for HTML; attempt `Accessibility.getFullAXTree` for `format: "ax"` and return `NOT_SUPPORTED` if unavailable.
+- `inspect.performance_metrics`: `Performance.enable` + `Performance.getMetrics`.
+- `artifacts.screenshot`: prefer `Page.captureScreenshot` and fallback to `chrome.tabs.captureVisibleTab` when debugger capture fails.
+Tests: add unit tests for response shaping and error handling; add integration tests behind a manual flag if browser access is needed.
+Docs: document truncation behavior, size limits, and `NOT_SUPPORTED` behavior for AX snapshots.
+Verify: run a manual flow to capture a screenshot, list console logs, and fetch network entries on a simple page.
+
+6. Enforce concurrency and consistency semantics
+Files to touch: `packages/core/src/drive.ts`, `packages/core/src/inspect.ts`, `packages/core/src/state.ts`
+Code changes: keep the drive mutex intact; allow inspect to run concurrently. Implement `consistency: "quiesce"` by acquiring the drive mutex around the DOM snapshot request. `best_effort` must not block drive.
+Tests: add unit tests ensuring drive lock is held only for `quiesce` snapshots.
+Docs: clarify this behavior in `docs/requirements.md` and `README.md`.
+Verify: run parallel drive + inspect calls and confirm `best_effort` does not block drive.
+
+7. Update diagnostics and error codes
+Files to touch: `packages/shared/src/errors.ts`, `packages/shared/src/schemas.ts`, `packages/shared/src/schemas.test.ts`, `packages/core/src/diagnostics.ts`, `packages/core/src/routes/diagnostics.ts`
+Code changes: add standardized error codes (`DEBUGGER_IN_USE`, `ATTACH_DENIED`, `TAB_NOT_FOUND`, `NOT_SUPPORTED`, `TIMEOUT`). Update diagnostics to report debugger permission, attach capability, last error, and buffer sizes. Keep the error envelope stable.
+Tests: update schema tests and diagnostics output tests to include new fields.
+Docs: update `docs/requirements.md` with the new error codes and debugger checks.
+Verify: run `diagnostics.doctor` with DevTools open and confirm `DEBUGGER_IN_USE` reporting.
+
+8. Update MCP adapter, CLI, and docs for backward compatibility
+Files to touch: `packages/mcp-adapter/src/tools.ts`, `packages/cli/src/commands/*.ts`, `docs/manual-test.md`, `README.md`
+Code changes: keep tool names and inputs stable. If new optional fields are introduced (e.g. `consistency`), make them additive. Ensure CLI outputs and JSON envelopes match existing schemas.
+Tests: run CLI smoke tests and MCP adapter tool list checks.
+Docs: update manual test steps to target normal Chrome + extension debugger.
+Verify: run the manual smoke script in `docs/manual-test.md` and confirm end-to-end behavior.
+
+### Testing Strategy and Checkpoints
+- Unit tests for debugger protocol parsing, ring buffer behavior, and error mapping.
+- Core inspect tests for response shaping and timeout/retry handling.
+- Manual browser verification for attach/detach, console, network, DOM snapshot, evaluate, and screenshot.
+- Checkpoints after tasks 1, 4, 5, and 8 to keep the repo green.
+
+### Rollout and Risks
+- Risk: DevTools already attached prevents `chrome.debugger` attach. Mitigation: return `DEBUGGER_IN_USE` with a clear message and do not break the session.
+- Risk: restricted pages cannot be inspected. Mitigation: detect and return `NOT_SUPPORTED` with retryable=false.
+- Risk: large snapshots or bodies exceed limits. Mitigation: truncate with warnings and document limits.
+
+### Beads Handoff
+Translate this plan into Beads epics and issues once approved. Prefer a single epic with child tasks for each implementation milestone above, with clear dependencies and parallelizable items.
