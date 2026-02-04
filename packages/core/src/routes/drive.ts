@@ -126,6 +126,9 @@ const makeHandler = <T extends { session_id: string }>(
           code: 'INTERNAL',
           message: 'Unexpected error while executing drive action.',
           retryable: false,
+          details: {
+            hint: error instanceof Error ? error.message : "Unknown error.",
+          },
         });
       });
   };
