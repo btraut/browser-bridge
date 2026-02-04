@@ -1,5 +1,8 @@
 #!/usr/bin/env node
 import { Command } from "commander";
+import { registerArtifactsCommands } from "./commands/artifacts";
+import { registerDriveCommands } from "./commands/drive";
+import { registerInspectCommands } from "./commands/inspect";
 import { registerSessionCommands } from "./commands/session";
 
 const program = new Command();
@@ -13,5 +16,8 @@ program
   .option("--no-daemon", "Disable auto-starting Core");
 
 registerSessionCommands(program);
+registerDriveCommands(program);
+registerInspectCommands(program);
+registerArtifactsCommands(program);
 
 void program.parseAsync(process.argv);
