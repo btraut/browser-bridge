@@ -10,7 +10,7 @@ This checklist validates the Drive + Inspect planes and artifact handling end-to
 
 ## Checklist (Core + CLI)
 1. Start the Core daemon in a terminal (optional if you rely on CLI auto-start):
-   `node -e "require('@browser-vision/core').startCoreServer({ host: '127.0.0.1', port: 3210 })"`
+   `npm run start`
 2. Create a session:
    `node packages/cli/dist/index.js session create --json`
 3. Copy the `session_id` from the JSON output.
@@ -20,6 +20,7 @@ This checklist validates the Drive + Inspect planes and artifact handling end-to
    `node packages/cli/dist/index.js drive tab-list --session-id <id>`
 6. Inspect the DOM:
    `node packages/cli/dist/index.js inspect dom-snapshot --session-id <id> --format html --consistency best_effort --json > /tmp/browser-vision-dom.json`
+   Note: In v1 this may launch a managed Chrome instance (\"Google Chrome for Testing\") for CDP. Inspect does not yet attach to the already-open Chrome instance with the extension loaded.
 7. Inspect console logs:
    `node packages/cli/dist/index.js inspect console-list --session-id <id>`
 8. Capture a screenshot artifact:

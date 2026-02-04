@@ -5,3 +5,5 @@ coverage/
 .env
 .DS_Store
 npm-debug.log*
+# bd worktree
+.worktrees/beads/
