@@ -24,6 +24,7 @@ import {
   InspectDomDiffInputSchema,
   InspectDomSnapshotInputSchema,
   InspectDomDiffOutputSchema,
+  InspectExtractContentInputSchema,
   InspectEvaluateInputSchema,
   InspectPageStateInputSchema,
   LocatorSchema,
@@ -217,6 +218,14 @@ describe('shared schemas', () => {
       session_id: 'session-1',
     });
     expect(parsed.session_id).toBe('session-1');
+  });
+
+  it('parses inspect extract content defaults', () => {
+    const parsed = InspectExtractContentInputSchema.parse({
+      session_id: 'session-1',
+    });
+    expect(parsed.format).toBe('markdown');
+    expect(parsed.include_metadata).toBe(true);
   });
 
   it('accepts inspect target hints', () => {

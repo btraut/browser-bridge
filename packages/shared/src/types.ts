@@ -64,6 +64,9 @@ import {
   InspectDomSnapshotOutputSchema,
   InspectDomDiffInputSchema,
   InspectDomDiffOutputSchema,
+  InspectExtractContentFormatSchema,
+  InspectExtractContentInputSchema,
+  InspectExtractContentOutputSchema,
   InspectEvaluateInputSchema,
   InspectEvaluateOutputSchema,
   InspectPageStateInputSchema,
@@ -178,6 +181,9 @@ export type InspectDomSnapshotOutput = z.infer<
 >;
 export type InspectDomDiffInput = z.infer<typeof InspectDomDiffInputSchema>;
 export type InspectDomDiffOutput = z.infer<typeof InspectDomDiffOutputSchema>;
+export type InspectExtractContentFormat = z.infer<typeof InspectExtractContentFormatSchema>;
+export type InspectExtractContentInput = z.infer<typeof InspectExtractContentInputSchema>;
+export type InspectExtractContentOutput = z.infer<typeof InspectExtractContentOutputSchema>;
 export type FormFieldInfo = z.infer<typeof FormFieldInfoSchema>;
 export type FormInfo = z.infer<typeof FormInfoSchema>;
 export type StorageEntry = z.infer<typeof StorageEntrySchema>;

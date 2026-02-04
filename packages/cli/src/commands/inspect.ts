@@ -3,6 +3,7 @@ import {
   InspectConsoleListInputSchema,
   InspectDomDiffInputSchema,
   InspectDomSnapshotInputSchema,
+  InspectExtractContentInputSchema,
   InspectEvaluateInputSchema,
   InspectNetworkHarInputSchema,
   InspectPageStateInputSchema,
@@ -41,6 +42,24 @@ export const registerInspectCommands = (program: Command): void => {
           session_id: options.sessionId,
         });
         return client.post('/inspect/dom_diff', payload);
+      });
+    });
+
+  inspect
+    .command('extract-content')
+    .description('Extract main content from the page')
+    .requiredOption('--session-id <id>', 'Session identifier')
+    .option('--format <format>', 'Output format (markdown, text, article_json)')
+    .option('--include-metadata', 'Include article metadata')
+    .option('--no-include-metadata', 'Exclude article metadata')
+    .action(async (options, command) => {
+      await runCommand(command, (client) => {
+        const payload = parseInput(InspectExtractContentInputSchema, {
+          session_id: options.sessionId,
+          format: options.format,
+          include_metadata: options.includeMetadata,
+        });
+        return client.post('/inspect/extract_content', payload);
       });
     });
 

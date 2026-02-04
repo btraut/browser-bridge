@@ -7,10 +7,10 @@ import {
   InspectDomDiffInputSchema,
   InspectDomSnapshotInputSchema,
   InspectEvaluateInputSchema,
+  InspectExtractContentInputSchema,
   InspectNetworkHarInputSchema,
   InspectPageStateInputSchema,
   InspectPerformanceMetricsInputSchema,
-} from '@browser-vision/shared';
 } from '@browser-vision/shared';
 import {
   ResponseLike,
@@ -194,6 +194,17 @@ export const registerInspectRoutes = (
     '/inspect/dom_diff',
     makeHandler(InspectDomDiffInputSchema, async (body) => {
       return inspect.domDiff({ sessionId: body.session_id });
+    })
+  );
+  router.post(
+    '/inspect/extract_content',
+    makeHandler(InspectExtractContentInputSchema, async (body) => {
+      return await inspect.extractContent({
+        sessionId: body.session_id,
+        format: body.format,
+        includeMetadata: body.include_metadata,
+        targetHint: resolveTargetHint(body.target, options),
+      });
     })
   );
   router.post(

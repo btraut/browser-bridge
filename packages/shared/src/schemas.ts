@@ -415,6 +415,27 @@ export const InspectPageStateInputSchema = SessionIdSchema.extend({
 });
 export const InspectPageStateOutputSchema = PageStateSchema;
 
+export const InspectExtractContentFormatSchema = z.enum([
+  "markdown",
+  "text",
+  "article_json",
+]);
+
+export const InspectExtractContentInputSchema = SessionIdSchema.extend({
+  format: InspectExtractContentFormatSchema.default("markdown"),
+  include_metadata: z.boolean().default(true),
+  target: TargetHintSchema.optional(),
+});
+
+export const InspectExtractContentOutputSchema = z.object({
+  content: z.string(),
+  title: z.string().optional(),
+  byline: z.string().optional(),
+  excerpt: z.string().optional(),
+  siteName: z.string().optional(),
+  warnings: z.array(z.string()).optional(),
+});
+
 export const InspectConsoleListInputSchema = SessionIdSchema.extend({
   target: TargetHintSchema.optional(),
 });

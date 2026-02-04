@@ -47,6 +47,8 @@ import {
   InspectConsoleListOutputSchema,
   InspectDomDiffInputSchema,
   InspectDomDiffOutputSchema,
+  InspectExtractContentInputSchema,
+  InspectExtractContentOutputSchema,
   InspectDomSnapshotInputSchema,
   InspectDomSnapshotOutputSchema,
   InspectEvaluateInputSchema,
@@ -362,6 +364,16 @@ export const TOOL_DEFINITIONS: Array<{ name: string; config: ToolConfig }> = [
       inputSchema: InspectDomDiffInputSchema,
       outputSchema: envelope(InspectDomDiffOutputSchema),
       corePath: '/inspect/dom_diff',
+    },
+  },
+  {
+    name: 'inspect.extract_content',
+    config: {
+      title: 'Inspect Extract Content',
+      description: 'Extract main content as markdown or text.',
+      inputSchema: InspectExtractContentInputSchema,
+      outputSchema: envelope(InspectExtractContentOutputSchema),
+      corePath: '/inspect/extract_content',
     },
   },
   {
