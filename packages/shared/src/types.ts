@@ -40,6 +40,8 @@ import {
   DriveWaitConditionSchema,
   DriveWaitForInputSchema,
   DriveWaitForOutputSchema,
+  FormFieldInfoSchema,
+  FormInfoSchema,
   EvaluateResultSchema,
   InspectConsoleListInputSchema,
   InspectConsoleListOutputSchema,
@@ -51,6 +53,8 @@ import {
   InspectDomDiffOutputSchema,
   InspectEvaluateInputSchema,
   InspectEvaluateOutputSchema,
+  InspectPageStateInputSchema,
+  InspectPageStateOutputSchema,
   InspectNetworkHarInputSchema,
   InspectNetworkHarOutputSchema,
   InspectPerformanceMetricsInputSchema,
@@ -58,6 +62,7 @@ import {
   LocatorRoleSchema,
   LocatorSchema,
   OpResultSchema,
+  PageStateSchema,
   PerformanceMetricSchema,
   PerformanceMetricsSchema,
   RecoverResultSchema,
@@ -74,6 +79,8 @@ import {
   SessionStatusInputSchema,
   SessionStatusOutputSchema,
   SessionStatusSchema,
+} from './schemas';
+  StorageEntrySchema,
 } from './schemas';
 
 export type LocatorRole = z.infer<typeof LocatorRoleSchema>;
@@ -145,6 +152,12 @@ export type InspectDomSnapshotOutput = z.infer<
 >;
 export type InspectDomDiffInput = z.infer<typeof InspectDomDiffInputSchema>;
 export type InspectDomDiffOutput = z.infer<typeof InspectDomDiffOutputSchema>;
+export type FormFieldInfo = z.infer<typeof FormFieldInfoSchema>;
+export type FormInfo = z.infer<typeof FormInfoSchema>;
+export type StorageEntry = z.infer<typeof StorageEntrySchema>;
+export type PageState = z.infer<typeof PageStateSchema>;
+export type InspectPageStateInput = z.infer<typeof InspectPageStateInputSchema>;
+export type InspectPageStateOutput = z.infer<typeof InspectPageStateOutputSchema>;
 export type InspectConsoleListInput = z.infer<
   typeof InspectConsoleListInputSchema
 >;

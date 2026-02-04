@@ -314,6 +314,33 @@ export const TargetHintSchema = z.object({
   lastActiveAt: z.string().optional(),
 });
 
+export const FormFieldInfoSchema = z.object({
+  name: z.string(),
+  type: z.string(),
+  value: z.string(),
+  options: z.array(z.string()).optional(),
+});
+
+export const FormInfoSchema = z.object({
+  selector: z.string(),
+  action: z.string().optional(),
+  method: z.string().optional(),
+  fields: z.array(FormFieldInfoSchema),
+});
+
+export const StorageEntrySchema = z.object({
+  key: z.string(),
+  value: z.string(),
+});
+
+export const PageStateSchema = z.object({
+  forms: z.array(FormInfoSchema),
+  localStorage: z.array(StorageEntrySchema),
+  sessionStorage: z.array(StorageEntrySchema),
+  cookies: z.array(StorageEntrySchema),
+  warnings: z.array(z.string()).optional(),
+});
+
 export const DomSnapshotSchema = z
   .object({
     format: InspectDomFormatSchema,
@@ -338,6 +365,11 @@ export const DomDiffResultSchema = z.object({
 
 export const InspectDomDiffInputSchema = SessionIdSchema;
 export const InspectDomDiffOutputSchema = DomDiffResultSchema;
+
+export const InspectPageStateInputSchema = SessionIdSchema.extend({
+  target: TargetHintSchema.optional(),
+});
+export const InspectPageStateOutputSchema = PageStateSchema;
 
 export const InspectConsoleListInputSchema = SessionIdSchema.extend({
   target: TargetHintSchema.optional(),

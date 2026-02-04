@@ -5,6 +5,7 @@ import {
   InspectDomSnapshotInputSchema,
   InspectEvaluateInputSchema,
   InspectNetworkHarInputSchema,
+  InspectPageStateInputSchema,
   InspectPerformanceMetricsInputSchema,
 } from '@browser-vision/shared';
 import { parseInput } from '../cli-output';
@@ -40,6 +41,19 @@ export const registerInspectCommands = (program: Command): void => {
           session_id: options.sessionId,
         });
         return client.post('/inspect/dom_diff', payload);
+      });
+    });
+
+  inspect
+    .command('page-state')
+    .description('Capture form, storage, and cookie state')
+    .requiredOption('--session-id <id>', 'Session identifier')
+    .action(async (options, command) => {
+      await runCommand(command, (client) => {
+        const payload = parseInput(InspectPageStateInputSchema, {
+          session_id: options.sessionId,
+        });
+        return client.post('/inspect/page_state', payload);
       });
     });
 

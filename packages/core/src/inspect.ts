@@ -73,6 +73,33 @@ export type EvaluateResult = {
   warnings?: string[];
 };
 
+export type FormFieldInfo = {
+  name: string;
+  type: string;
+  value: string;
+  options?: string[];
+};
+
+export type FormInfo = {
+  selector: string;
+  action?: string;
+  method?: string;
+  fields: FormFieldInfo[];
+};
+
+export type StorageEntry = {
+  key: string;
+  value: string;
+};
+
+export type PageStateResult = {
+  forms: FormInfo[];
+  localStorage: StorageEntry[];
+  sessionStorage: StorageEntry[];
+  cookies: StorageEntry[];
+  warnings?: string[];
+};
+
 export type PerformanceMetricsResult = {
   metrics: Array<{ name: string; value: number }>;
   warnings?: string[];
@@ -364,6 +391,152 @@ export class InspectService {
       value: (result as { result?: { value?: unknown } })?.result?.value,
       warnings: selection.warnings,
     };
+    this.markInspectConnected(input.sessionId);
+    return output;
+  }
+
+  async pageState(input: {
+    sessionId: string;
+    targetHint?: TargetHint;
+  }): Promise<PageStateResult> {
+    this.requireSession(input.sessionId);
+    const selection = await this.resolveTab(input.targetHint);
+
+    await this.debuggerCommand(selection.tabId, "Runtime.enable", {});
+    const expression = [
+      "(() => {",
+      "  const escape = (value) => {",
+      "    if (typeof CSS !== 'undefined' && typeof CSS.escape === 'function') {",
+      "      return CSS.escape(value);",
+      "    }",
+      "    return String(value).replace(/[\"'\\\\]/g, '\\\\$&');",
+      "  };",
+      "  const truncate = (value, max) => {",
+      "    const text = String(value ?? '');",
+      "    return text.length > max ? text.slice(0, max) : text;",
+      "  };",
+      "  const selectorFor = (element) => {",
+      "    if (element.id) {",
+      "      return `#${escape(element.id)}`;",
+      "    }",
+      "    const name = element.getAttribute('name');",
+      "    if (name) {",
+      "      return `${element.tagName.toLowerCase()}[name=\"${escape(name)}\"]`;",
+      "    }",
+      "    const parts = [];",
+      "    let node = element;",
+      "    while (node && node.nodeType === 1 && parts.length < 4) {",
+      "      let part = node.tagName.toLowerCase();",
+      "      const parent = node.parentElement;",
+      "      if (parent) {",
+      "        const siblings = Array.from(parent.children).filter(",
+      "          (child) => child.tagName === node.tagName",
+      "        );",
+      "        if (siblings.length > 1) {",
+      "          part += `:nth-of-type(${siblings.indexOf(node) + 1})`;",
+      "        }",
+      "      }",
+      "      parts.unshift(part);",
+      "      node = parent;",
+      "    }",
+      "    return parts.join('>');",
+      "  };",
+      "  const readStorage = (storage, limit) => {",
+      "    try {",
+      "      return Object.keys(storage)",
+      "        .slice(0, limit)",
+      "        .map((key) => ({",
+      "          key,",
+      "          value: truncate(storage.getItem(key), 500),",
+      "        }));",
+      "    } catch {",
+      "      return [];",
+      "    }",
+      "  };",
+      "  const forms = Array.from(document.querySelectorAll('form')).map((form) => {",
+      "    const fields = Array.from(form.elements)",
+      "      .filter((element) => element && element.tagName)",
+      "      .map((element) => {",
+      "        const tag = element.tagName.toLowerCase();",
+      "        const type = 'type' in element && element.type ? element.type : tag;",
+      "        const name = element.name || element.getAttribute('name') || element.id || '';",
+      "        let value = '';",
+      "        let options;",
+      "        if (tag === 'select') {",
+      "          const select = element;",
+      "          value = select.value ?? '';",
+      "          options = Array.from(select.options).map((option) => option.text);",
+      "        } else if (tag === 'input' && element.type === 'password') {",
+      "          value = '[redacted]';",
+      "        } else if (tag === 'input' || tag === 'textarea') {",
+      "          value = element.value ?? '';",
+      "        } else if (element.isContentEditable) {",
+      "          value = element.textContent ?? '';",
+      "        } else if ('value' in element) {",
+      "          value = element.value ?? '';",
+      "        }",
+      "        return {",
+      "          name,",
+      "          type,",
+      "          value: truncate(value, 500),",
+      "          ...(options ? { options } : {}),",
+      "        };",
+      "      });",
+      "    return {",
+      "      selector: selectorFor(form),",
+      "      action: form.getAttribute('action') || undefined,",
+      "      method: form.getAttribute('method') || undefined,",
+      "      fields,",
+      "    };",
+      "  });",
+      "  const localStorage = readStorage(window.localStorage, 100);",
+      "  const sessionStorage = readStorage(window.sessionStorage, 100);",
+      "  const cookies = (document.cookie ? document.cookie.split(';') : [])",
+      "    .map((entry) => entry.trim())",
+      "    .filter((entry) => entry.length > 0)",
+      "    .slice(0, 50)",
+      "    .map((entry) => {",
+      "      const [key, ...rest] = entry.split('=');",
+      "      return { key, value: truncate(rest.join('='), 500) };",
+      "    });",
+      "  return { forms, localStorage, sessionStorage, cookies };",
+      "})()",
+    ].join(\"\\n\");
+
+    const result = await this.debuggerCommand(selection.tabId, \"Runtime.evaluate\", {
+      expression,
+      returnByValue: true,
+      awaitPromise: true,
+    });
+
+    if (result && typeof result === \"object\" && \"exceptionDetails\" in result) {
+      const error = new InspectError(
+        \"EVALUATION_FAILED\",
+        \"Failed to capture page state.\",
+        { retryable: false }
+      );
+      this.recordError(error);
+      throw error;
+    }
+
+    const value = (result as { result?: { value?: unknown } })?.result?.value;
+    const raw = value && typeof value === \"object\" ? (value as Partial<PageStateResult>) : {};
+    const warnings = [
+      ...(Array.isArray(raw.warnings) ? raw.warnings : []),
+      ...(selection.warnings ?? []),
+    ];
+    const output: PageStateResult = {
+      forms: Array.isArray(raw.forms) ? (raw.forms as FormInfo[]) : [],
+      localStorage: Array.isArray(raw.localStorage)
+        ? (raw.localStorage as StorageEntry[])
+        : [],
+      sessionStorage: Array.isArray(raw.sessionStorage)
+        ? (raw.sessionStorage as StorageEntry[])
+        : [],
+      cookies: Array.isArray(raw.cookies) ? (raw.cookies as StorageEntry[]) : [],
+      ...(warnings.length > 0 ? { warnings } : {}),
+    };
+
     this.markInspectConnected(input.sessionId);
     return output;
   }

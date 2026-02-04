@@ -8,6 +8,7 @@ import {
   InspectDomSnapshotInputSchema,
   InspectEvaluateInputSchema,
   InspectNetworkHarInputSchema,
+  InspectPageStateInputSchema,
   InspectPerformanceMetricsInputSchema,
 } from '@browser-vision/shared';
 } from '@browser-vision/shared';
@@ -193,6 +194,15 @@ export const registerInspectRoutes = (
     '/inspect/dom_diff',
     makeHandler(InspectDomDiffInputSchema, async (body) => {
       return inspect.domDiff({ sessionId: body.session_id });
+    })
+  );
+  router.post(
+    '/inspect/page_state',
+    makeHandler(InspectPageStateInputSchema, async (body) => {
+      return await inspect.pageState({
+        sessionId: body.session_id,
+        targetHint: resolveTargetHint(body.target, options),
+      });
     })
   );
   router.post(

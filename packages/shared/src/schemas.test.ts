@@ -19,6 +19,7 @@ import {
   InspectDomSnapshotInputSchema,
   InspectDomDiffOutputSchema,
   InspectEvaluateInputSchema,
+  InspectPageStateInputSchema,
   LocatorSchema,
   OpResultSchema,
   SessionCreateInputSchema,
@@ -160,6 +161,13 @@ describe('shared schemas', () => {
       summary: 'Added 1, removed 0, changed 1.',
     });
     expect(output.added).toHaveLength(1);
+  });
+
+  it('parses inspect page state input', () => {
+    const parsed = InspectPageStateInputSchema.parse({
+      session_id: 'session-1',
+    });
+    expect(parsed.session_id).toBe('session-1');
   });
 
   it('accepts inspect target hints', () => {

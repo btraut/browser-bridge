@@ -39,6 +39,8 @@ import {
   InspectDomSnapshotOutputSchema,
   InspectEvaluateInputSchema,
   InspectEvaluateOutputSchema,
+  InspectPageStateInputSchema,
+  InspectPageStateOutputSchema,
   InspectNetworkHarInputSchema,
   InspectNetworkHarOutputSchema,
   InspectPerformanceMetricsInputSchema,
@@ -288,6 +290,16 @@ export const TOOL_DEFINITIONS: Array<{ name: string; config: ToolConfig }> = [
       inputSchema: InspectDomDiffInputSchema,
       outputSchema: envelope(InspectDomDiffOutputSchema),
       corePath: '/inspect/dom_diff',
+    },
+  },
+  {
+    name: 'inspect.page_state',
+    config: {
+      title: 'Inspect Page State',
+      description: 'Capture form, storage, and cookie state.',
+      inputSchema: InspectPageStateInputSchema,
+      outputSchema: envelope(InspectPageStateOutputSchema),
+      corePath: '/inspect/page_state',
     },
   },
   {
