@@ -281,7 +281,8 @@ export const createToolHandler = (
   client: CoreClient,
   corePath: string
 ): ToolCallback<AnySchema> => {
-  return async (args, _extra): Promise<ToolResult> => {
+  return (async (args: unknown, _extra: unknown): Promise<ToolResult> => {
+    void _extra;
     try {
       const envelopeResult = await client.post(corePath, args);
       return toToolResult(envelopeResult);
@@ -292,7 +293,7 @@ export const createToolHandler = (
       }
       return toToolResult(toInternalErrorEnvelope(error));
     }
-  };
+  }) as ToolCallback<AnySchema>;
 };
 
 export const registerBrowserVisionTools = (

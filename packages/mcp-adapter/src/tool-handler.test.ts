@@ -18,7 +18,7 @@ describe("mcp-adapter tool handler errors", () => {
     };
 
     const handler = createToolHandler(client, "/session/create");
-    const result = await handler({});
+    const result = await handler({}, {} as never);
 
     expect(result.structuredContent).toEqual(envelope);
   });

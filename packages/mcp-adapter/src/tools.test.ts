@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CoreClient } from "./core-client";
 import { createToolHandler, registerBrowserVisionTools, TOOL_DEFINITIONS } from "./tools";
 
@@ -11,14 +12,21 @@ describe("mcp-adapter tools", () => {
     };
 
     const handler = createToolHandler(client, "/drive/navigate");
-    const result = await handler({ session_id: "session-1", url: "https://example.com" });
+    const result = await handler(
+      { session_id: "session-1", url: "https://example.com" },
+      {} as never
+    );
 
     expect(client.post).toHaveBeenCalledWith("/drive/navigate", {
       session_id: "session-1",
       url: "https://example.com",
     });
     expect(result.structuredContent).toEqual(envelope);
-    expect(result.content[0]?.text).toBe(JSON.stringify(envelope));
+    const first = result.content[0];
+    expect(first?.type).toBe("text");
+    if (first && first.type === "text") {
+      expect(first.text).toBe(JSON.stringify(envelope));
+    }
   });
 
   it("propagates error envelopes without modification", async () => {
@@ -36,7 +44,7 @@ describe("mcp-adapter tools", () => {
     };
 
     const handler = createToolHandler(client, "/session/create");
-    const result = await handler({});
+    const result = await handler({}, {} as never);
 
     expect(result.structuredContent).toEqual(envelope);
   });
@@ -52,16 +60,18 @@ describe("mcp-adapter tools", () => {
       }),
     };
 
-    const handlers = new Map<string, (args: unknown) => Promise<unknown>>();
-    const server = {
-      registerTool: (
-        name: string,
-        config: { inputSchema?: unknown; outputSchema?: unknown },
-        handler: (args: unknown) => Promise<unknown>
-      ) => {
-        handlers.set(name, handler);
-        configs.set(name, config);
-        return {};
+    const handlers = new Map<
+      string,
+      (args: unknown, extra?: unknown) => Promise<unknown>
+    >();
+    const server: Pick<McpServer, "registerTool"> = {
+      registerTool: (name, config, handler) => {
+        handlers.set(name, handler as (args: unknown, extra?: unknown) => Promise<unknown>);
+        configs.set(name, {
+          inputSchema: (config as { inputSchema?: unknown }).inputSchema,
+          outputSchema: (config as { outputSchema?: unknown }).outputSchema,
+        });
+        return {} as never;
       },
     };
 
@@ -76,7 +86,7 @@ describe("mcp-adapter tools", () => {
       expect(handler).toBeDefined();
       expect(config?.inputSchema).toBe(tool.config.inputSchema);
       expect(config?.outputSchema).toBe(tool.config.outputSchema);
-      await handler?.({});
+      await handler?.({}, {} as never);
     }
 
     const expectedPaths = TOOL_DEFINITIONS.map((tool) => tool.config.corePath);
