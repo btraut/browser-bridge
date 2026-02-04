@@ -1,12 +1,5 @@
 import { z } from "zod";
 import {
-  ErrorCodeSchema,
-  ErrorEnvelopeSchema,
-  ErrorInfoSchema,
-  type ApiEnvelope,
-  type SuccessEnvelope,
-} from "./errors";
-import {
   DiagnosticCheckSchema,
   DiagnosticReportSchema,
   LocatorRoleSchema,
@@ -18,11 +11,6 @@ import {
   SessionStateSchema,
   SessionStatusSchema,
 } from "./schemas";
-
-export type ErrorCode = z.infer<typeof ErrorCodeSchema>;
-export type ErrorInfo = z.infer<typeof ErrorInfoSchema>;
-export type ErrorEnvelope = z.infer<typeof ErrorEnvelopeSchema>;
-export type { ApiEnvelope, SuccessEnvelope };
 
 export type LocatorRole = z.infer<typeof LocatorRoleSchema>;
 export type Locator = z.infer<typeof LocatorSchema>;

@@ -68,7 +68,7 @@ export const DiagnosticCheckSchema = z.object({
   name: z.string(),
   ok: z.boolean(),
   message: z.string().optional(),
-  details: z.record(z.unknown()).optional(),
+  details: z.record(z.string(), z.unknown()).optional(),
 });
 
 export const DiagnosticReportSchema = z.object({
