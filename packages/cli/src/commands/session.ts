@@ -14,12 +14,9 @@ export const registerSessionCommands = (program: Command): void => {
   session
     .command("create")
     .description("Create a new session")
-    .option("--mode <mode>", "Session mode (auto, attach, launch)")
     .action(async (options, command) => {
       await runCommand(command, (client) => {
-        const payload = parseInput(SessionCreateInputSchema, {
-          mode: options.mode,
-        });
+        const payload = parseInput(SessionCreateInputSchema, {});
         return client.post("/session/create", payload);
       });
     });

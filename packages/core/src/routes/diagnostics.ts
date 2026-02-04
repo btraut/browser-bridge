@@ -117,9 +117,6 @@ export const registerDiagnosticsRoutes = (
       }
 
       if (options.inspectService) {
-        context.cdp = {
-          connected: options.inspectService.isConnected(),
-        };
         const lastError = options.inspectService.getLastError();
         if (lastError) {
           context.inspectLastError = {

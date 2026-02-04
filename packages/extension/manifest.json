@@ -7,7 +7,7 @@
     "service_worker": "dist/background.js",
     "type": "module"
   },
-  "permissions": ["tabs", "scripting", "storage", "webNavigation"],
+  "permissions": ["tabs", "scripting", "storage", "webNavigation", "debugger"],
   "host_permissions": ["<all_urls>"],
   "content_scripts": [
     {

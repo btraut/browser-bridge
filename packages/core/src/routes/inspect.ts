@@ -23,7 +23,6 @@ type ErrorCode =
   | "SESSION_NOT_FOUND"
   | "SESSION_CLOSED"
   | "INSPECT_UNAVAILABLE"
-  | "CDP_DISCONNECTED"
   | "EVALUATION_FAILED"
   | "ARTIFACT_IO_ERROR"
   | "INTERNAL";
@@ -90,7 +89,6 @@ const sendError = (
       case "SESSION_CLOSED":
         return 409;
       case "INSPECT_UNAVAILABLE":
-      case "CDP_DISCONNECTED":
         return 503;
       case "EVALUATION_FAILED":
       case "ARTIFACT_IO_ERROR":

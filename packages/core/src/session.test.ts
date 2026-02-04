@@ -4,7 +4,7 @@ import { SessionRegistry } from "./session";
 describe("SessionRegistry.recover", () => {
   it("transitions DEGRADED_DRIVE to READY on successful recovery", () => {
     const registry = new SessionRegistry();
-    const session = registry.create("auto");
+    const session = registry.create();
     registry.apply(session.id, "DRIVE_CONNECTED");
     registry.apply(session.id, "INSPECT_CONNECTED");
     registry.apply(session.id, "DRIVE_DISCONNECTED");
@@ -20,7 +20,7 @@ describe("SessionRegistry.recover", () => {
 
   it("transitions DEGRADED_INSPECT to BROKEN on failed recovery", () => {
     const registry = new SessionRegistry();
-    const session = registry.create("auto");
+    const session = registry.create();
     registry.apply(session.id, "DRIVE_CONNECTED");
     registry.apply(session.id, "INSPECT_CONNECTED");
     registry.apply(session.id, "INSPECT_DISCONNECTED");

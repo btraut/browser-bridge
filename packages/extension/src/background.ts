@@ -1,12 +1,16 @@
 import type {
+  DebuggerCommandParams,
+  DebuggerEvent,
+  DebuggerRequest,
   DriveErrorInfo,
   DriveEvent,
   DriveHelloParams,
-  DriveMessage,
   DriveRequest,
   DriveResponse,
   DriveTabInfo,
   DriveTabListResult,
+  ExtensionMessage,
+  ExtensionRequest,
 } from "./protocol.js";
 
 type ContentResult =
@@ -18,9 +22,25 @@ type ContentRequest = {
   params?: Record<string, unknown>;
 };
 
+type DebuggerTarget = {
+  tabId?: number;
+};
+
+type DebuggerSession = {
+  attached: boolean;
+  attachPromise?: Promise<void>;
+  idleTimer?: number;
+  lastActivityAt: string;
+};
+
 const DEFAULT_CORE_PORT = 3210;
 const CORE_PORT_KEY = "corePort";
 const CORE_WS_PATH = "/drive";
+
+const DEBUGGER_PROTOCOL_VERSION = "1.3";
+const DEBUGGER_IDLE_TIMEOUT_KEY = "debuggerIdleTimeoutMs";
+const DEFAULT_DEBUGGER_IDLE_TIMEOUT_MS = 15000;
+const DEFAULT_DEBUGGER_COMMAND_TIMEOUT_MS = 10000;
 
 const nowIso = (): string => new Date().toISOString();
 
@@ -92,6 +112,117 @@ const readCorePort = async (): Promise<number> => {
       resolve(DEFAULT_CORE_PORT);
     });
   });
+};
+
+const readDebuggerIdleTimeoutMs = async (): Promise<number> => {
+  return await new Promise<number>((resolve) => {
+    chrome.storage.local.get(
+      [DEBUGGER_IDLE_TIMEOUT_KEY],
+      (result: Record<string, unknown>) => {
+        const raw = result?.[DEBUGGER_IDLE_TIMEOUT_KEY];
+        if (typeof raw === "number" && Number.isFinite(raw) && raw > 0) {
+          resolve(raw);
+          return;
+        }
+        if (typeof raw === "string") {
+          const parsed = Number(raw);
+          if (Number.isFinite(parsed) && parsed > 0) {
+            resolve(parsed);
+            return;
+          }
+        }
+        resolve(DEFAULT_DEBUGGER_IDLE_TIMEOUT_MS);
+      }
+    );
+  });
+};
+
+const RESTRICTED_URL_PREFIXES = [
+  "chrome://",
+  "chrome-extension://",
+  "chrome-devtools://",
+  "devtools://",
+  "edge://",
+  "brave://",
+  "view-source:",
+];
+
+const isRestrictedUrl = (url?: string): boolean => {
+  if (!url || typeof url !== "string") {
+    return false;
+  }
+  const lowered = url.toLowerCase();
+  if (RESTRICTED_URL_PREFIXES.some((prefix) => lowered.startsWith(prefix))) {
+    return true;
+  }
+  try {
+    const parsed = new URL(url);
+    if (parsed.hostname === "chromewebstore.google.com") {
+      return true;
+    }
+    if (parsed.hostname === "chrome.google.com") {
+      return parsed.pathname.startsWith("/webstore");
+    }
+  } catch {
+    // Ignore invalid URLs and treat as supported.
+  }
+  return false;
+};
+
+const mapDebuggerErrorMessage = (
+  message: string,
+  fallbackCode = "INSPECT_UNAVAILABLE"
+): DriveErrorInfo => {
+  const normalized = message.toLowerCase();
+  if (
+    normalized.includes("already attached") ||
+    normalized.includes("another debugger") ||
+    normalized.includes("attached to this target")
+  ) {
+    return {
+      code: "DEBUGGER_IN_USE",
+      message,
+      retryable: true,
+    };
+  }
+  if (
+    normalized.includes("no tab") ||
+    normalized.includes("no target") ||
+    normalized.includes("tab id")
+  ) {
+    return {
+      code: "TAB_NOT_FOUND",
+      message,
+      retryable: false,
+    };
+  }
+  if (
+    normalized.includes("not allowed") ||
+    normalized.includes("permission") ||
+    normalized.includes("denied")
+  ) {
+    return {
+      code: "ATTACH_DENIED",
+      message,
+      retryable: false,
+    };
+  }
+  if (
+    normalized.includes("cannot access") ||
+    normalized.includes("not supported") ||
+    normalized.includes("disallowed")
+  ) {
+    return {
+      code: "NOT_SUPPORTED",
+      message,
+      retryable: false,
+    };
+  }
+  return {
+    code: fallbackCode,
+    message,
+    retryable: false,
+  };
 };
 
 const buildTabInfo = (tab: Record<string, unknown>): DriveTabInfo | null => {
@@ -216,6 +347,8 @@ class DriveSocket {
   private reconnectTimer: number | null = null;
   private reconnectDelayMs = 1000;
   private readonly maxReconnectDelayMs = 10000;
+  private readonly debuggerSessions = new Map<number, DebuggerSession>();
+  private debuggerIdleTimeoutMs: number | null = null;
 
   start(): void {
     void this.connect();
@@ -314,7 +447,17 @@ class DriveSocket {
     this.sendMessage(message);
   }
 
-  private sendMessage(message: DriveMessage): void {
+  private sendDebuggerEvent(params: DebuggerEvent["params"]): void {
+    const message: DebuggerEvent = {
+      id: makeEventId(),
+      action: "debugger.event",
+      status: "event",
+      params,
+    };
+    this.sendMessage(message);
+  }
+
+  private sendMessage(message: ExtensionMessage): void {
     if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
       return;
     }
@@ -325,9 +468,9 @@ class DriveSocket {
     if (typeof raw !== "string") {
       return;
     }
-    let message: DriveMessage | null = null;
+    let message: ExtensionMessage | null = null;
     try {
-      message = JSON.parse(raw) as DriveMessage;
+      message = JSON.parse(raw) as ExtensionMessage;
     } catch {
       return;
     }
@@ -335,11 +478,11 @@ class DriveSocket {
       return;
     }
     if (message.status === "request") {
-      void this.handleRequest(message as DriveRequest);
+      void this.handleRequest(message as ExtensionRequest);
     }
   }
 
-  private async handleRequest(message: DriveRequest): Promise<void> {
+  private async handleRequest(message: ExtensionRequest): Promise<void> {
     const respondOk = (result?: unknown): void => {
       const response: DriveResponse = {
         id: message.id,
@@ -361,6 +504,14 @@ class DriveSocket {
     };
 
     try {
+      if (
+        typeof message.action === "string" &&
+        message.action.startsWith("debugger.")
+      ) {
+        await this.handleDebuggerRequest(message as DebuggerRequest);
+        return;
+      }
+
       switch (message.action) {
         case "drive.navigate": {
           const params = (message.params ?? {}) as Record<string, unknown>;
@@ -496,6 +647,377 @@ class DriveSocket {
       });
     }
   }
+
+  private async handleDebuggerRequest(message: DebuggerRequest): Promise<void> {
+    const respondAck = (result?: unknown): void => {
+      this.sendMessage({
+        id: message.id,
+        action: message.action,
+        status: "ack",
+        result,
+      });
+    };
+
+    const respondError = (error: DriveErrorInfo): void => {
+      this.sendMessage({
+        id: message.id,
+        action: message.action,
+        status: "error",
+        error,
+      });
+    };
+
+    try {
+      switch (message.action) {
+        case "debugger.attach": {
+          const params = (message.params ?? {}) as { tab_id?: unknown };
+          const tabId = params.tab_id;
+          if (typeof tabId !== "number") {
+            respondError({
+              code: "INVALID_ARGUMENT",
+              message: "tab_id must be a number.",
+              retryable: false,
+            });
+            return;
+          }
+
+          const error = await this.ensureDebuggerAttached(tabId);
+          if (error) {
+            respondError(error);
+            return;
+          }
+          respondAck({ ok: true });
+          return;
+        }
+        case "debugger.detach": {
+          const params = (message.params ?? {}) as { tab_id?: unknown };
+          const tabId = params.tab_id;
+          if (typeof tabId !== "number") {
+            respondError({
+              code: "INVALID_ARGUMENT",
+              message: "tab_id must be a number.",
+              retryable: false,
+            });
+            return;
+          }
+          const error = await this.detachDebugger(tabId);
+          if (error) {
+            respondError(error);
+            return;
+          }
+          respondAck({ ok: true });
+          return;
+        }
+        case "debugger.command": {
+          const params = (message.params ?? {}) as DebuggerCommandParams;
+          const tabId = params.tab_id;
+          if (typeof tabId !== "number") {
+            respondError({
+              code: "INVALID_ARGUMENT",
+              message: "tab_id must be a number.",
+              retryable: false,
+            });
+            return;
+          }
+          if (typeof params.method !== "string" || params.method.length === 0) {
+            respondError({
+              code: "INVALID_ARGUMENT",
+              message: "method must be a non-empty string.",
+              retryable: false,
+            });
+            return;
+          }
+
+          const session = this.debuggerSessions.get(tabId);
+          if (session?.attachPromise) {
+            try {
+              await session.attachPromise;
+            } catch (error) {
+              const info = mapDebuggerErrorMessage(
+                error instanceof Error ? error.message : "Debugger attach failed."
+              );
+              this.clearDebuggerSession(tabId);
+              respondError(info);
+              return;
+            }
+          }
+
+          const attachedSession = this.debuggerSessions.get(tabId);
+          if (!attachedSession?.attached) {
+            respondError({
+              code: "FAILED_PRECONDITION",
+              message: "Debugger is not attached to the requested tab.",
+              retryable: false,
+            });
+            return;
+          }
+
+          try {
+            const result = await this.sendDebuggerCommand(
+              tabId,
+              params.method,
+              params.params,
+              DEFAULT_DEBUGGER_COMMAND_TIMEOUT_MS
+            );
+            this.touchDebuggerSession(tabId);
+            respondAck(result);
+          } catch (error) {
+            if (error instanceof DebuggerTimeoutError) {
+              respondError({
+                code: "TIMEOUT",
+                message: error.message,
+                retryable: true,
+              });
+              return;
+            }
+            const info = mapDebuggerErrorMessage(
+              error instanceof Error ? error.message : "Debugger command failed."
+            );
+            respondError(info);
+          }
+          return;
+        }
+        default:
+          respondError({
+            code: "NOT_IMPLEMENTED",
+            message: `${message.action} not implemented in extension yet.`,
+            retryable: false,
+          });
+      }
+    } catch (error) {
+      const messageText =
+        error instanceof Error ? error.message : "Unexpected debugger error.";
+      respondError({
+        code: "INSPECT_UNAVAILABLE",
+        message: messageText,
+        retryable: false,
+      });
+    }
+  }
+
+  async handleDebuggerEvent(
+    source: DebuggerTarget,
+    method: string,
+    params?: Record<string, unknown>
+  ): Promise<void> {
+    const tabId = source.tabId;
+    if (typeof tabId !== "number") {
+      return;
+    }
+    this.touchDebuggerSession(tabId);
+    this.sendDebuggerEvent({
+      tab_id: tabId,
+      method,
+      params,
+      timestamp: nowIso(),
+    });
+  }
+
+  async handleDebuggerDetach(
+    source: DebuggerTarget,
+    reason?: string
+  ): Promise<void> {
+    const tabId = source.tabId;
+    if (typeof tabId !== "number") {
+      return;
+    }
+    this.clearDebuggerSession(tabId);
+    this.sendDebuggerEvent({
+      tab_id: tabId,
+      method: "Debugger.detached",
+      params: { reason: reason ?? "unknown" },
+      timestamp: nowIso(),
+    });
+  }
+
+  private async ensureDebuggerAttached(tabId: number): Promise<DriveErrorInfo | null> {
+    const existing = this.debuggerSessions.get(tabId);
+    if (existing?.attached) {
+      this.touchDebuggerSession(tabId);
+      return null;
+    }
+
+    if (existing?.attachPromise) {
+      try {
+        await existing.attachPromise;
+      } catch (error) {
+        const info = mapDebuggerErrorMessage(
+          error instanceof Error ? error.message : "Debugger attach failed."
+        );
+        this.clearDebuggerSession(tabId);
+        return info;
+      }
+      if (existing.attached) {
+        this.touchDebuggerSession(tabId);
+        return null;
+      }
+    }
+
+    const preflightError = await this.checkDebuggerTarget(tabId);
+    if (preflightError) {
+      return preflightError;
+    }
+
+    const session: DebuggerSession = {
+      attached: false,
+      lastActivityAt: nowIso(),
+    };
+    this.debuggerSessions.set(tabId, session);
+
+    session.attachPromise = wrapChromeVoid((callback) =>
+      chrome.debugger.attach({ tabId }, DEBUGGER_PROTOCOL_VERSION, () => callback())
+    );
+
+    try {
+      await session.attachPromise;
+      session.attached = true;
+      session.attachPromise = undefined;
+      this.touchDebuggerSession(tabId);
+      return null;
+    } catch (error) {
+      const info = mapDebuggerErrorMessage(
+        error instanceof Error ? error.message : "Debugger attach failed."
+      );
+      this.clearDebuggerSession(tabId);
+      return info;
+    }
+  }
+
+  private async checkDebuggerTarget(tabId: number): Promise<DriveErrorInfo | null> {
+    try {
+      const tab = await getTab(tabId);
+      const url = typeof tab.url === "string" ? tab.url : undefined;
+      if (isRestrictedUrl(url)) {
+        return {
+          code: "NOT_SUPPORTED",
+          message: "Debugger cannot attach to restricted pages.",
+          retryable: false,
+          details: { url },
+        };
+      }
+    } catch (error) {
+      return mapDebuggerErrorMessage(
+        error instanceof Error ? error.message : "Failed to locate tab.",
+        "TAB_NOT_FOUND"
+      );
+    }
+    return null;
+  }
+
+  private async detachDebugger(tabId: number): Promise<DriveErrorInfo | null> {
+    const session = this.debuggerSessions.get(tabId);
+    if (!session) {
+      return null;
+    }
+    if (session.attachPromise) {
+      try {
+        await session.attachPromise;
+      } catch {
+        this.clearDebuggerSession(tabId);
+        return null;
+      }
+    }
+    if (!session.attached) {
+      this.clearDebuggerSession(tabId);
+      return null;
+    }
+    try {
+      await wrapChromeVoid((callback) =>
+        chrome.debugger.detach({ tabId }, () => callback())
+      );
+    } catch (error) {
+      return mapDebuggerErrorMessage(
+        error instanceof Error ? error.message : "Debugger detach failed."
+      );
+    } finally {
+      this.clearDebuggerSession(tabId);
+    }
+    return null;
+  }
+
+  private async sendDebuggerCommand(
+    tabId: number,
+    method: string,
+    params: Record<string, unknown> | undefined,
+    timeoutMs: number
+  ): Promise<unknown> {
+    return await new Promise((resolve, reject) => {
+      let finished = false;
+      const timeout = self.setTimeout(() => {
+        finished = true;
+        reject(new DebuggerTimeoutError(timeoutMs));
+      }, timeoutMs);
+
+      chrome.debugger.sendCommand(
+        { tabId },
+        method,
+        params ?? {},
+        (result: unknown) => {
+          if (finished) {
+            return;
+          }
+          finished = true;
+          clearTimeout(timeout);
+          const error = chrome.runtime.lastError;
+          if (error) {
+            reject(new Error(error.message));
+            return;
+          }
+          resolve(result);
+        }
+      );
+    });
+  }
+
+  private touchDebuggerSession(tabId: number): void {
+    const session = this.debuggerSessions.get(tabId);
+    if (!session) {
+      return;
+    }
+    session.lastActivityAt = nowIso();
+    void this.refreshDebuggerIdleTimer(tabId);
+  }
+
+  private async refreshDebuggerIdleTimer(tabId: number): Promise<void> {
+    const session = this.debuggerSessions.get(tabId);
+    if (!session) {
+      return;
+    }
+    if (session.idleTimer) {
+      clearTimeout(session.idleTimer);
+    }
+    const timeoutMs = await this.getDebuggerIdleTimeoutMs();
+    session.idleTimer = self.setTimeout(() => {
+      void this.detachDebugger(tabId);
+    }, timeoutMs);
+  }
+
+  private clearDebuggerSession(tabId: number): void {
+    const session = this.debuggerSessions.get(tabId);
+    if (!session) {
+      return;
+    }
+    if (session.idleTimer) {
+      clearTimeout(session.idleTimer);
+    }
+    this.debuggerSessions.delete(tabId);
+  }
+
+  private async getDebuggerIdleTimeoutMs(): Promise<number> {
+    if (this.debuggerIdleTimeoutMs !== null) {
+      return this.debuggerIdleTimeoutMs;
+    }
+    const timeout = await readDebuggerIdleTimeoutMs();
+    this.debuggerIdleTimeoutMs = timeout;
+    return timeout;
+  }
+}
+
+class DebuggerTimeoutError extends Error {
+  constructor(timeoutMs: number) {
+    super(`Debugger command timed out after ${timeoutMs}ms.`);
+    this.name = "DebuggerTimeoutError";
+  }
 }
 
 const socket = new DriveSocket();
@@ -535,6 +1057,16 @@ chrome.tabs.onUpdated.addListener(
 chrome.tabs.onRemoved.addListener((tabId: number) => {
   lastActiveAtByTab.delete(tabId);
   socket.sendTabReport();
+});
+
+chrome.debugger.onEvent.addListener(
+  (source: DebuggerTarget, method: string, params: Record<string, unknown>) => {
+    void socket.handleDebuggerEvent(source, method, params);
+  }
+);
+
+chrome.debugger.onDetach.addListener((source: DebuggerTarget, reason?: string) => {
+  void socket.handleDebuggerDetach(source, reason);
 });
 
 socket.start();

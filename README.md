@@ -1,6 +1,6 @@
 # Browser Vision
 
-Hybrid Browser Control MCP (Drive + Inspect) for a local developer feedback loop. The system controls a real Chrome instance for reliable drive actions and uses CDP for read-only inspection. In v1, Drive and Inspect may run against different Chrome instances (Inspect can launch a managed \"Google Chrome for Testing\" profile).
+Hybrid Browser Control MCP (Drive + Inspect) for a local developer feedback loop. The system controls a real Chrome instance for reliable drive actions and provides read-only inspection via the extension debugger bridge.
 
 ## Requirements
 - Node.js 20+

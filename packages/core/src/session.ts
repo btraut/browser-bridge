@@ -6,12 +6,9 @@ import {
   transitionSession,
 } from "./state";
 
-export type SessionMode = "auto" | "attach" | "launch";
-
 export type SessionRecord = {
   id: string;
   state: SessionState;
-  mode: SessionMode;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -38,13 +35,12 @@ export class SessionError extends Error {
 export class SessionRegistry {
   private sessions = new Map<string, SessionRecord>();
 
-  create(mode: SessionMode = "auto"): SessionRecord {
+  create(): SessionRecord {
     const now = new Date();
     const id = `session-${randomUUID()}`;
     const session: SessionRecord = {
       id,
       state: SessionState.INIT,
-      mode,
       createdAt: now,
       updatedAt: now,
     };

@@ -3,13 +3,18 @@ import type { Server } from "http";
 import type { RawData } from "ws";
 import { WebSocketServer, WebSocket } from "ws";
 import type {
+  DebuggerEvent,
+  DebuggerRequestAction,
+  DebuggerResponse,
   DriveAction,
   DriveErrorInfo,
-  DriveEvent,
-  DriveMessage,
-  DriveRequest,
   DriveResponse,
   DriveTabInfo,
+  ExtensionEvent,
+  ExtensionMessage,
+  ExtensionRequest,
+  ExtensionRequestAction,
+  ExtensionResponse,
 } from "./drive-protocol";
 import { SessionRegistry } from "./session";
 import { SessionState } from "./state";
@@ -21,10 +26,12 @@ export type ExtensionBridgeStatus = {
 };
 
 type PendingRequest = {
-  resolve: (response: DriveResponse) => void;
+  resolve: (response: ExtensionResponse) => void;
   reject: (error: ExtensionBridgeError) => void;
   timeout: ReturnType<typeof setTimeout>;
 };
+
+type DebuggerEventListener = (event: DebuggerEvent) => void;
 
 export class ExtensionBridgeError extends Error {
   public readonly code: string;
@@ -59,6 +66,7 @@ export class ExtensionBridge {
   private tabs: DriveTabInfo[] = [];
   private readonly path: string;
   private readonly registry?: SessionRegistry;
+  private readonly debuggerListeners = new Set<DebuggerEventListener>();
 
   constructor(options: ExtensionBridgeOptions = {}) {
     this.wss = new WebSocketServer({ noServer: true });
@@ -101,6 +109,31 @@ export class ExtensionBridge {
     params?: Record<string, unknown>,
     timeoutMs = 30000
   ): Promise<DriveResponse<T>> {
+    const response = await this.requestInternal(action, params, timeoutMs);
+    return response as DriveResponse<T>;
+  }
+
+  async requestDebugger<T = unknown>(
+    action: DebuggerRequestAction,
+    params?: Record<string, unknown>,
+    timeoutMs = 30000
+  ): Promise<DebuggerResponse<T>> {
+    const response = await this.requestInternal(action, params, timeoutMs);
+    return response as DebuggerResponse<T>;
+  }
+
+  onDebuggerEvent(listener: DebuggerEventListener): () => void {
+    this.debuggerListeners.add(listener);
+    return () => {
+      this.debuggerListeners.delete(listener);
+    };
+  }
+
+  private async requestInternal(
+    action: ExtensionRequestAction,
+    params?: Record<string, unknown>,
+    timeoutMs = 30000
+  ): Promise<ExtensionResponse> {
     if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
       throw new ExtensionBridgeError(
         "EXTENSION_DISCONNECTED",
@@ -110,20 +143,20 @@ export class ExtensionBridge {
     }
 
     const id = randomUUID();
-    const request: DriveRequest = {
+    const request: ExtensionRequest = {
       id,
       action,
       status: "request",
       params,
     };
 
-    const response = await new Promise<DriveResponse>((resolve, reject) => {
+    const response = await new Promise<ExtensionResponse>((resolve, reject) => {
       const timeout = setTimeout(() => {
         this.pending.delete(id);
         reject(
           new ExtensionBridgeError(
             "TIMEOUT",
-            `Drive request timed out after ${timeoutMs}ms.`,
+            `Extension request timed out after ${timeoutMs}ms.`,
             true,
             { action }
           )
@@ -139,7 +172,7 @@ export class ExtensionBridge {
       this.socket?.send(JSON.stringify(request));
     });
 
-    return response as DriveResponse<T>;
+    return response;
   }
 
   private handleConnection(socket: WebSocket): void {
@@ -193,9 +226,9 @@ export class ExtensionBridge {
   private handleMessage(data: RawData): void {
     const text = typeof data === "string" ? data : data.toString();
 
-    let message: DriveMessage | null = null;
+    let message: ExtensionMessage | null = null;
     try {
-      message = JSON.parse(text) as DriveMessage;
+      message = JSON.parse(text) as ExtensionMessage;
     } catch {
       return;
     }
@@ -207,26 +240,44 @@ export class ExtensionBridge {
     this.lastSeenAt = new Date().toISOString();
 
     if (message.status === "event") {
-      this.handleEvent(message as DriveEvent);
+      this.handleEvent(message as ExtensionEvent);
       return;
     }
 
-    if (message.status === "ok" || message.status === "error") {
+    if (
+      message.status === "ok" ||
+      message.status === "error" ||
+      message.status === "ack"
+    ) {
       const pending = this.pending.get(message.id);
       if (!pending) {
         return;
       }
       clearTimeout(pending.timeout);
       this.pending.delete(message.id);
-      pending.resolve(message as DriveResponse);
+      pending.resolve(message as ExtensionResponse);
     }
   }
 
-  private handleEvent(message: DriveEvent): void {
+  private handleEvent(message: ExtensionEvent): void {
     if (message.action === "drive.hello" || message.action === "drive.tab_report") {
       const tabs = (message.params as { tabs?: DriveTabInfo[] } | undefined)?.tabs;
       if (Array.isArray(tabs)) {
         this.tabs = tabs;
+      }
+    }
+
+    if (typeof message.action === "string" && message.action.startsWith("debugger.")) {
+      this.emitDebuggerEvent(message as DebuggerEvent);
+    }
+  }
+
+  private emitDebuggerEvent(event: DebuggerEvent): void {
+    for (const listener of this.debuggerListeners) {
+      try {
+        listener(event);
+      } catch {
+        // Ignore debugger event handler failures.
       }
     }
   }

@@ -20,7 +20,7 @@ Drive Plane (Human-Centric Control)
 - Highly reliable.
 
 Inspect Plane (Diagnostic / Introspection)
-- Implemented via Chrome DevTools Protocol (CDP) using Puppeteer.
+- Implemented via the Chrome extension debugger bridge (`chrome.debugger`).
 - Responsibilities: DOM snapshots (AX preferred), console logs, network HAR, performance metrics, JS evaluation.
 - Read-only by default.
 - Can run in parallel with drive plane.
@@ -30,7 +30,7 @@ Required components:
 
 1. Core Daemon (TypeScript, Node 20+)
 - Single source of truth.
-- Responsibilities: session lifecycle, extension connection management, CDP attach/launch management, drive/inspect routing, concurrency control, retry & recovery, artifact storage, diagnostics.
+- Responsibilities: session lifecycle, extension connection management, debugger attach/detach management, drive/inspect routing, concurrency control, retry & recovery, artifact storage, diagnostics.
 - Exposes a local HTTP API consumed by MCP adapter and CLI.
 - No business logic in MCP or CLI.
 
@@ -59,17 +59,15 @@ Transport
 - No auth, no tokens (v1).
 - Core binds only to 127.0.0.1.
 
-Chrome Launch / Attach Strategy
-- Goal: install extension, then everything just works.
-- If Chrome is running -> attach if possible.
-- If Chrome is not running -> Core launches Chrome itself.
-- No user flags, no manual remote-debugging setup required.
-- V1 simplification: Core may launch a managed Chrome profile with remote debugging enabled and extension installed. Avoid relying on Chrome auto-connect UX in v1.
+Debugger Attach Strategy
+- Goal: install the extension, then everything just works.
+- Inspect attaches to existing tabs via `chrome.debugger`.
+- No user flags, no remote-debugging setup required.
+- Core does not launch or manage a separate Chrome profile.
 
 Tab <-> Target Mapping (V1)
 - Heuristic matching, not hard guarantees.
 - Extension reports `{ tabId, url, title, lastActiveAt }`.
-- CDP lists targets.
 - Match by exact URL, title, and recency.
 - Verify after match: compare `document.location.href` and `document.title`.
 - If mismatch -> retry once, then proceed with warning.
@@ -108,7 +106,7 @@ Errors
 
 Language Choice
 - TypeScript / Node.js for v1.
-- Reasons: extension is JS/TS, Puppeteer is Node-native, MCP ecosystem is Node-friendly, reliability depends on state machines not raw performance.
+- Reasons: extension is JS/TS, MCP ecosystem is Node-friendly, reliability depends on state machines not raw performance.
 
 Project Structure (Recommended)
 ```
@@ -138,17 +136,17 @@ enum SessionState {
 
 Transitions (Simplified)
 - INIT -> DRIVE_READY (extension connects)
-- INIT -> INSPECT_READY (CDP attaches)
+- INIT -> INSPECT_READY (debugger attaches)
 - DRIVE_READY + INSPECT_READY -> READY
 - READY -> DEGRADED_DRIVE (extension disconnect)
-- READY -> DEGRADED_INSPECT (CDP disconnect)
+- READY -> DEGRADED_INSPECT (debugger disconnect)
 - DEGRADED_* -> READY (recover succeeds)
 - any -> BROKEN (recover fails)
 - any -> CLOSED (explicit close)
 
 Retry Rules
 - Drive op failure: if retryable -> `session.recover()` -> retry once.
-- Inspect op failure: retry once if CDP reconnect succeeds.
+- Inspect op failure: retry once if debugger reconnect succeeds.
 - Never infinite retry.
 
 **MCP Tool Schema (Zod)**
@@ -168,9 +166,7 @@ const Locator = z.object({
 session.*
 ```ts
 session.create: {
-  input: z.object({
-    mode: z.enum(["auto", "attach", "launch"]).default("auto"),
-  }),
+  input: z.object({}),
   output: SessionInfo
 }
 
@@ -281,7 +277,7 @@ diagnostics.doctor: {
 **Milestones (Parallelizable)**
 - Milestone A: Core skeleton (HTTP API, session state machine, no Chrome yet)
 - Milestone B: Extension (WS protocol, click/type/navigate, tab reporting)
-- Milestone C: CDP integration (Puppeteer attach/launch, inspect APIs)
+- Milestone C: Debugger-based inspect integration (attach/detach, inspect APIs)
 - Milestone D: MCP adapter (tool schemas, mapping to Core)
 - Milestone E: CLI (JSON output, daemon bootstrap, diagnostics)
 - Milestone F: Recovery & Reliability (reconnect logic, retries, DEGRADED states)

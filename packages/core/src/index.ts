@@ -8,6 +8,6 @@ export * from "./drive";
 export * from "./extension-bridge";
 export * from "./drive-protocol";
 export * from "./inspect";
-export * from "./cdp";
+export * from "./debugger-bridge";
 export * from "./target-matching";
 export * from "./recovery";

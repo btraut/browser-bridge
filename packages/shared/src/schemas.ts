@@ -75,24 +75,11 @@ export const DiagnosticReportSchema = z.object({
   ok: z.boolean(),
   session_id: z.string().optional(),
   checks: z.array(DiagnosticCheckSchema).optional(),
-  chrome: z
-    .object({
-      path: z.string().optional(),
-      version: z.string().optional(),
-      reachable: z.boolean().optional(),
-    })
-    .optional(),
   extension: z
     .object({
       connected: z.boolean().optional(),
       version: z.string().optional(),
       last_seen_at: z.string().datetime().optional(),
-    })
-    .optional(),
-  cdp: z
-    .object({
-      connected: z.boolean().optional(),
-      target_url: z.string().optional(),
     })
     .optional(),
   artifacts: z
@@ -108,11 +95,7 @@ export const SessionIdSchema = z.object({
   session_id: z.string().min(1),
 });
 
-export const SessionModeSchema = z.enum(["auto", "attach", "launch"]);
-
-export const SessionCreateInputSchema = z.object({
-  mode: SessionModeSchema.default("auto"),
-});
+export const SessionCreateInputSchema = z.object({}).strict().default({});
 export const SessionCreateOutputSchema = SessionInfoSchema;
 
 export const SessionStatusInputSchema = SessionIdSchema;

@@ -53,7 +53,6 @@ import {
   SessionCreateOutputSchema,
   SessionIdSchema,
   SessionInfoSchema,
-  SessionModeSchema,
   SessionPlaneStatusSchema,
   SessionRecoverInputSchema,
   SessionRecoverOutputSchema,
@@ -68,7 +67,6 @@ export type Locator = z.infer<typeof LocatorSchema>;
 export type OpResult = z.infer<typeof OpResultSchema>;
 
 export type SessionId = z.infer<typeof SessionIdSchema>;
-export type SessionMode = z.infer<typeof SessionModeSchema>;
 
 export type SessionState = z.infer<typeof SessionStateSchema>;
 export type SessionInfo = z.infer<typeof SessionInfoSchema>;

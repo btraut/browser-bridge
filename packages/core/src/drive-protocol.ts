@@ -135,4 +135,93 @@ export type DriveTabListResult = {
   tabs: DriveTabInfo[];
 };
 
+export type DebuggerAttachParams = {
+  tab_id: number;
+};
+
+export type DebuggerDetachParams = {
+  tab_id: number;
+};
+
+export type DebuggerCommandParams = {
+  tab_id: number;
+  method: string;
+  params?: Record<string, unknown>;
+};
+
+export type DebuggerEventParams = {
+  tab_id: number;
+  method: string;
+  params?: Record<string, unknown>;
+  timestamp: string;
+};
+
+export type DebuggerRequestAction =
+  | "debugger.attach"
+  | "debugger.detach"
+  | "debugger.command";
+export type DebuggerEventAction = "debugger.event";
+export type DebuggerAckAction = "debugger.ack";
+export type DebuggerErrorAction = "debugger.error";
+
+export type DebuggerAction =
+  | DebuggerRequestAction
+  | DebuggerEventAction
+  | DebuggerAckAction
+  | DebuggerErrorAction;
+
+export type DebuggerRequestStatus = "request";
+export type DebuggerAckStatus = "ack";
+export type DebuggerErrorStatus = "error";
+export type DebuggerEventStatus = "event";
+
+export type DebuggerMessageStatus =
+  | DebuggerRequestStatus
+  | DebuggerAckStatus
+  | DebuggerErrorStatus
+  | DebuggerEventStatus;
+
+export type DebuggerErrorInfo = DriveErrorInfo;
+
+export type DebuggerRequest<TParams = Record<string, unknown>> = {
+  id: string;
+  action: DebuggerRequestAction;
+  status: DebuggerRequestStatus;
+  params?: TParams;
+};
+
+export type DebuggerAck<TResult = unknown> = {
+  id: string;
+  action: DebuggerRequestAction | DebuggerAckAction;
+  status: DebuggerAckStatus;
+  result?: TResult;
+};
+
+export type DebuggerError = {
+  id: string;
+  action: DebuggerRequestAction | DebuggerErrorAction;
+  status: DebuggerErrorStatus;
+  error?: DebuggerErrorInfo;
+};
+
+export type DebuggerEvent<TParams = Record<string, unknown>> = {
+  id: string;
+  action: DebuggerEventAction;
+  status: DebuggerEventStatus;
+  params?: TParams;
+};
+
+export type DebuggerResponse<TResult = unknown> =
+  | DebuggerAck<TResult>
+  | DebuggerError;
+
+export type DebuggerMessage = DebuggerRequest | DebuggerResponse | DebuggerEvent;
+
+export type ExtensionRequestAction = DriveAction | DebuggerRequestAction;
+export type ExtensionAction = DriveAction | DebuggerAction;
+export type ExtensionRequest = DriveRequest | DebuggerRequest;
+export type ExtensionResponse = DriveResponse | DebuggerResponse;
+export type ExtensionEvent = DriveEvent | DebuggerEvent;
+export type ExtensionMessage = DriveMessage | DebuggerMessage;
+
 // NOTE: Keep this protocol in sync with packages/extension/src/protocol.ts.

@@ -22,9 +22,9 @@ describe("shared schemas", () => {
     expect(OpResultSchema.parse({ ok: true }).ok).toBe(true);
   });
 
-  it("applies defaults for session create", () => {
+  it("parses session create with no input", () => {
     const parsed = SessionCreateInputSchema.parse({});
-    expect(parsed.mode).toBe("auto");
+    expect(parsed).toEqual({});
   });
 
   it("parses drive navigate defaults", () => {
@@ -84,13 +84,13 @@ describe("shared schemas", () => {
       inspect: {
         connected: false,
         error: {
-          code: "CDP_DISCONNECTED",
-          message: "CDP down",
+          code: "INSPECT_UNAVAILABLE",
+          message: "Inspect down",
           retryable: true,
         },
       },
     });
 
-    expect(parsed.inspect?.error?.code).toBe("CDP_DISCONNECTED");
+    expect(parsed.inspect?.error?.code).toBe("INSPECT_UNAVAILABLE");
   });
 });

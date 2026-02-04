@@ -11,19 +11,10 @@ export type DiagnosticReport = {
   ok: boolean;
   session_id?: string;
   checks?: DiagnosticCheck[];
-  chrome?: {
-    path?: string;
-    version?: string;
-    reachable?: boolean;
-  };
   extension?: {
     connected?: boolean;
     version?: string;
     last_seen_at?: string;
-  };
-  cdp?: {
-    connected?: boolean;
-    target_url?: string;
   };
   artifacts?: {
     root_dir?: string;
@@ -37,9 +28,6 @@ export type DiagnosticsContext = {
   extension?: {
     connected: boolean;
     lastSeenAt?: string;
-  };
-  cdp?: {
-    connected: boolean;
   };
   driveLastError?: {
     code: string;
@@ -62,48 +50,20 @@ export type DiagnosticsContext = {
   };
 };
 
-const CHROME_PATH_PLACEHOLDER = "CHROME_PATH_UNSET";
-
-const resolveChromePath = (): { value: string; configured: boolean } => {
-  const envValue =
-    process.env.BROWSER_VISION_CHROME_PATH || process.env.CHROME_PATH;
-  return {
-    value: envValue || CHROME_PATH_PLACEHOLDER,
-    configured: Boolean(envValue),
-  };
-};
-
 export const buildDiagnosticReport = (
   sessionId?: string,
   context: DiagnosticsContext = {}
 ): DiagnosticReport => {
-  const chromePath = resolveChromePath();
   const extensionConnected = context.extension?.connected ?? false;
-  const cdpConnected = context.cdp?.connected ?? false;
   const sessionState = context.sessionState;
 
   const checks: DiagnosticCheck[] = [
-    {
-      name: "chrome.path",
-      ok: chromePath.configured,
-      message: chromePath.configured
-        ? "Chrome path configured."
-        : "Chrome path is not configured.",
-      details: {
-        path: chromePath.value,
-      },
-    },
     {
       name: "extension.connected",
       ok: extensionConnected,
       message: extensionConnected
         ? "Extension is connected."
         : "Extension is not connected.",
-    },
-    {
-      name: "cdp.connected",
-      ok: cdpConnected,
-      message: cdpConnected ? "CDP is connected." : "CDP is not connected.",
     },
     {
       name: "session.state",
@@ -163,16 +123,9 @@ export const buildDiagnosticReport = (
     ok: checks.every((check) => check.ok),
     session_id: sessionId,
     checks,
-    chrome: {
-      path: chromePath.value,
-      reachable: false,
-    },
     extension: {
       connected: extensionConnected,
       last_seen_at: context.extension?.lastSeenAt,
-    },
-    cdp: {
-      connected: cdpConnected,
     },
     artifacts: sessionId
       ? {
@@ -181,10 +134,6 @@ export const buildDiagnosticReport = (
       : undefined,
     notes: ["Diagnostics include runtime status; some checks may be stubbed."],
   };
-
-  if (!chromePath.configured) {
-    report.warnings = ["Chrome path is not configured."];
-  }
 
   return report;
 };

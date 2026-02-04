@@ -1,8 +1,6 @@
 import { Response, Router } from "express";
 import { InvalidSessionTransition, SessionState } from "../state";
-import { SessionError, SessionMode, SessionRegistry } from "../session";
-
-const SESSION_MODES = new Set(["auto", "attach", "launch"]);
+import { SessionError, SessionRegistry } from "../session";
 
 type ErrorInfo = {
   code: string;
@@ -32,7 +30,7 @@ const sendResult = <T>(res: Response, result: T) => {
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> => {
-  return typeof value === "object" && value !== null;
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 };
 
 const readSessionId = (body: unknown): string | undefined => {
@@ -68,20 +66,24 @@ export const createSessionRouter = (
 
   router.post("/create", (req, res) => {
     const body = req.body;
-    if (isRecord(body) && body.mode !== undefined) {
-      if (typeof body.mode !== "string" || !SESSION_MODES.has(body.mode)) {
+    if (body !== undefined) {
+      if (!isRecord(body)) {
         return sendError(res, 400, {
           code: "INVALID_ARGUMENT",
-          message: "mode must be one of auto, attach, launch",
+          message: "Request body must be an object.",
+          retryable: false,
+        });
+      }
+      if (Object.keys(body).length > 0) {
+        return sendError(res, 400, {
+          code: "INVALID_ARGUMENT",
+          message: "session.create does not accept any input fields.",
           retryable: false,
         });
       }
     }
 
-    const mode = isRecord(body) && typeof body.mode === "string"
-      ? (body.mode as SessionMode)
-      : "auto";
-    const session = registry.create(mode);
+    const session = registry.create();
     if (options.driveConnected?.()) {
       try {
         registry.apply(session.id, "DRIVE_CONNECTED");

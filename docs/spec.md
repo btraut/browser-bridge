@@ -6,7 +6,7 @@ This project builds a local, developer-focused browser control system for coding
 ## Assumptions and Constraints
 - Node.js 20+ and Chrome stable are available on the developer machine.
 - V1 prioritizes reliability over speed; no production or remote automation.
-- V1 may launch a managed Chrome profile with remote debugging enabled and the extension installed.
+- V1 uses the developer's normal Chrome profile with the extension installed (no managed profile launch).
 - All network services bind only to 127.0.0.1.
 - All APIs use a standard error envelope with stable error codes and retryable flag.
 
@@ -35,7 +35,7 @@ Verify: `npm run test -- -t core` and a manual `curl` to `session.create`.
 
 4. Core artifact storage and diagnostics
 Files to touch: `packages/core/src/artifacts.ts`, `packages/core/src/diagnostics.ts`, `packages/core/src/routes/artifacts.ts`, `packages/core/src/routes/diagnostics.ts`
-Code changes: implement artifact directory management (`$TMPDIR/browser-agent/<session_id>/`). Add diagnostics `doctor` endpoint to report Chrome path, extension status, CDP availability, and session state.
+Code changes: implement artifact directory management (`$TMPDIR/browser-agent/<session_id>/`). Add diagnostics `doctor` endpoint to report extension status and session state.
 Tests: unit tests for artifact path creation and cleanup behavior. API tests for diagnostics output.
 Docs: add a “Diagnostics” section to `README.md`.
 Verify: `npm run test -- -t diagnostics` and check created temp folders.
@@ -54,9 +54,9 @@ Tests: unit tests for locator selection and retry behavior. Integration tests us
 Docs: document drive tool behaviors and wait semantics.
 Verify: run a local demo that navigates and clicks within a sample page.
 
-7. CDP integration (Inspect plane)
-Files to touch: `packages/core/src/inspect.ts`, `packages/core/src/cdp.ts`, `packages/core/src/routes/inspect.ts`
-Code changes: use Puppeteer to launch or attach to Chrome. Maintain CDP connection, set state to INSPECT_READY, implement inspect operations (dom snapshot with AX/HTML, console list, network HAR, performance metrics, evaluate). Implement tab-to-target heuristic matching and verification steps.
+7. Inspect integration (Debugger plane)
+Files to touch: `packages/core/src/inspect.ts`, `packages/core/src/routes/inspect.ts`
+Code changes: use the debugger bridge to attach to tabs. Maintain inspect connection, set state to INSPECT_READY, implement inspect operations (dom snapshot with AX/HTML, console list, network HAR, performance metrics, evaluate). Implement tab-to-target heuristic matching and verification steps.
 Tests: unit tests for target matching logic. Integration tests using a headless Chrome instance if feasible; otherwise add a manual verification script.
 Docs: document inspect endpoints and consistency modes (`best_effort`, `quiesce`).
 Verify: run `inspect.dom_snapshot` and confirm output on a known page.
@@ -66,7 +66,7 @@ Files to touch: `packages/core/src/recovery.ts`, `packages/core/src/session.ts`
 Code changes: implement `session.recover()` with clear transitions to DEGRADED states and back to READY. Apply retry rules on drive/inspect failures with no infinite loops. Emit structured diagnostic events for failures.
 Tests: state machine tests covering all transitions and retry paths.
 Docs: add a “Recovery” section to `README.md`.
-Verify: simulate extension/CDP disconnects and confirm recovery behavior.
+Verify: simulate extension/inspect disconnects and confirm recovery behavior.
 
 9. MCP adapter
 Files to touch: `packages/mcp-adapter/src/index.ts`, `packages/mcp-adapter/src/server.ts`
@@ -98,14 +98,14 @@ Verify: `npm run build` from clean repo.
 
 ## Testing Strategy and Checkpoints
 - Unit tests for shared schemas, core state machine, recovery logic, locator resolution, and target matching.
-- API tests for Core HTTP endpoints with mocked extension/CDP clients.
+- API tests for Core HTTP endpoints with mocked extension/inspect clients.
 - Manual verification for extension-driven interactions and full end-to-end loop.
 - Checkpoints after tasks 3, 6, 7, and 9 to ensure basic drive/inspect/mcp flows work before adding more surface area.
 
 ## Rollout and Risks
-- Risk: extension and CDP target mismatch. Mitigation: strict heuristic matching and post-attach verification with warnings.
+- Risk: extension and inspect target mismatch. Mitigation: strict heuristic matching and post-attach verification with warnings.
 - Risk: WebSocket instability. Mitigation: explicit reconnection handling and `session.recover()`.
-- Risk: Chrome launch flakiness. Mitigation: managed profile v1 and explicit diagnostics.
+- Risk: debugger attach can fail when DevTools is open or pages are restricted. Mitigation: return `DEBUGGER_IN_USE`/`NOT_SUPPORTED` with clear messaging and keep the session stable.
 
 ## Beads Handoff
 This plan should be translated into Beads epics and issues. Suggested epics align to milestones A-F and supporting infrastructure. After filing, use `beads-review` to polish.
@@ -119,22 +119,22 @@ This plan should be translated into Beads epics and issues. Suggested epics alig
 ## Refactor Plan: Debugger-Based Inspect (2026-02-04)
 
 ### Context
-Replace the Core's external CDP/Puppeteer integration with a debugger-mode inspect plane implemented inside the Chrome extension via `chrome.debugger`. The inspect plane must run against the user's normal Chrome profile with no special launch flags, no separate Chrome instance, and no second extension install. The Drive plane remains extension-based and must keep its single-operation mutex, while inspect calls can run concurrently. All MCP tool schemas and CLI commands should remain stable; changes must be backward-compatible (additive only).
+Replace the Core's external inspect integration with a debugger-mode inspect plane implemented inside the Chrome extension via `chrome.debugger`. The inspect plane must run against the user's normal Chrome profile with no special launch flags, no separate Chrome instance, and no second extension install. The Drive plane remains extension-based and must keep its single-operation mutex, while inspect calls can run concurrently. MCP tool schemas and CLI commands should keep changes minimal while shifting to debugger-only behavior.
 
 ### Assumptions and Constraints
-- No Chrome launch flags (no `--remote-debugging-port`), no Puppeteer/Playwright/CDP websocket clients.
+- No Chrome launch flags (no `--remote-debugging-port`), no external DevTools websocket clients.
 - Inspect runs against normal Chrome tabs; `chrome.debugger` must handle attach/detach and restricted pages.
 - Drive and inspect concurrency rules remain: one drive op at a time; inspect in parallel; `inspect.dom_snapshot` supports `consistency: "best_effort" | "quiesce"`.
 - Maintain artifact behavior and standard error envelope.
 
 ### Implementation Tasks
 
-1. Remove CDP/Puppeteer dependencies and config
-Files to touch: `packages/core/package.json`, `package.json`, `package-lock.json`, `packages/core/src/cdp.ts`, `packages/core/src/inspect.ts`, `packages/core/src/index.ts`, `docs/requirements.md`, `docs/manual-test.md`, `README.md`
-Code changes: delete Puppeteer/CDP wiring, remove env var knobs for CDP endpoints, and strip any “launch Chrome” logic. Keep `session.create` inputs backward-compatible (ignore legacy `mode` values and document the new behavior). Remove CDP-only exports from Core.
-Tests: update or remove unit tests tied to CDP; keep inspect tests but re-target them to the new debugger bridge.
-Docs: remove references to CDP/Puppeteer, remote debugging flags, and managed Chrome profiles.
-Verify: `npm run lint`, `npm test` (or targeted tests) and ensure Core compiles without Puppeteer.
+1. Remove legacy inspect dependencies and config
+Files to touch: `packages/core/package.json`, `package.json`, `package-lock.json`, `packages/core/src/inspect.ts`, `packages/core/src/index.ts`, `docs/requirements.md`, `docs/manual-test.md`, `README.md`
+Code changes: delete legacy inspect wiring, remove env var knobs for remote-debugging endpoints, and strip any “launch Chrome” logic. Remove inspect-only exports from Core.
+Tests: update or remove unit tests tied to the legacy inspect client; keep inspect tests but re-target them to the new debugger bridge.
+Docs: remove references to legacy inspect clients, remote debugging flags, and managed Chrome profiles.
+Verify: `npm run lint`, `npm test` (or targeted tests) and ensure Core compiles without legacy inspect dependencies.
 
 2. Define the debugger protocol between Core and extension
 Files to touch: `packages/core/src/drive-protocol.ts`, `packages/extension/src/protocol.ts`, `packages/core/src/extension-bridge.ts`, `packages/core/src/index.ts`
@@ -184,9 +184,9 @@ Tests: update schema tests and diagnostics output tests to include new fields.
 Docs: update `docs/requirements.md` with the new error codes and debugger checks.
 Verify: run `diagnostics.doctor` with DevTools open and confirm `DEBUGGER_IN_USE` reporting.
 
-8. Update MCP adapter, CLI, and docs for backward compatibility
+8. Update MCP adapter, CLI, and docs for debugger-only behavior
 Files to touch: `packages/mcp-adapter/src/tools.ts`, `packages/cli/src/commands/*.ts`, `docs/manual-test.md`, `README.md`
-Code changes: keep tool names and inputs stable. If new optional fields are introduced (e.g. `consistency`), make them additive. Ensure CLI outputs and JSON envelopes match existing schemas.
+Code changes: keep tool names and inputs coherent with debugger-only inspect. Ensure CLI outputs and JSON envelopes match current schemas.
 Tests: run CLI smoke tests and MCP adapter tool list checks.
 Docs: update manual test steps to target normal Chrome + extension debugger.
 Verify: run the manual smoke script in `docs/manual-test.md` and confirm end-to-end behavior.

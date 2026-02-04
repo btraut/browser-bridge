@@ -9,11 +9,13 @@ import { ExtensionBridge } from "./extension-bridge";
 import { DriveController } from "./drive";
 import { InspectService, createInspectService } from "./inspect";
 import { RecoveryTracker } from "./recovery";
+import { DebuggerBridge } from "./debugger-bridge";
 
 export type CoreServer = {
   app: Express;
   registry: SessionRegistry;
   extensionBridge: ExtensionBridge;
+  debuggerBridge: DebuggerBridge;
   drive: DriveController;
   inspect: InspectService;
   recoveryTracker: RecoveryTracker;
@@ -27,8 +29,9 @@ export const createCoreServer = (options: CoreServerOptions = {}): CoreServer =>
   const app = express();
   const registry = options.registry ?? new SessionRegistry();
   const extensionBridge = new ExtensionBridge({ registry });
+  const debuggerBridge = new DebuggerBridge({ extensionBridge });
   const drive = new DriveController(extensionBridge, registry);
-  const inspect = createInspectService({ registry });
+  const inspect = createInspectService({ registry, debuggerBridge });
   const recoveryTracker = new RecoveryTracker();
 
   app.use(express.json({ limit: "1mb" }));
@@ -57,7 +60,15 @@ export const createCoreServer = (options: CoreServerOptions = {}): CoreServer =>
     recoveryTracker,
   });
 
-  return { app, registry, extensionBridge, drive, inspect, recoveryTracker };
+  return {
+    app,
+    registry,
+    extensionBridge,
+    debuggerBridge,
+    drive,
+    inspect,
+    recoveryTracker,
+  };
 };
 
 export type CoreServerStartOptions = {
