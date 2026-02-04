@@ -2,6 +2,7 @@ import { DriveController } from '../drive';
 import type { DriveAction } from '../drive-protocol';
 import {
   DriveClickInputSchema,
+  DriveHoverInputSchema,
   DriveDragInputSchema,
   DriveFillFormInputSchema,
   DriveHandleDialogInputSchema,
@@ -137,6 +138,10 @@ export const registerDriveRoutes = (
   router.post(
     '/drive/click',
     makeHandler('drive.click', DriveClickInputSchema, drive)
+  );
+  router.post(
+    '/drive/hover',
+    makeHandler('drive.hover', DriveHoverInputSchema, drive)
   );
   router.post(
     '/drive/type',

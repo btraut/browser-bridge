@@ -8,6 +8,7 @@ import {
   DriveDragInputSchema,
   DriveFillFormInputSchema,
   DriveHandleDialogInputSchema,
+  DriveHoverInputSchema,
   DriveKeyPressInputSchema,
   DriveNavigateInputSchema,
   DriveScrollInputSchema,
@@ -113,6 +114,15 @@ describe('shared schemas', () => {
       promptText: 'ok',
     });
     expect(parsed.action).toBe('accept');
+  });
+
+  it('parses hover input', () => {
+    const parsed = DriveHoverInputSchema.parse({
+      session_id: 'session-1',
+      locator: { css: '.card' },
+      delay_ms: 100,
+    });
+    expect(parsed.delay_ms).toBe(100);
   });
 
   it('parses key press input', () => {

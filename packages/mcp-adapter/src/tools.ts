@@ -13,6 +13,8 @@ import {
   DriveFillFormOutputSchema,
   DriveHandleDialogInputSchema,
   DriveHandleDialogOutputSchema,
+  DriveHoverInputSchema,
+  DriveHoverOutputSchema,
   DriveKeyPressInputSchema,
   DriveKeyPressOutputSchema,
   DriveNavigateInputSchema,
@@ -156,6 +158,16 @@ export const TOOL_DEFINITIONS: Array<{ name: string; config: ToolConfig }> = [
       inputSchema: DriveClickInputSchema,
       outputSchema: envelope(DriveClickOutputSchema),
       corePath: '/drive/click',
+    },
+  },
+  {
+    name: 'drive.hover',
+    config: {
+      title: 'Drive Hover',
+      description: 'Hover over an element.',
+      inputSchema: DriveHoverInputSchema,
+      outputSchema: envelope(DriveHoverOutputSchema),
+      corePath: '/drive/hover',
     },
   },
   {

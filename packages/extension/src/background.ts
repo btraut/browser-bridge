@@ -700,6 +700,7 @@ class DriveSocket {
           return;
         }
         case 'drive.click':
+        case 'drive.hover':
         case 'drive.type':
         case 'drive.fill_form':
         case 'drive.drag':

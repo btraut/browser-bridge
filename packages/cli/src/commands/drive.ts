@@ -4,6 +4,7 @@ import {
   DriveDragInputSchema,
   DriveFillFormInputSchema,
   DriveHandleDialogInputSchema,
+  DriveHoverInputSchema,
   DriveKeyPressInputSchema,
   DriveNavigateInputSchema,
   DriveScrollInputSchema,
@@ -78,6 +79,34 @@ export const registerDriveCommands = (program: Command): void => {
           click_count: parseNumber(options.clickCount),
         });
         return client.post('/drive/click', payload);
+      });
+    });
+
+  drive
+    .command('hover')
+    .description('Hover over an element')
+    .requiredOption('--session-id <id>', 'Session identifier')
+    .option('--locator-testid <id>', 'Locator test id')
+    .option('--locator-css <selector>', 'Locator CSS selector')
+    .option('--locator-text <text>', 'Locator text')
+    .option('--locator-role <role>', 'Locator role name')
+    .option('--locator-role-value <value>', 'Locator role value')
+    .option('--delay-ms <ms>', 'Delay after hover in milliseconds')
+    .action(async (options, command) => {
+      await runCommand(command, (client) => {
+        const locator = requireLocator({
+          locatorTestid: options.locatorTestid,
+          locatorCss: options.locatorCss,
+          locatorText: options.locatorText,
+          locatorRole: options.locatorRole,
+          locatorRoleValue: options.locatorRoleValue,
+        });
+        const payload = parseInput(DriveHoverInputSchema, {
+          session_id: options.sessionId,
+          locator,
+          delay_ms: parseNumber(options.delayMs),
+        });
+        return client.post('/drive/hover', payload);
       });
     });
 

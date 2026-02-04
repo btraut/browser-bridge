@@ -363,6 +363,36 @@ const runDriveAction = async (
         }
         return ok();
       }
+      case 'drive.hover': {
+        const { locator, delay_ms } = parseParams();
+        const target = resolveLocator(locator as Record<string, unknown>);
+        if (!target) {
+          return buildError('LOCATOR_NOT_FOUND', 'Failed to resolve locator.');
+        }
+        const rect = target.getBoundingClientRect();
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+        const eventInit: MouseEventInit = {
+          bubbles: true,
+          cancelable: true,
+          view: window,
+          clientX: centerX,
+          clientY: centerY,
+        };
+        target.dispatchEvent(new MouseEvent('mouseover', eventInit));
+        target.dispatchEvent(
+          new MouseEvent('mouseenter', { ...eventInit, bubbles: false })
+        );
+        target.dispatchEvent(new MouseEvent('mousemove', eventInit));
+        if (typeof delay_ms === 'number' && Number.isFinite(delay_ms)) {
+          const waitMs = Math.min(Math.max(delay_ms, 0), 10000);
+          if (waitMs > 0) {
+            await sleep(waitMs);
+          }
+        }
+        const html = document.documentElement?.outerHTML ?? '';
+        return ok({ format: 'html', snapshot: html });
+      }
       case 'drive.type': {
         const { locator, text, clear, submit } = parseParams();
         if (typeof text !== 'string') {

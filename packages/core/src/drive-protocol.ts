@@ -30,6 +30,12 @@ export type DriveClickParams = {
   tab_id?: number;
 };
 
+export type DriveHoverParams = {
+  locator: DriveLocator;
+  delay_ms?: number;
+  tab_id?: number;
+};
+
 export type DriveTypeParams = {
   locator?: DriveLocator;
   text: string;
@@ -113,6 +119,7 @@ export type DriveTabReportParams = {
 export type DriveAction =
   | 'drive.navigate'
   | 'drive.click'
+  | 'drive.hover'
   | 'drive.type'
   | 'drive.fill_form'
   | 'drive.drag'

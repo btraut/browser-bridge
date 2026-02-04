@@ -168,6 +168,17 @@ export const DriveClickInputSchema = z.object({
 });
 export const DriveClickOutputSchema = OpResultSchema;
 
+export const DriveHoverInputSchema = z.object({
+  session_id: z.string().min(1),
+  locator: LocatorSchema,
+  delay_ms: z.number().min(0).max(10000).optional(),
+  tab_id: z.number().finite().optional(),
+});
+export const DriveHoverOutputSchema = z.object({
+  format: z.literal("html"),
+  snapshot: z.string(),
+});
+
 export const DriveTypeInputSchema = z.object({
   session_id: z.string().min(1),
   locator: LocatorSchema.optional(),
