@@ -166,6 +166,10 @@ export class CdpManager extends EventEmitter {
     });
   }
 
+  isConnected(): boolean {
+    return Boolean(this.browser && this.browser.isConnected());
+  }
+
   private touchTarget(target: Target): void {
     this.targetLastSeen.set(target, Date.now());
   }

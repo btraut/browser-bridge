@@ -1,5 +1,5 @@
 import { Response, Router } from "express";
-import { InvalidSessionTransition } from "../state";
+import { InvalidSessionTransition, SessionState } from "../state";
 import { SessionError, SessionMode, SessionRegistry } from "../session";
 
 const SESSION_MODES = new Set(["auto", "attach", "launch"]);
@@ -50,6 +50,14 @@ const readSessionId = (body: unknown): string | undefined => {
 
 type SessionRouterOptions = {
   driveConnected?: () => boolean;
+  inspectRecover?: (sessionId: string) => Promise<boolean>;
+  recordRecovery?: (attempt: {
+    sessionId: string;
+    recovered: boolean;
+    state: SessionState;
+    message?: string;
+    at: string;
+  }) => void;
 };
 
 export const createSessionRouter = (
@@ -122,7 +130,7 @@ export const createSessionRouter = (
     }
   });
 
-  router.post("/recover", (req, res) => {
+  router.post("/recover", async (req, res) => {
     const sessionId = readSessionId(req.body);
     if (!sessionId) {
       return sendError(res, 400, {
@@ -133,7 +141,47 @@ export const createSessionRouter = (
     }
 
     try {
-      const result = registry.recover(sessionId);
+      const session = registry.require(sessionId);
+      let outcome:
+        | {
+            recovered: boolean;
+            message?: string;
+          }
+        | undefined;
+
+      if (session.state === SessionState.DEGRADED_DRIVE) {
+        const connected = options.driveConnected?.() ?? false;
+        outcome = {
+          recovered: connected,
+          message: connected ? "Drive recovery succeeded." : "Drive recovery failed.",
+        };
+      } else if (session.state === SessionState.DEGRADED_INSPECT) {
+        const recovered = options.inspectRecover
+          ? await options.inspectRecover(sessionId)
+          : false;
+        outcome = {
+          recovered,
+          message: recovered
+            ? "Inspect recovery succeeded."
+            : "Inspect recovery failed.",
+        };
+      }
+
+      const result = registry.recover(sessionId, outcome);
+      if (outcome) {
+        const attempt = {
+          sessionId,
+          recovered: result.recovered,
+          state: result.state,
+          message: result.message,
+          at: new Date().toISOString(),
+        };
+        options.recordRecovery?.(attempt);
+        const status = result.recovered ? "succeeded" : "failed";
+        console.info(
+          `[recovery] session ${sessionId} ${status}: ${result.message ?? ""}`
+        );
+      }
       return sendResult(res, {
         session_id: result.sessionId,
         recovered: result.recovered,

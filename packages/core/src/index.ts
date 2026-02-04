@@ -10,3 +10,4 @@ export * from "./drive-protocol";
 export * from "./inspect";
 export * from "./cdp";
 export * from "./target-matching";
+export * from "./recovery";

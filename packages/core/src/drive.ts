@@ -25,10 +25,26 @@ export const driveMutex = new DriveMutex();
 export class DriveController {
   private readonly bridge: ExtensionBridge;
   private readonly registry: SessionRegistry;
+  private lastError?: DriveErrorInfo;
+  private lastErrorAt?: string;
 
   constructor(bridge: ExtensionBridge, registry: SessionRegistry) {
     this.bridge = bridge;
     this.registry = registry;
+  }
+
+  getLastError():
+    | { error: DriveErrorInfo; at: string }
+    | undefined {
+    if (!this.lastError || !this.lastErrorAt) {
+      return undefined;
+    }
+    return { error: this.lastError, at: this.lastErrorAt };
+  }
+
+  private recordError(error: DriveErrorInfo): void {
+    this.lastError = error;
+    this.lastErrorAt = new Date().toISOString();
   }
 
   async execute<T>(
@@ -42,22 +58,26 @@ export class DriveController {
         this.registry.require(sessionId);
       } catch (error) {
         if (error instanceof SessionError) {
+          const errorInfo: DriveErrorInfo = {
+            code: error.code,
+            message: error.message,
+            retryable: false,
+          };
+          this.recordError(errorInfo);
           return {
             ok: false,
-            error: {
-              code: error.code,
-              message: error.message,
-              retryable: false,
-            },
+            error: errorInfo,
           };
         }
+        const errorInfo: DriveErrorInfo = {
+          code: "INTERNAL",
+          message: "Unexpected error while validating session.",
+          retryable: false,
+        };
+        this.recordError(errorInfo);
         return {
           ok: false,
-          error: {
-            code: "INTERNAL",
-            message: "Unexpected error while validating session.",
-            retryable: false,
-          },
+          error: errorInfo,
         };
       }
 
@@ -88,6 +108,7 @@ export class DriveController {
             continue;
           }
 
+          this.recordError(errorInfo);
           return { ok: false, error: errorInfo };
         } catch (error) {
           if (error instanceof ExtensionBridgeError) {
@@ -99,16 +120,19 @@ export class DriveController {
               attempt += 1;
               continue;
             }
+            this.recordError(errorInfo);
             return { ok: false, error: errorInfo };
           }
 
+          const errorInfo: DriveErrorInfo = {
+            code: "INTERNAL",
+            message: "Unexpected error while executing drive action.",
+            retryable: false,
+          };
+          this.recordError(errorInfo);
           return {
             ok: false,
-            error: {
-              code: "INTERNAL",
-              message: "Unexpected error while executing drive action.",
-              retryable: false,
-            },
+            error: errorInfo,
           };
         }
       }

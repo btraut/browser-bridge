@@ -4,7 +4,7 @@ import path from "node:path";
 import { ensureArtifactRootDir } from "./artifacts";
 import { CdpError, CdpManager, ConsoleEntry, TargetSelection } from "./cdp";
 import { SessionError, SessionRegistry, SessionRecord } from "./session";
-import { InvalidSessionTransition } from "./state";
+import { InvalidSessionTransition, shouldRetryInspectOp } from "./state";
 import { TargetHint } from "./target-matching";
 
 export type InspectErrorCode =
@@ -72,6 +72,8 @@ export class InspectService {
   private readonly registry: SessionRegistry;
   private readonly cdp: CdpManager;
   private lastSessionId?: string;
+  private lastError?: InspectError;
+  private lastErrorAt?: string;
 
   constructor(options: InspectServiceOptions) {
     this.registry = options.registry;
@@ -89,173 +91,241 @@ export class InspectService {
     });
   }
 
+  isConnected(): boolean {
+    return this.cdp.isConnected();
+  }
+
+  getLastError():
+    | { error: InspectError; at: string }
+    | undefined {
+    if (!this.lastError || !this.lastErrorAt) {
+      return undefined;
+    }
+    return { error: this.lastError, at: this.lastErrorAt };
+  }
+
+  async reconnect(sessionId: string): Promise<boolean> {
+    try {
+      const session = this.requireSession(sessionId);
+      await this.cdp.ensureBrowser(session.mode);
+      this.markInspectConnected(sessionId);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  private recordError(error: InspectError): void {
+    this.lastError = error;
+    this.lastErrorAt = new Date().toISOString();
+  }
+
+  private async withRetry<T>(
+    sessionId: string,
+    work: () => Promise<T>
+  ): Promise<T> {
+    let attempt = 0;
+    while (true) {
+      try {
+        return await work();
+      } catch (error) {
+        if (!(error instanceof InspectError)) {
+          const wrapped = new InspectError(
+            "INTERNAL",
+            "Unexpected inspect error."
+          );
+          this.recordError(wrapped);
+          throw wrapped;
+        }
+
+        this.recordError(error);
+
+        if (error.code === "CDP_DISCONNECTED") {
+          const reconnectSucceeded = await this.reconnect(sessionId);
+          if (shouldRetryInspectOp({ attempt, reconnectSucceeded })) {
+            attempt += 1;
+            continue;
+          }
+        }
+
+        throw error;
+      }
+    }
+  }
+
   async domSnapshot(input: {
     sessionId: string;
     format: "ax" | "html";
     consistency: "best_effort" | "quiesce";
     targetHint?: TargetHint;
   }): Promise<DomSnapshotResult> {
-    const selection = await this.prepareTarget(input.sessionId, input.targetHint);
-    await this.ensureQuiescent(selection.page, input.consistency);
+    return await this.withRetry(input.sessionId, async () => {
+      const selection = await this.prepareTarget(input.sessionId, input.targetHint);
+      await this.ensureQuiescent(selection.page, input.consistency);
 
-    if (input.format === "html") {
-      const html = await selection.page.content();
-      return {
-        format: "html",
-        snapshot: html,
-        warnings: selection.warnings,
-      };
-    }
-
-    try {
-      const session = await selection.page.createCDPSession();
-      try {
-        const result = await session.send("Accessibility.getFullAXTree");
+      if (input.format === "html") {
+        const html = await selection.page.content();
         return {
-          format: "ax",
-          snapshot: result,
+          format: "html",
+          snapshot: html,
           warnings: selection.warnings,
         };
-      } finally {
-        await session.detach();
       }
-    } catch {
-      const html = await selection.page.content();
-      return {
-        format: "html",
-        snapshot: html,
-        warnings: [
-          ...(selection.warnings ?? []),
-          "AX snapshot failed; returned HTML instead.",
-        ],
-      };
-    }
+
+      try {
+        const session = await selection.page.createCDPSession();
+        try {
+          const result = await session.send("Accessibility.getFullAXTree");
+          return {
+            format: "ax",
+            snapshot: result,
+            warnings: selection.warnings,
+          };
+        } finally {
+          await session.detach();
+        }
+      } catch {
+        const html = await selection.page.content();
+        return {
+          format: "html",
+          snapshot: html,
+          warnings: [
+            ...(selection.warnings ?? []),
+            "AX snapshot failed; returned HTML instead.",
+          ],
+        };
+      }
+    });
   }
 
   async consoleList(input: {
     sessionId: string;
     targetHint?: TargetHint;
   }): Promise<ConsoleListResult> {
-    const selection = await this.prepareTarget(input.sessionId, input.targetHint);
-    await this.cdp.ensureConsoleCapture(selection.target, selection.page);
-    return {
-      entries: this.cdp.getConsoleEntries(selection.target),
-      warnings: selection.warnings,
-    };
+    return await this.withRetry(input.sessionId, async () => {
+      const selection = await this.prepareTarget(input.sessionId, input.targetHint);
+      await this.cdp.ensureConsoleCapture(selection.target, selection.page);
+      return {
+        entries: this.cdp.getConsoleEntries(selection.target),
+        warnings: selection.warnings,
+      };
+    });
   }
 
   async networkHar(input: {
     sessionId: string;
     targetHint?: TargetHint;
   }): Promise<ArtifactInfo> {
-    const selection = await this.prepareTarget(input.sessionId, input.targetHint);
+    return await this.withRetry(input.sessionId, async () => {
+      const selection = await this.prepareTarget(input.sessionId, input.targetHint);
 
-    const performance = await selection.page.evaluate(() => {
-      const global = globalThis as unknown as {
-        performance: {
-          timeOrigin: number;
-          getEntriesByType: (type: string) => Array<Record<string, unknown>>;
+      const performance = await selection.page.evaluate(() => {
+        const global = globalThis as unknown as {
+          performance: {
+            timeOrigin: number;
+            getEntriesByType: (type: string) => Array<Record<string, unknown>>;
+          };
+          document: { title: string };
         };
-        document: { title: string };
-      };
 
-      const perf = global.performance;
-      return {
-        title: global.document.title,
-        timeOrigin: perf.timeOrigin,
-        navigation: perf.getEntriesByType("navigation"),
-        resources: perf.getEntriesByType("resource"),
-      };
-    });
+        const perf = global.performance;
+        return {
+          title: global.document.title,
+          timeOrigin: perf.timeOrigin,
+          navigation: perf.getEntriesByType("navigation"),
+          resources: perf.getEntriesByType("resource"),
+        };
+      });
 
-    const entries = Array.isArray(performance.resources)
-      ? performance.resources
-      : [];
+      const entries = Array.isArray(performance.resources)
+        ? performance.resources
+        : [];
 
-    const navEntry = Array.isArray(performance.navigation)
-      ? performance.navigation[0]
-      : undefined;
+      const navEntry = Array.isArray(performance.navigation)
+        ? performance.navigation[0]
+        : undefined;
 
-    const har = {
-      log: {
-        version: "1.2",
-        creator: {
-          name: "browser-vision",
-          version: "0.0.0",
-        },
-        pages: [
-          {
-            id: "page_0",
-            title: performance.title,
-            startedDateTime: new Date(performance.timeOrigin).toISOString(),
-            pageTimings: {
-              onContentLoad: navEntry?.domContentLoadedEventEnd ?? -1,
-              onLoad: navEntry?.loadEventEnd ?? -1,
-            },
+      const har = {
+        log: {
+          version: "1.2",
+          creator: {
+            name: "browser-vision",
+            version: "0.0.0",
           },
-        ],
-        entries: entries.map((entry) => {
-          const startTime = Number(entry.startTime ?? 0);
-          const duration = Number(entry.duration ?? 0);
-          const requestUrl = String(entry.name ?? "");
-          const startedDateTime = new Date(
-            performance.timeOrigin + startTime
-          ).toISOString();
-
-          const transferSize = Number(entry.transferSize ?? 0);
-
-          return {
-            pageref: "page_0",
-            startedDateTime,
-            time: duration,
-            request: {
-              method: "GET",
-              url: requestUrl,
-              httpVersion: "HTTP/1.1",
-              cookies: [],
-              headers: [],
-              queryString: [],
-              headersSize: -1,
-              bodySize: -1,
-            },
-            response: {
-              status: 0,
-              statusText: "",
-              httpVersion: "HTTP/1.1",
-              cookies: [],
-              headers: [],
-              redirectURL: "",
-              headersSize: -1,
-              bodySize: transferSize,
-              content: {
-                size: transferSize,
-                mimeType: String(entry.initiatorType ?? ""),
+          pages: [
+            {
+              id: "page_0",
+              title: performance.title,
+              startedDateTime: new Date(performance.timeOrigin).toISOString(),
+              pageTimings: {
+                onContentLoad: navEntry?.domContentLoadedEventEnd ?? -1,
+                onLoad: navEntry?.loadEventEnd ?? -1,
               },
             },
-            cache: {},
-            timings: {
-              send: 0,
-              wait: duration,
-              receive: 0,
-            },
-          };
-        }),
-      },
-    };
+          ],
+          entries: entries.map((entry) => {
+            const startTime = Number(entry.startTime ?? 0);
+            const duration = Number(entry.duration ?? 0);
+            const requestUrl = String(entry.name ?? "");
+            const startedDateTime = new Date(
+              performance.timeOrigin + startTime
+            ).toISOString();
 
-    try {
-      const rootDir = await ensureArtifactRootDir(input.sessionId);
-      const artifactId = randomUUID();
-      const filePath = path.join(rootDir, `har-${artifactId}.json`);
-      await writeFile(filePath, JSON.stringify(har, null, 2), "utf-8");
-      return {
-        artifact_id: artifactId,
-        path: filePath,
-        mime: "application/json",
+            const transferSize = Number(entry.transferSize ?? 0);
+
+            return {
+              pageref: "page_0",
+              startedDateTime,
+              time: duration,
+              request: {
+                method: "GET",
+                url: requestUrl,
+                httpVersion: "HTTP/1.1",
+                cookies: [],
+                headers: [],
+                queryString: [],
+                headersSize: -1,
+                bodySize: -1,
+              },
+              response: {
+                status: 0,
+                statusText: "",
+                httpVersion: "HTTP/1.1",
+                cookies: [],
+                headers: [],
+                redirectURL: "",
+                headersSize: -1,
+                bodySize: transferSize,
+                content: {
+                  size: transferSize,
+                  mimeType: String(entry.initiatorType ?? ""),
+                },
+              },
+              cache: {},
+              timings: {
+                send: 0,
+                wait: duration,
+                receive: 0,
+              },
+            };
+          }),
+        },
       };
-    } catch {
-      throw new InspectError("ARTIFACT_IO_ERROR", "Failed to write HAR file.");
-    }
+
+      try {
+        const rootDir = await ensureArtifactRootDir(input.sessionId);
+        const artifactId = randomUUID();
+        const filePath = path.join(rootDir, `har-${artifactId}.json`);
+        await writeFile(filePath, JSON.stringify(har, null, 2), "utf-8");
+        return {
+          artifact_id: artifactId,
+          path: filePath,
+          mime: "application/json",
+        };
+      } catch {
+        throw new InspectError("ARTIFACT_IO_ERROR", "Failed to write HAR file.");
+      }
+    });
   }
 
   async evaluate(input: {
@@ -263,60 +333,64 @@ export class InspectService {
     expression?: string;
     targetHint?: TargetHint;
   }): Promise<EvaluateResult> {
-    const selection = await this.prepareTarget(input.sessionId, input.targetHint);
-    const expression = input.expression ?? "undefined";
+    return await this.withRetry(input.sessionId, async () => {
+      const selection = await this.prepareTarget(input.sessionId, input.targetHint);
+      const expression = input.expression ?? "undefined";
 
-    try {
-      const session = await selection.page.createCDPSession();
       try {
-        const result = await session.send("Runtime.evaluate", {
-          expression,
-          returnByValue: true,
-          awaitPromise: true,
-        });
+        const session = await selection.page.createCDPSession();
+        try {
+          const result = await session.send("Runtime.evaluate", {
+            expression,
+            returnByValue: true,
+            awaitPromise: true,
+          });
 
-        if (result.exceptionDetails) {
+          if (result.exceptionDetails) {
+            return {
+              exception: result.exceptionDetails,
+              warnings: selection.warnings,
+            };
+          }
+
           return {
-            exception: result.exceptionDetails,
+            value: result.result?.value,
             warnings: selection.warnings,
           };
+        } finally {
+          await session.detach();
         }
-
-        return {
-          value: result.result?.value,
-          warnings: selection.warnings,
-        };
-      } finally {
-        await session.detach();
+      } catch {
+        throw new InspectError("EVALUATION_FAILED", "Failed to evaluate expression.");
       }
-    } catch {
-      throw new InspectError("EVALUATION_FAILED", "Failed to evaluate expression.");
-    }
+    });
   }
 
   async performanceMetrics(input: {
     sessionId: string;
     targetHint?: TargetHint;
   }): Promise<PerformanceMetricsResult> {
-    const selection = await this.prepareTarget(input.sessionId, input.targetHint);
+    return await this.withRetry(input.sessionId, async () => {
+      const selection = await this.prepareTarget(input.sessionId, input.targetHint);
 
-    const session = await selection.page.createCDPSession();
-    try {
-      const result = await session.send("Performance.getMetrics");
-      const metrics = Array.isArray(result.metrics)
-        ? result.metrics.map((metric: { name: string; value: number }) => ({
-            name: metric.name,
-            value: metric.value,
-          }))
-        : [];
+      const session = await selection.page.createCDPSession();
+      try {
+        const result = await session.send("Performance.getMetrics");
+        const metrics = Array.isArray(result.metrics)
+          ? result.metrics.map((metric: { name: string; value: number }) => ({
+              name: metric.name,
+              value: metric.value,
+            }))
+          : [];
 
-      return {
-        metrics,
-        warnings: selection.warnings,
-      };
-    } finally {
-      await session.detach();
-    }
+        return {
+          metrics,
+          warnings: selection.warnings,
+        };
+      } finally {
+        await session.detach();
+      }
+    });
   }
 
   private async prepareTarget(

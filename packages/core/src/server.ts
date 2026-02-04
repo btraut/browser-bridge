@@ -7,12 +7,16 @@ import { registerDriveRoutes, registerInspectRoutes } from "./routes";
 import { SessionRegistry } from "./session";
 import { ExtensionBridge } from "./extension-bridge";
 import { DriveController } from "./drive";
+import { InspectService, createInspectService } from "./inspect";
+import { RecoveryTracker } from "./recovery";
 
 export type CoreServer = {
   app: Express;
   registry: SessionRegistry;
   extensionBridge: ExtensionBridge;
   drive: DriveController;
+  inspect: InspectService;
+  recoveryTracker: RecoveryTracker;
 };
 
 export type CoreServerOptions = {
@@ -24,6 +28,8 @@ export const createCoreServer = (options: CoreServerOptions = {}): CoreServer =>
   const registry = options.registry ?? new SessionRegistry();
   const extensionBridge = new ExtensionBridge({ registry });
   const drive = new DriveController(extensionBridge, registry);
+  const inspect = createInspectService({ registry });
+  const recoveryTracker = new RecoveryTracker();
 
   app.use(express.json({ limit: "1mb" }));
 
@@ -35,15 +41,23 @@ export const createCoreServer = (options: CoreServerOptions = {}): CoreServer =>
     "/session",
     createSessionRouter(registry, {
       driveConnected: () => extensionBridge.isConnected(),
+      inspectRecover: (sessionId) => inspect.reconnect(sessionId),
+      recordRecovery: (attempt) => recoveryTracker.record(attempt),
     })
   );
 
   registerDriveRoutes(app, { drive });
-  registerInspectRoutes(app, { registry, extensionBridge });
+  registerInspectRoutes(app, { registry, extensionBridge, inspectService: inspect });
   registerArtifactsRoutes(app);
-  registerDiagnosticsRoutes(app);
+  registerDiagnosticsRoutes(app, {
+    registry,
+    extensionBridge,
+    drive,
+    inspectService: inspect,
+    recoveryTracker,
+  });
 
-  return { app, registry, extensionBridge, drive };
+  return { app, registry, extensionBridge, drive, inspect, recoveryTracker };
 };
 
 export type CoreServerStartOptions = {

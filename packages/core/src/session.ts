@@ -95,7 +95,10 @@ export class SessionRegistry {
     return session;
   }
 
-  recover(sessionId: string): RecoverResult {
+  recover(
+    sessionId: string,
+    outcome?: { recovered: boolean; message?: string }
+  ): RecoverResult {
     const session = this.require(sessionId);
     if (session.state === SessionState.CLOSED) {
       throw new SessionError(
@@ -111,9 +114,18 @@ export class SessionRegistry {
       session.state === SessionState.DEGRADED_DRIVE ||
       session.state === SessionState.DEGRADED_INSPECT
     ) {
-      session.state = transitionSession(session.state, "RECOVER_SUCCEEDED");
-      recovered = true;
-      message = "Recovery succeeded.";
+      if (outcome?.recovered) {
+        session.state = transitionSession(session.state, "RECOVER_SUCCEEDED");
+        recovered = true;
+        message = outcome.message ?? "Recovery succeeded.";
+      } else if (outcome) {
+        session.state = transitionSession(session.state, "RECOVER_FAILED");
+        recovered = false;
+        message = outcome.message ?? "Recovery failed.";
+      } else {
+        recovered = false;
+        message = "Recovery not attempted.";
+      }
     } else if (session.state === SessionState.BROKEN) {
       recovered = false;
       message = "Session is broken.";

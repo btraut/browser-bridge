@@ -1,4 +1,9 @@
-import { buildDiagnosticReport } from "../diagnostics";
+import { DiagnosticsContext, buildDiagnosticReport } from "../diagnostics";
+import type { SessionRegistry } from "../session";
+import type { ExtensionBridge } from "../extension-bridge";
+import type { DriveController } from "../drive";
+import type { InspectService } from "../inspect";
+import type { RecoveryTracker } from "../recovery";
 
 type RequestLike = {
   body?: unknown;
@@ -11,6 +16,14 @@ type ResponseLike = {
 
 type RouteRegistry = {
   post: (path: string, handler: (req: RequestLike, res: ResponseLike) => void) => void;
+};
+
+type DiagnosticsRoutesOptions = {
+  registry?: SessionRegistry;
+  extensionBridge?: ExtensionBridge;
+  drive?: DriveController;
+  inspectService?: InspectService;
+  recoveryTracker?: RecoveryTracker;
 };
 
 type ErrorEnvelope = {
@@ -44,7 +57,10 @@ const sendResult = <T>(res: ResponseLike, result: T): void => {
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
-export const registerDiagnosticsRoutes = (router: RouteRegistry): void => {
+export const registerDiagnosticsRoutes = (
+  router: RouteRegistry,
+  options: DiagnosticsRoutesOptions = {}
+): void => {
   router.post("/diagnostics/doctor", (req, res) => {
     let sessionId: string | undefined;
     if (req.body !== undefined) {
@@ -70,7 +86,65 @@ export const registerDiagnosticsRoutes = (router: RouteRegistry): void => {
     }
 
     try {
-      const report = buildDiagnosticReport(sessionId);
+      const context: DiagnosticsContext = {};
+      if (options.registry && sessionId) {
+        try {
+          const session = options.registry.require(sessionId);
+          context.sessionState = session.state;
+        } catch {
+          // Ignore missing session for diagnostics.
+        }
+      }
+
+      if (options.extensionBridge) {
+        const status = options.extensionBridge.getStatus();
+        context.extension = {
+          connected: status.connected,
+          lastSeenAt: status.lastSeenAt,
+        };
+      }
+
+      if (options.drive) {
+        const lastError = options.drive.getLastError();
+        if (lastError) {
+          context.driveLastError = {
+            code: lastError.error.code,
+            message: lastError.error.message,
+            retryable: lastError.error.retryable,
+            at: lastError.at,
+          };
+        }
+      }
+
+      if (options.inspectService) {
+        context.cdp = {
+          connected: options.inspectService.isConnected(),
+        };
+        const lastError = options.inspectService.getLastError();
+        if (lastError) {
+          context.inspectLastError = {
+            code: lastError.error.code,
+            message: lastError.error.message,
+            retryable: lastError.error.retryable,
+            at: lastError.at,
+          };
+        }
+      }
+
+      if (options.recoveryTracker) {
+        const attempt = options.recoveryTracker.getLastAttempt();
+        if (attempt) {
+          context.recoveryAttempt = {
+            sessionId: attempt.sessionId,
+            recovered: attempt.recovered,
+            state: attempt.state,
+            message: attempt.message,
+            at: attempt.at,
+          };
+        }
+      }
+
+      const report = buildDiagnosticReport(sessionId, context);
       sendResult(res, report);
     } catch {
       sendError(res, 500, {

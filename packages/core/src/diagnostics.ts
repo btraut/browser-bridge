@@ -32,6 +32,36 @@ export type DiagnosticReport = {
   notes?: string[];
 };
 
+export type DiagnosticsContext = {
+  sessionState?: string;
+  extension?: {
+    connected: boolean;
+    lastSeenAt?: string;
+  };
+  cdp?: {
+    connected: boolean;
+  };
+  driveLastError?: {
+    code: string;
+    message: string;
+    retryable: boolean;
+    at: string;
+  };
+  inspectLastError?: {
+    code: string;
+    message: string;
+    retryable: boolean;
+    at: string;
+  };
+  recoveryAttempt?: {
+    sessionId: string;
+    recovered: boolean;
+    state: string;
+    message?: string;
+    at: string;
+  };
+};
+
 const CHROME_PATH_PLACEHOLDER = "CHROME_PATH_UNSET";
 
 const resolveChromePath = (): { value: string; configured: boolean } => {
@@ -44,9 +74,14 @@ const resolveChromePath = (): { value: string; configured: boolean } => {
 };
 
 export const buildDiagnosticReport = (
-  sessionId?: string
+  sessionId?: string,
+  context: DiagnosticsContext = {}
 ): DiagnosticReport => {
   const chromePath = resolveChromePath();
+  const extensionConnected = context.extension?.connected ?? false;
+  const cdpConnected = context.cdp?.connected ?? false;
+  const sessionState = context.sessionState;
+
   const checks: DiagnosticCheck[] = [
     {
       name: "chrome.path",
@@ -60,26 +95,69 @@ export const buildDiagnosticReport = (
     },
     {
       name: "extension.connected",
-      ok: false,
-      message: "Extension is not connected.",
+      ok: extensionConnected,
+      message: extensionConnected
+        ? "Extension is connected."
+        : "Extension is not connected.",
     },
     {
       name: "cdp.connected",
-      ok: false,
-      message: "CDP is not connected.",
+      ok: cdpConnected,
+      message: cdpConnected ? "CDP is connected." : "CDP is not connected.",
     },
     {
       name: "session.state",
-      ok: false,
-      message: sessionId
-        ? "Session state unavailable (stub)."
+      ok: Boolean(sessionState),
+      message: sessionState
+        ? `Session state is ${sessionState}.`
+        : sessionId
+        ? "Session state unavailable."
         : "Session id not provided.",
       details: {
         session_id: sessionId || null,
-        state: "UNKNOWN",
+        state: sessionState ?? "UNKNOWN",
       },
     },
   ];
+
+  if (context.driveLastError) {
+    checks.push({
+      name: "drive.last_error",
+      ok: false,
+      message: context.driveLastError.message,
+      details: {
+        code: context.driveLastError.code,
+        retryable: context.driveLastError.retryable,
+        at: context.driveLastError.at,
+      },
+    });
+  }
+
+  if (context.inspectLastError) {
+    checks.push({
+      name: "inspect.last_error",
+      ok: false,
+      message: context.inspectLastError.message,
+      details: {
+        code: context.inspectLastError.code,
+        retryable: context.inspectLastError.retryable,
+        at: context.inspectLastError.at,
+      },
+    });
+  }
+
+  if (context.recoveryAttempt) {
+    checks.push({
+      name: "recovery.last_attempt",
+      ok: context.recoveryAttempt.recovered,
+      message: context.recoveryAttempt.message ?? "Recovery attempt recorded.",
+      details: {
+        session_id: context.recoveryAttempt.sessionId,
+        state: context.recoveryAttempt.state,
+        at: context.recoveryAttempt.at,
+      },
+    });
+  }
 
   const report: DiagnosticReport = {
     ok: checks.every((check) => check.ok),
@@ -90,17 +168,18 @@ export const buildDiagnosticReport = (
       reachable: false,
     },
     extension: {
-      connected: false,
+      connected: extensionConnected,
+      last_seen_at: context.extension?.lastSeenAt,
     },
     cdp: {
-      connected: false,
+      connected: cdpConnected,
     },
     artifacts: sessionId
       ? {
           root_dir: getArtifactRootDir(sessionId),
         }
       : undefined,
-    notes: ["Diagnostics are currently stubbed."],
+    notes: ["Diagnostics include runtime status; some checks may be stubbed."],
   };
 
   if (!chromePath.configured) {
