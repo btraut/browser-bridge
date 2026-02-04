@@ -6,5 +6,13 @@
   "types": "dist/index.d.ts",
   "files": [
     "dist"
-  ]
+  ],
+  "bin": {
+    "browser-vision": "dist/index.js"
+  },
+  "dependencies": {
+    "@browser-vision/core": "file:../core",
+    "@browser-vision/shared": "file:../shared",
+    "commander": "^14.0.3"
+  }
 }
