@@ -47,6 +47,42 @@ const runDriveAction = async (
     return element.getClientRects().length > 0;
   };
 
+  // Heuristic guard against unsafe regex patterns to avoid ReDoS in url_matches.
+  const buildUrlMatcher = (
+    pattern: string
+  ):
+    | { ok: true; matcher: (url: string) => boolean }
+    | { ok: false; error: ContentResult } => {
+    const maxLength = 256;
+    if (pattern.length > maxLength) {
+      return {
+        ok: false,
+        error: buildError(
+          "INVALID_ARGUMENT",
+          `url_matches pattern exceeds ${maxLength} characters.`
+        ),
+      };
+    }
+    const nestedQuantifiers =
+      /\((?:[^()\\]|\\.)*[+*{](?:[^()\\]|\\.)*\)[+*{]/.test(pattern);
+    const repeatedWildcards = /(\.\*.*\.\*)|(\.\+.*\.\+)/.test(pattern);
+    if (nestedQuantifiers || repeatedWildcards) {
+      return {
+        ok: false,
+        error: buildError(
+          "INVALID_ARGUMENT",
+          "url_matches pattern rejected due to unsafe regex complexity."
+        ),
+      };
+    }
+    try {
+      const regex = new RegExp(pattern);
+      return { ok: true, matcher: (url: string) => regex.test(url) };
+    } catch {
+      return { ok: true, matcher: (url: string) => url.includes(pattern) };
+    }
+  };
+
   const findByText = (text: string): Element | null => {
     const tree = document.createTreeWalker(
       document.body,
@@ -271,18 +307,20 @@ const runDriveAction = async (
             ? Math.max(0, timeout_ms)
             : 30000;
         const start = Date.now();
+        const urlMatcher =
+          kind === "url_matches" ? buildUrlMatcher(value) : null;
+        if (urlMatcher && !urlMatcher.ok) {
+          return urlMatcher.error;
+        }
 
         const checkCondition = (): boolean => {
           if (kind === 'text_present') {
             return (document.body?.innerText ?? '').includes(value);
           }
           if (kind === 'url_matches') {
-            try {
-              const regex = new RegExp(value);
-              return regex.test(window.location.href);
-            } catch {
-              return window.location.href.includes(value);
-            }
+            return urlMatcher
+              ? urlMatcher.matcher(window.location.href)
+              : window.location.href.includes(value);
           }
           const selector = value;
           const element = document.querySelector(selector);
