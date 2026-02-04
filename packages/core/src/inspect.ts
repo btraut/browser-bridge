@@ -419,7 +419,7 @@ export class InspectService {
       const dom = new JSDOM(html, { url });
       const reader = new Readability(dom.window.document);
       article = reader.parse();
-    } catch (error) {
+    } catch {
       const err = new InspectError(
         "EVALUATION_FAILED",
         "Failed to parse page content.",
