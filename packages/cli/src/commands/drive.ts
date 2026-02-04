@@ -2,6 +2,7 @@ import { Command } from "commander";
 import {
   DriveClickInputSchema,
   DriveNavigateInputSchema,
+  DriveScrollInputSchema,
   DriveTabActivateInputSchema,
   DriveTabCloseInputSchema,
   DriveTabListInputSchema,
@@ -97,6 +98,31 @@ export const registerDriveCommands = (program: Command): void => {
           submit: Boolean(options.submit),
         });
         return client.post("/drive/type", payload);
+      });
+    });
+
+  drive
+    .command("scroll")
+    .description("Scroll the page")
+    .requiredOption("--session-id <id>", "Session identifier")
+    .option("--delta-x <px>", "Scroll delta X")
+    .option("--delta-y <px>", "Scroll delta Y")
+    .option("--top <px>", "Scroll top position")
+    .option("--left <px>", "Scroll left position")
+    .option("--behavior <mode>", "Scroll behavior (auto, smooth)")
+    .option("--tab-id <id>", "Tab identifier")
+    .action(async (options, command) => {
+      await runCommand(command, (client) => {
+        const payload = parseInput(DriveScrollInputSchema, {
+          session_id: options.sessionId,
+          delta_x: parseNumber(options.deltaX),
+          delta_y: parseNumber(options.deltaY),
+          top: parseNumber(options.top),
+          left: parseNumber(options.left),
+          behavior: options.behavior,
+          tab_id: parseNumber(options.tabId),
+        });
+        return client.post("/drive/scroll", payload);
       });
     });
 

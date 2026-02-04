@@ -4,6 +4,7 @@ import {
   ArtifactsScreenshotInputSchema,
   DiagnosticsDoctorInputSchema,
   DriveNavigateInputSchema,
+  DriveScrollInputSchema,
   InspectDomSnapshotInputSchema,
   LocatorSchema,
   OpResultSchema,
@@ -32,6 +33,14 @@ describe("shared schemas", () => {
       url: "https://example.com",
     });
     expect(parsed.wait).toBe("domcontentloaded");
+  });
+
+  it("parses drive scroll input", () => {
+    const parsed = DriveScrollInputSchema.parse({
+      session_id: "session-1",
+      delta_y: 120,
+    });
+    expect(parsed.delta_y).toBe(120);
   });
 
   it("parses inspect dom snapshot defaults", () => {

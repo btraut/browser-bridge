@@ -154,6 +154,17 @@ export const DriveTypeInputSchema = z.object({
 });
 export const DriveTypeOutputSchema = OpResultSchema;
 
+export const DriveScrollInputSchema = z.object({
+  session_id: z.string().min(1),
+  delta_x: z.number().finite().optional(),
+  delta_y: z.number().finite().optional(),
+  top: z.number().finite().optional(),
+  left: z.number().finite().optional(),
+  behavior: z.enum(["auto", "smooth"]).optional(),
+  tab_id: z.number().finite().optional(),
+});
+export const DriveScrollOutputSchema = OpResultSchema;
+
 export const DriveWaitForInputSchema = z.object({
   session_id: z.string().min(1),
   condition: DriveWaitConditionSchema,

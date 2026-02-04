@@ -14,6 +14,8 @@ import {
   DriveClickOutputSchema,
   DriveNavigateInputSchema,
   DriveNavigateOutputSchema,
+  DriveScrollInputSchema,
+  DriveScrollOutputSchema,
   DriveTabActivateInputSchema,
   DriveTabActivateOutputSchema,
   DriveTabCloseInputSchema,
@@ -94,6 +96,8 @@ export type DriveClickInput = z.infer<typeof DriveClickInputSchema>;
 export type DriveClickOutput = z.infer<typeof DriveClickOutputSchema>;
 export type DriveTypeInput = z.infer<typeof DriveTypeInputSchema>;
 export type DriveTypeOutput = z.infer<typeof DriveTypeOutputSchema>;
+export type DriveScrollInput = z.infer<typeof DriveScrollInputSchema>;
+export type DriveScrollOutput = z.infer<typeof DriveScrollOutputSchema>;
 export type DriveWaitForInput = z.infer<typeof DriveWaitForInputSchema>;
 export type DriveWaitForOutput = z.infer<typeof DriveWaitForOutputSchema>;
 export type DriveTabInfo = z.infer<typeof DriveTabInfoSchema>;

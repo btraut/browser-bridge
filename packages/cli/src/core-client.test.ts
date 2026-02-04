@@ -1,18 +1,19 @@
 import { describe, expect, it, vi } from "vitest";
 import { createCoreClient } from "./core-client";
 
-const makeResponse = (body: unknown, ok = true) => ({
-  ok,
-  status: ok ? 200 : 500,
-  json: async () => body,
-  text: async () => JSON.stringify(body),
-});
+const makeResponse = (body: unknown, ok = true) =>
+  ({
+    ok,
+    status: ok ? 200 : 500,
+    json: async () => body,
+    text: async () => JSON.stringify(body),
+  }) as unknown as Response;
 
 describe("createCoreClient", () => {
   it("posts to Core with JSON payload", async () => {
-    const fetchImpl = vi.fn(async (_url: string, _init?: RequestInit) =>
+    const fetchImpl = vi.fn(async () =>
       makeResponse({ ok: true, result: { value: "ok" } })
-    ) as typeof fetch;
+    ) as unknown as typeof fetch;
 
     const client = createCoreClient({
       host: "127.0.0.1",
@@ -40,7 +41,7 @@ describe("createCoreClient", () => {
         return makeResponse({ ok: true });
       }
       return makeResponse({ ok: true, result: { ok: true } });
-    }) as typeof fetch;
+    }) as unknown as typeof fetch;
 
     const client = createCoreClient({
       host: "127.0.0.1",
