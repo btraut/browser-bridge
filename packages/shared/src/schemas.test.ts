@@ -8,6 +8,7 @@ import {
   DriveDragInputSchema,
   DriveFillFormInputSchema,
   DriveHandleDialogInputSchema,
+  DriveKeyPressInputSchema,
   DriveNavigateInputSchema,
   DriveScrollInputSchema,
   DriveTypeInputSchema,
@@ -112,6 +113,15 @@ describe('shared schemas', () => {
       promptText: 'ok',
     });
     expect(parsed.action).toBe('accept');
+  });
+
+  it('parses key press input', () => {
+    const parsed = DriveKeyPressInputSchema.parse({
+      session_id: 'session-1',
+      key: 'Enter',
+      modifiers: { ctrl: true },
+    });
+    expect(parsed.key).toBe('Enter');
   });
 
   it('requires a scroll delta or position', () => {

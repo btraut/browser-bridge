@@ -4,6 +4,7 @@ import {
   DriveDragInputSchema,
   DriveFillFormInputSchema,
   DriveHandleDialogInputSchema,
+  DriveKeyPressInputSchema,
   DriveNavigateInputSchema,
   DriveScrollInputSchema,
   DriveTabActivateInputSchema,
@@ -189,6 +190,33 @@ export const registerDriveCommands = (program: Command): void => {
           tab_id: parseNumber(options.tabId),
         });
         return client.post('/drive/handle_dialog', payload);
+      });
+    });
+
+  drive
+    .command('key-press')
+    .description('Press a keyboard key')
+    .requiredOption('--session-id <id>', 'Session identifier')
+    .requiredOption('--key <key>', 'Key to press (e.g. Enter, ArrowDown)')
+    .option('--ctrl', 'Hold control modifier')
+    .option('--alt', 'Hold alt modifier')
+    .option('--shift', 'Hold shift modifier')
+    .option('--meta', 'Hold meta modifier')
+    .option('--tab-id <id>', 'Tab identifier')
+    .action(async (options, command) => {
+      await runCommand(command, (client) => {
+        const payload = parseInput(DriveKeyPressInputSchema, {
+          session_id: options.sessionId,
+          key: options.key,
+          modifiers: {
+            ctrl: Boolean(options.ctrl),
+            alt: Boolean(options.alt),
+            shift: Boolean(options.shift),
+            meta: Boolean(options.meta),
+          },
+          tab_id: parseNumber(options.tabId),
+        });
+        return client.post('/drive/key_press', payload);
       });
     });
 

@@ -13,6 +13,8 @@ import {
   DriveFillFormOutputSchema,
   DriveHandleDialogInputSchema,
   DriveHandleDialogOutputSchema,
+  DriveKeyPressInputSchema,
+  DriveKeyPressOutputSchema,
   DriveNavigateInputSchema,
   DriveNavigateOutputSchema,
   DriveScrollInputSchema,
@@ -194,6 +196,16 @@ export const TOOL_DEFINITIONS: Array<{ name: string; config: ToolConfig }> = [
       inputSchema: DriveHandleDialogInputSchema,
       outputSchema: envelope(DriveHandleDialogOutputSchema),
       corePath: '/drive/handle_dialog',
+    },
+  },
+  {
+    name: 'drive.key_press',
+    config: {
+      title: 'Drive Key Press',
+      description: 'Press a key on the active element.',
+      inputSchema: DriveKeyPressInputSchema,
+      outputSchema: envelope(DriveKeyPressOutputSchema),
+      corePath: '/drive/key_press',
     },
   },
   {

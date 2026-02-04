@@ -221,6 +221,21 @@ export const DriveHandleDialogInputSchema = z.object({
 });
 export const DriveHandleDialogOutputSchema = OpResultSchema;
 
+export const DriveKeyModifiersSchema = z.object({
+  ctrl: z.boolean().optional(),
+  alt: z.boolean().optional(),
+  shift: z.boolean().optional(),
+  meta: z.boolean().optional(),
+});
+
+export const DriveKeyPressInputSchema = z.object({
+  session_id: z.string().min(1),
+  key: z.string().min(1),
+  modifiers: DriveKeyModifiersSchema.optional(),
+  tab_id: z.number().finite().optional(),
+});
+export const DriveKeyPressOutputSchema = OpResultSchema;
+
 export const DriveScrollInputSchema = z
   .object({
     session_id: z.string().min(1),

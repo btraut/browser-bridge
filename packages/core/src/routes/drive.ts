@@ -5,6 +5,7 @@ import {
   DriveDragInputSchema,
   DriveFillFormInputSchema,
   DriveHandleDialogInputSchema,
+  DriveKeyPressInputSchema,
   DriveNavigateInputSchema,
   DriveScrollInputSchema,
   DriveTabActivateInputSchema,
@@ -152,6 +153,10 @@ export const registerDriveRoutes = (
   router.post(
     '/drive/handle_dialog',
     makeHandler('drive.handle_dialog', DriveHandleDialogInputSchema, drive)
+  );
+  router.post(
+    '/drive/key_press',
+    makeHandler('drive.key_press', DriveKeyPressInputSchema, drive)
   );
   router.post(
     '/drive/scroll',

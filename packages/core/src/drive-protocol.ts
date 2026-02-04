@@ -64,6 +64,17 @@ export type DriveHandleDialogParams = {
   tab_id?: number;
 };
 
+export type DriveKeyPressParams = {
+  key: string;
+  modifiers?: {
+    ctrl?: boolean;
+    alt?: boolean;
+    shift?: boolean;
+    meta?: boolean;
+  };
+  tab_id?: number;
+};
+
 export type DriveScrollParams = {
   delta_x?: number;
   delta_y?: number;
@@ -106,6 +117,7 @@ export type DriveAction =
   | 'drive.fill_form'
   | 'drive.drag'
   | 'drive.handle_dialog'
+  | 'drive.key_press'
   | 'drive.scroll'
   | 'drive.wait_for'
   | 'drive.tab_list'

@@ -288,6 +288,39 @@ const runDriveAction = async (
     }
   };
 
+  const keyToCode = (key: string): string => {
+    const map: Record<string, string> = {
+      Enter: "Enter",
+      Tab: "Tab",
+      Escape: "Escape",
+      Esc: "Escape",
+      Backspace: "Backspace",
+      Delete: "Delete",
+      ArrowUp: "ArrowUp",
+      ArrowDown: "ArrowDown",
+      ArrowLeft: "ArrowLeft",
+      ArrowRight: "ArrowRight",
+      Home: "Home",
+      End: "End",
+      PageUp: "PageUp",
+      PageDown: "PageDown",
+      " ": "Space",
+      Space: "Space",
+    };
+    if (map[key]) {
+      return map[key];
+    }
+    if (key.length === 1) {
+      if (/[a-zA-Z]/.test(key)) {
+        return `Key${key.toUpperCase()}`;
+      }
+      if (/[0-9]/.test(key)) {
+        return `Digit${key}`;
+      }
+    }
+    return key;
+  };
+
   const activeEditableElement = (): HTMLElement | null => {
     const active = document.activeElement;
     if (!active || !(active instanceof HTMLElement)) {
@@ -521,6 +554,36 @@ const runDriveAction = async (
         dispatchDrag(dropTarget, 'drop', endX, endY, dataTransfer);
         dispatchPointer(dropTarget, 'pointerup', endX, endY);
         dispatchDrag(fromEl, 'dragend', endX, endY, dataTransfer);
+        return ok();
+      }
+      case 'drive.key_press': {
+        const { key, modifiers } = parseParams();
+        if (typeof key !== 'string' || key.length === 0) {
+          return buildError(
+            'INVALID_ARGUMENT',
+            'key must be a non-empty string.'
+          );
+        }
+        const target =
+          document.activeElement instanceof HTMLElement
+            ? document.activeElement
+            : document.body;
+        if (!target) {
+          return buildError('INVALID_ARGUMENT', 'No target for key press.');
+        }
+        const mods = (modifiers ?? {}) as Record<string, unknown>;
+        const eventInit: KeyboardEventInit = {
+          key,
+          code: keyToCode(key),
+          bubbles: true,
+          cancelable: true,
+          ctrlKey: Boolean(mods.ctrl),
+          altKey: Boolean(mods.alt),
+          shiftKey: Boolean(mods.shift),
+          metaKey: Boolean(mods.meta),
+        };
+        target.dispatchEvent(new KeyboardEvent('keydown', eventInit));
+        target.dispatchEvent(new KeyboardEvent('keyup', eventInit));
         return ok();
       }
       case 'drive.scroll': {
