@@ -1,8 +1,10 @@
 #!/usr/bin/env node
 import { Command } from "commander";
 import { registerArtifactsCommands } from "./commands/artifacts";
+import { registerDiagnosticsCommands } from "./commands/diagnostics";
 import { registerDriveCommands } from "./commands/drive";
 import { registerInspectCommands } from "./commands/inspect";
+import { registerOpenArtifactsCommand } from "./commands/open-artifacts";
 import { registerSessionCommands } from "./commands/session";
 
 const program = new Command();
@@ -19,5 +21,7 @@ registerSessionCommands(program);
 registerDriveCommands(program);
 registerInspectCommands(program);
 registerArtifactsCommands(program);
+registerDiagnosticsCommands(program);
+registerOpenArtifactsCommand(program);
 
 void program.parseAsync(process.argv);
