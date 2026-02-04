@@ -24,6 +24,14 @@ export type DriveNavigateParams = {
   wait?: 'none' | 'domcontentloaded';
 };
 
+export type DriveGoBackParams = {
+  tab_id?: number;
+};
+
+export type DriveGoForwardParams = {
+  tab_id?: number;
+};
+
 export type DriveClickParams = {
   locator: DriveLocator;
   click_count?: number;
@@ -118,6 +126,8 @@ export type DriveTabReportParams = {
 
 export type DriveAction =
   | 'drive.navigate'
+  | 'drive.go_back'
+  | 'drive.go_forward'
   | 'drive.click'
   | 'drive.hover'
   | 'drive.type'

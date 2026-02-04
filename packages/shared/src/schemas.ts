@@ -160,6 +160,18 @@ export const DriveNavigateInputSchema = z.object({
 });
 export const DriveNavigateOutputSchema = OpResultSchema;
 
+export const DriveGoBackInputSchema = z.object({
+  session_id: z.string().min(1),
+  tab_id: z.number().finite().optional(),
+});
+export const DriveGoBackOutputSchema = OpResultSchema;
+
+export const DriveGoForwardInputSchema = z.object({
+  session_id: z.string().min(1),
+  tab_id: z.number().finite().optional(),
+});
+export const DriveGoForwardOutputSchema = OpResultSchema;
+
 export const DriveClickInputSchema = z.object({
   session_id: z.string().min(1),
   locator: LocatorSchema,

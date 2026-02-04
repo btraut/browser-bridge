@@ -587,6 +587,51 @@ class DriveSocket {
           respondOk({ ok: true });
           return;
         }
+        case 'drive.go_back':
+        case 'drive.go_forward': {
+          const params = (message.params ?? {}) as Record<string, unknown>;
+          let tabId = params.tab_id;
+          if (tabId !== undefined && typeof tabId !== 'number') {
+            respondError({
+              code: 'INVALID_ARGUMENT',
+              message: 'tab_id must be a number when provided.',
+              retryable: false,
+            });
+            return;
+          }
+          if (tabId === undefined) {
+            tabId = await getActiveTabId();
+          }
+          try {
+            await wrapChromeVoid((callback) => {
+              if (message.action === 'drive.go_back') {
+                chrome.tabs.goBack(tabId as number, () => callback());
+              } else {
+                chrome.tabs.goForward(tabId as number, () => callback());
+              }
+            });
+          } catch (error) {
+            respondError({
+              code: 'FAILED_PRECONDITION',
+              message: error instanceof Error ? error.message : 'No history entry.',
+              retryable: false,
+            });
+            return;
+          }
+          markTabActive(tabId as number);
+          try {
+            await waitForDomContentLoaded(tabId as number, 30000);
+          } catch (error) {
+            respondError({
+              code: 'TIMEOUT',
+              message: error instanceof Error ? error.message : 'Timed out waiting.',
+              retryable: true,
+            });
+            return;
+          }
+          respondOk({ ok: true });
+          return;
+        }
         case 'drive.tab_list': {
           const tabs = await queryTabs();
           const result: DriveTabListResult = { tabs };

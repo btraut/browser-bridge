@@ -3,6 +3,8 @@ import {
   DriveClickInputSchema,
   DriveDragInputSchema,
   DriveFillFormInputSchema,
+  DriveGoBackInputSchema,
+  DriveGoForwardInputSchema,
   DriveHandleDialogInputSchema,
   DriveHoverInputSchema,
   DriveKeyPressInputSchema,
@@ -51,6 +53,36 @@ export const registerDriveCommands = (program: Command): void => {
           wait: options.wait,
         });
         return client.post('/drive/navigate', payload);
+      });
+    });
+
+  drive
+    .command('go-back')
+    .description('Go back in browser history')
+    .requiredOption('--session-id <id>', 'Session identifier')
+    .option('--tab-id <id>', 'Tab identifier')
+    .action(async (options, command) => {
+      await runCommand(command, (client) => {
+        const payload = parseInput(DriveGoBackInputSchema, {
+          session_id: options.sessionId,
+          tab_id: parseNumber(options.tabId),
+        });
+        return client.post('/drive/go_back', payload);
+      });
+    });
+
+  drive
+    .command('go-forward')
+    .description('Go forward in browser history')
+    .requiredOption('--session-id <id>', 'Session identifier')
+    .option('--tab-id <id>', 'Tab identifier')
+    .action(async (options, command) => {
+      await runCommand(command, (client) => {
+        const payload = parseInput(DriveGoForwardInputSchema, {
+          session_id: options.sessionId,
+          tab_id: parseNumber(options.tabId),
+        });
+        return client.post('/drive/go_forward', payload);
       });
     });
 

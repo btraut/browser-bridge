@@ -11,6 +11,10 @@ import {
   DriveDragOutputSchema,
   DriveFillFormInputSchema,
   DriveFillFormOutputSchema,
+  DriveGoBackInputSchema,
+  DriveGoBackOutputSchema,
+  DriveGoForwardInputSchema,
+  DriveGoForwardOutputSchema,
   DriveHandleDialogInputSchema,
   DriveHandleDialogOutputSchema,
   DriveHoverInputSchema,
@@ -150,6 +154,26 @@ export const TOOL_DEFINITIONS: Array<{ name: string; config: ToolConfig }> = [
       inputSchema: DriveNavigateInputSchema,
       outputSchema: envelope(DriveNavigateOutputSchema),
       corePath: '/drive/navigate',
+    },
+  },
+  {
+    name: 'drive.go_back',
+    config: {
+      title: 'Drive Go Back',
+      description: 'Go back in browser history.',
+      inputSchema: DriveGoBackInputSchema,
+      outputSchema: envelope(DriveGoBackOutputSchema),
+      corePath: '/drive/go_back',
+    },
+  },
+  {
+    name: 'drive.go_forward',
+    config: {
+      title: 'Drive Go Forward',
+      description: 'Go forward in browser history.',
+      inputSchema: DriveGoForwardInputSchema,
+      outputSchema: envelope(DriveGoForwardOutputSchema),
+      corePath: '/drive/go_forward',
     },
   },
   {

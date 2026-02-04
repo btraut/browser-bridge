@@ -7,6 +7,8 @@ import {
   DriveClickInputSchema,
   DriveDragInputSchema,
   DriveFillFormInputSchema,
+  DriveGoBackInputSchema,
+  DriveGoForwardInputSchema,
   DriveHandleDialogInputSchema,
   DriveHoverInputSchema,
   DriveKeyPressInputSchema,
@@ -78,6 +80,18 @@ describe('shared schemas', () => {
         tab_id: 9,
       }).tab_id
     ).toBe(9);
+    expect(
+      DriveGoBackInputSchema.parse({
+        session_id: "session-1",
+        tab_id: 4,
+      }).tab_id
+    ).toBe(4);
+    expect(
+      DriveGoForwardInputSchema.parse({
+        session_id: "session-1",
+        tab_id: 8,
+      }).tab_id
+    ).toBe(8);
   });
 
   it('parses drive scroll input', () => {
