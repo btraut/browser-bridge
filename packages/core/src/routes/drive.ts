@@ -149,17 +149,27 @@ const makeHandler = <T extends { session_id: string }>(
       ? options.timeoutFromParams(params)
       : undefined;
 
-    void drive.execute(sessionId, action, params, timeoutMs).then((result) => {
-      if (result.ok) {
-        const payload =
-          result.result === undefined
-            ? (options.defaultResult ?? { ok: true })
-            : result.result;
-        sendResult(res, payload);
-        return;
-      }
-      sendError(res, errorStatus(result.error.code), result.error);
-    });
+    void drive
+      .execute(sessionId, action, params, timeoutMs)
+      .then((result) => {
+        if (result.ok) {
+          const payload =
+            result.result === undefined
+              ? options.defaultResult ?? { ok: true }
+              : result.result;
+          sendResult(res, payload);
+          return;
+        }
+        sendError(res, errorStatus(result.error.code), result.error);
+      })
+      .catch((error) => {
+        console.error('Drive execute failed:', error);
+        sendError(res, errorStatus('INTERNAL'), {
+          code: 'INTERNAL',
+          message: 'Unexpected error while executing drive action.',
+          retryable: false,
+        });
+      });
   };
 };
 

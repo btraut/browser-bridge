@@ -360,7 +360,9 @@ class DriveSocket {
   private debuggerIdleTimeoutMs: number | null = null;
 
   start(): void {
-    void this.connect();
+    void this.connect().catch((error) => {
+      console.error("DriveSocket connect failed:", error);
+    });
   }
 
   stop(): void {
@@ -375,7 +377,9 @@ class DriveSocket {
   }
 
   sendTabReport(): void {
-    void this.emitTabReport();
+    void this.emitTabReport().catch((error) => {
+      console.error("DriveSocket emitTabReport failed:", error);
+    });
   }
 
   private scheduleReconnect(): void {
@@ -385,7 +389,9 @@ class DriveSocket {
     const delay = this.reconnectDelayMs;
     this.reconnectTimer = self.setTimeout(() => {
       this.reconnectTimer = null;
-      void this.connect();
+      void this.connect().catch((error) => {
+        console.error("DriveSocket reconnect failed:", error);
+      });
     }, delay);
     this.reconnectDelayMs = Math.min(
       this.maxReconnectDelayMs,
@@ -401,7 +407,9 @@ class DriveSocket {
 
       socket.addEventListener('open', () => {
         this.reconnectDelayMs = 1000;
-        void this.sendHello();
+        void this.sendHello().catch((error) => {
+          console.error("DriveSocket hello failed:", error);
+        });
       });
 
       socket.addEventListener('message', (event) => {
@@ -490,7 +498,9 @@ class DriveSocket {
       return;
     }
     if (message.status === 'request') {
-      void this.handleRequest(message as ExtensionRequest);
+      void this.handleRequest(message as ExtensionRequest).catch((error) => {
+        console.error('DriveSocket handleRequest failed:', error);
+      });
     }
   }
 
@@ -1007,7 +1017,9 @@ class DriveSocket {
       return;
     }
     session.lastActivityAt = nowIso();
-    void this.refreshDebuggerIdleTimer(tabId);
+    void this.refreshDebuggerIdleTimer(tabId).catch((error) => {
+      console.error("DriveSocket refreshDebuggerIdleTimer failed:", error);
+    });
   }
 
   private async refreshDebuggerIdleTimer(tabId: number): Promise<void> {
@@ -1020,7 +1032,9 @@ class DriveSocket {
     }
     const timeoutMs = await this.getDebuggerIdleTimeoutMs();
     session.idleTimer = self.setTimeout(() => {
-      void this.detachDebugger(tabId);
+      void this.detachDebugger(tabId).catch((error) => {
+        console.error("DriveSocket detachDebugger failed:", error);
+      });
     }, timeoutMs);
   }
 
@@ -1093,13 +1107,17 @@ chrome.tabs.onRemoved.addListener((tabId: number) => {
 
 chrome.debugger.onEvent.addListener(
   (source: DebuggerTarget, method: string, params: Record<string, unknown>) => {
-    void socket.handleDebuggerEvent(source, method, params);
+    void socket.handleDebuggerEvent(source, method, params).catch((error) => {
+      console.error("DriveSocket handleDebuggerEvent failed:", error);
+    });
   }
 );
 
 chrome.debugger.onDetach.addListener(
   (source: DebuggerTarget, reason?: string) => {
-    void socket.handleDebuggerDetach(source, reason);
+    void socket.handleDebuggerDetach(source, reason).catch((error) => {
+      console.error('DriveSocket handleDebuggerDetach failed:', error);
+    });
   }
 );
 
