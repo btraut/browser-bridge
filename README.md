@@ -8,6 +8,10 @@ Hybrid Browser Control MCP (Drive + Inspect) for a local developer feedback loop
 - Chrome (stable)
 - Local-only usage (all services bind to 127.0.0.1)
 
+## Security Model (v1)
+- Extension <-> Core WebSocket has no authentication; trust local machine only.
+- Do not expose the port or run the Core daemon on shared hosts.
+
 ## Setup and Commands
 
 These commands are provided by the workspace scaffolding at the repo root. If the script names change, update this list to match `package.json`.
