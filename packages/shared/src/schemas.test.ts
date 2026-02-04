@@ -1,8 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { ErrorEnvelopeSchema } from "./errors";
 import {
+  ArtifactsScreenshotInputSchema,
+  DiagnosticsDoctorInputSchema,
+  DriveNavigateInputSchema,
+  InspectDomSnapshotInputSchema,
   LocatorSchema,
   OpResultSchema,
+  SessionCreateInputSchema,
   SessionStatusSchema,
 } from "./schemas";
 
@@ -14,6 +19,39 @@ describe("shared schemas", () => {
 
   it("parses an op result", () => {
     expect(OpResultSchema.parse({ ok: true }).ok).toBe(true);
+  });
+
+  it("applies defaults for session create", () => {
+    const parsed = SessionCreateInputSchema.parse({});
+    expect(parsed.mode).toBe("auto");
+  });
+
+  it("parses drive navigate defaults", () => {
+    const parsed = DriveNavigateInputSchema.parse({
+      session_id: "session-1",
+      url: "https://example.com",
+    });
+    expect(parsed.wait).toBe("domcontentloaded");
+  });
+
+  it("parses inspect dom snapshot defaults", () => {
+    const parsed = InspectDomSnapshotInputSchema.parse({
+      session_id: "session-1",
+    });
+    expect(parsed.format).toBe("ax");
+    expect(parsed.consistency).toBe("best_effort");
+  });
+
+  it("parses artifacts screenshot defaults", () => {
+    const parsed = ArtifactsScreenshotInputSchema.parse({
+      session_id: "session-1",
+    });
+    expect(parsed.target).toBe("viewport");
+  });
+
+  it("parses diagnostics doctor with optional session", () => {
+    const parsed = DiagnosticsDoctorInputSchema.parse({});
+    expect(parsed.session_id).toBeUndefined();
   });
 
   it("validates the error envelope shape", () => {
