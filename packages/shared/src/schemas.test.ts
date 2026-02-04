@@ -11,6 +11,7 @@ import {
   DriveGoForwardInputSchema,
   DriveHandleDialogInputSchema,
   DriveHoverInputSchema,
+  DriveSelectInputSchema,
   DriveKeyPressInputSchema,
   DriveNavigateInputSchema,
   DriveScrollInputSchema,
@@ -138,6 +139,15 @@ describe('shared schemas', () => {
       delay_ms: 100,
     });
     expect(parsed.delay_ms).toBe(100);
+  });
+
+  it('parses select input', () => {
+    const parsed = DriveSelectInputSchema.parse({
+      session_id: 'session-1',
+      locator: { css: 'select#size' },
+      value: 'large',
+    });
+    expect(parsed.value).toBe('large');
   });
 
   it('parses key press input', () => {

@@ -19,6 +19,8 @@ import {
   DriveHandleDialogOutputSchema,
   DriveHoverInputSchema,
   DriveHoverOutputSchema,
+  DriveSelectInputSchema,
+  DriveSelectOutputSchema,
   DriveKeyPressInputSchema,
   DriveKeyPressOutputSchema,
   DriveNavigateInputSchema,
@@ -194,6 +196,16 @@ export const TOOL_DEFINITIONS: Array<{ name: string; config: ToolConfig }> = [
       inputSchema: DriveHoverInputSchema,
       outputSchema: envelope(DriveHoverOutputSchema),
       corePath: '/drive/hover',
+    },
+  },
+  {
+    name: 'drive.select',
+    config: {
+      title: 'Drive Select',
+      description: 'Select an option in a dropdown.',
+      inputSchema: DriveSelectInputSchema,
+      outputSchema: envelope(DriveSelectOutputSchema),
+      corePath: '/drive/select',
     },
   },
   {

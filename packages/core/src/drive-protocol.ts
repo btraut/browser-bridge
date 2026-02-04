@@ -44,6 +44,14 @@ export type DriveHoverParams = {
   tab_id?: number;
 };
 
+export type DriveSelectParams = {
+  locator: DriveLocator;
+  value?: string;
+  text?: string;
+  index?: number;
+  tab_id?: number;
+};
+
 export type DriveTypeParams = {
   locator?: DriveLocator;
   text: string;
@@ -131,6 +139,7 @@ export type DriveAction =
   | 'drive.keepalive'
   | 'drive.click'
   | 'drive.hover'
+  | 'drive.select'
   | 'drive.type'
   | 'drive.fill_form'
   | 'drive.drag'

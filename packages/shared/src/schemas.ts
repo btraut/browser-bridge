@@ -191,6 +191,21 @@ export const DriveHoverOutputSchema = z.object({
   snapshot: z.string(),
 });
 
+export const DriveSelectInputSchema = z
+  .object({
+    session_id: z.string().min(1),
+    locator: LocatorSchema,
+    value: z.string().min(1).optional(),
+    text: z.string().min(1).optional(),
+    index: z.number().int().min(0).optional(),
+    tab_id: z.number().finite().optional(),
+  })
+  .refine((value) => value.value || value.text || value.index !== undefined, {
+    message: "Either value, text, or index must be provided.",
+    path: ["select"],
+  });
+export const DriveSelectOutputSchema = OpResultSchema;
+
 export const DriveTypeInputSchema = z.object({
   session_id: z.string().min(1),
   locator: LocatorSchema.optional(),

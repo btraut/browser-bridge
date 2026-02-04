@@ -210,6 +210,21 @@ const runDriveAction = async (
     return true;
   };
 
+  const selectOptionByIndex = (
+    select: HTMLSelectElement,
+    index: number
+  ): boolean => {
+    if (!Number.isInteger(index)) {
+      return false;
+    }
+    if (index < 0 || index >= select.options.length) {
+      return false;
+    }
+    select.selectedIndex = index;
+    dispatchValueEvents(select);
+    return true;
+  };
+
   const setTextValue = (
     element: HTMLElement,
     value: string,
@@ -418,6 +433,36 @@ const runDriveAction = async (
         }
         const html = document.documentElement?.outerHTML ?? '';
         return ok({ format: 'html', snapshot: html });
+      }
+      case 'drive.select': {
+        const { locator, value, text, index } = parseParams();
+        const target = resolveLocator(locator as Record<string, unknown>);
+        if (!target) {
+          return buildError('LOCATOR_NOT_FOUND', 'Failed to resolve locator.');
+        }
+        if (!(target instanceof HTMLSelectElement)) {
+          return buildError(
+            'INVALID_ARGUMENT',
+            'Target is not a select element.'
+          );
+        }
+        let applied = false;
+        if (typeof index === 'number' && Number.isFinite(index)) {
+          applied = selectOptionByIndex(target, Math.trunc(index));
+        }
+        if (!applied && typeof value === 'string') {
+          applied = selectOption(target, value);
+        }
+        if (!applied && typeof text === 'string') {
+          applied = selectOption(target, text);
+        }
+        if (!applied) {
+          return buildError(
+            'INVALID_ARGUMENT',
+            'No matching option found for select.'
+          );
+        }
+        return ok();
       }
       case 'drive.type': {
         const { locator, text, clear, submit } = parseParams();

@@ -11,6 +11,7 @@ import {
   DriveKeyPressInputSchema,
   DriveNavigateInputSchema,
   DriveScrollInputSchema,
+  DriveSelectInputSchema,
   DriveTabActivateInputSchema,
   DriveTabCloseInputSchema,
   DriveTabListInputSchema,
@@ -152,6 +153,10 @@ export const registerDriveRoutes = (
   router.post(
     '/drive/hover',
     makeHandler('drive.hover', DriveHoverInputSchema, drive)
+  );
+  router.post(
+    '/drive/select',
+    makeHandler('drive.select', DriveSelectInputSchema, drive)
   );
   router.post(
     '/drive/type',

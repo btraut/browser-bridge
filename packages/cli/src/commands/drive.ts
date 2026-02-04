@@ -7,6 +7,7 @@ import {
   DriveGoForwardInputSchema,
   DriveHandleDialogInputSchema,
   DriveHoverInputSchema,
+  DriveSelectInputSchema,
   DriveKeyPressInputSchema,
   DriveNavigateInputSchema,
   DriveScrollInputSchema,
@@ -139,6 +140,38 @@ export const registerDriveCommands = (program: Command): void => {
           delay_ms: parseNumber(options.delayMs),
         });
         return client.post('/drive/hover', payload);
+      });
+    });
+
+  drive
+    .command('select')
+    .description('Select an option in a dropdown')
+    .requiredOption('--session-id <id>', 'Session identifier')
+    .option('--locator-testid <id>', 'Locator test id')
+    .option('--locator-css <selector>', 'Locator CSS selector')
+    .option('--locator-text <text>', 'Locator text')
+    .option('--locator-role <role>', 'Locator role name')
+    .option('--locator-role-value <value>', 'Locator role value')
+    .option('--value <value>', 'Option value attribute')
+    .option('--text <text>', 'Option visible text')
+    .option('--index <index>', 'Option index (0-based)')
+    .action(async (options, command) => {
+      await runCommand(command, (client) => {
+        const locator = requireLocator({
+          locatorTestid: options.locatorTestid,
+          locatorCss: options.locatorCss,
+          locatorText: options.locatorText,
+          locatorRole: options.locatorRole,
+          locatorRoleValue: options.locatorRoleValue,
+        });
+        const payload = parseInput(DriveSelectInputSchema, {
+          session_id: options.sessionId,
+          locator,
+          value: options.value,
+          text: options.text,
+          index: parseNumber(options.index),
+        });
+        return client.post('/drive/select', payload);
       });
     });
 
