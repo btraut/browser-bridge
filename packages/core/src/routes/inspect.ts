@@ -23,6 +23,12 @@ type ErrorCode =
   | "SESSION_NOT_FOUND"
   | "SESSION_CLOSED"
   | "INSPECT_UNAVAILABLE"
+  | "EXTENSION_DISCONNECTED"
+  | "DEBUGGER_IN_USE"
+  | "ATTACH_DENIED"
+  | "TAB_NOT_FOUND"
+  | "NOT_SUPPORTED"
+  | "TIMEOUT"
   | "EVALUATION_FAILED"
   | "ARTIFACT_IO_ERROR"
   | "INTERNAL";
@@ -86,8 +92,20 @@ const sendError = (
         return 400;
       case "SESSION_NOT_FOUND":
         return 404;
+      case "TAB_NOT_FOUND":
+        return 404;
       case "SESSION_CLOSED":
         return 409;
+      case "DEBUGGER_IN_USE":
+        return 409;
+      case "ATTACH_DENIED":
+        return 403;
+      case "EXTENSION_DISCONNECTED":
+        return 503;
+      case "NOT_SUPPORTED":
+        return 501;
+      case "TIMEOUT":
+        return 504;
       case "INSPECT_UNAVAILABLE":
         return 503;
       case "EVALUATION_FAILED":
@@ -365,7 +383,11 @@ export const registerInspectRoutes = (
   options: InspectRoutesOptions
 ): void => {
   const inspect =
-    options.inspectService ?? createInspectService({ registry: options.registry });
+    options.inspectService ??
+    createInspectService({
+      registry: options.registry,
+      extensionBridge: options.extensionBridge,
+    });
 
   router.post(
     "/inspect/dom_snapshot",

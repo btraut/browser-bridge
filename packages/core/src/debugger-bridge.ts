@@ -112,6 +112,18 @@ export class DebuggerBridge {
     return { error: this.lastError, at: this.lastErrorAt };
   }
 
+  getSettings(): {
+    idleTimeoutMs: number;
+    consoleBufferSize: number;
+    networkBufferSize: number;
+  } {
+    return {
+      idleTimeoutMs: this.idleTimeoutMs,
+      consoleBufferSize: this.consoleBufferSize,
+      networkBufferSize: this.networkBufferSize,
+    };
+  }
+
   hasAttachments(): boolean {
     for (const state of this.tabs.values()) {
       if (state.attached) {

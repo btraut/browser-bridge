@@ -103,6 +103,7 @@ Artifacts
 
 Errors
 - All APIs return a standard envelope with stable error codes, retryable flag, and structured details.
+- Debugger-specific codes: `DEBUGGER_IN_USE`, `ATTACH_DENIED`, `TAB_NOT_FOUND`, `NOT_SUPPORTED`, `TIMEOUT`.
 
 Language Choice
 - TypeScript / Node.js for v1.

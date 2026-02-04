@@ -3,6 +3,7 @@ import type { SessionRegistry } from "../session";
 import type { ExtensionBridge } from "../extension-bridge";
 import type { DriveController } from "../drive";
 import type { InspectService } from "../inspect";
+import type { DebuggerBridge } from "../debugger-bridge";
 import type { RecoveryTracker } from "../recovery";
 
 type RequestLike = {
@@ -21,6 +22,7 @@ type RouteRegistry = {
 type DiagnosticsRoutesOptions = {
   registry?: SessionRegistry;
   extensionBridge?: ExtensionBridge;
+  debuggerBridge?: DebuggerBridge;
   drive?: DriveController;
   inspectService?: InspectService;
   recoveryTracker?: RecoveryTracker;
@@ -101,6 +103,25 @@ export const registerDiagnosticsRoutes = (
         context.extension = {
           connected: status.connected,
           lastSeenAt: status.lastSeenAt,
+        };
+      }
+
+      if (options.debuggerBridge) {
+        const settings = options.debuggerBridge.getSettings();
+        const lastError = options.debuggerBridge.getLastError();
+        context.debugger = {
+          attached: options.debuggerBridge.hasAttachments(),
+          idleTimeoutMs: settings.idleTimeoutMs,
+          consoleBufferSize: settings.consoleBufferSize,
+          networkBufferSize: settings.networkBufferSize,
+          lastError: lastError
+            ? {
+                code: lastError.error.code,
+                message: lastError.error.message,
+                retryable: lastError.error.retryable,
+                details: lastError.error.details,
+              }
+            : undefined,
         };
       }
 

@@ -31,7 +31,7 @@ export const createCoreServer = (options: CoreServerOptions = {}): CoreServer =>
   const extensionBridge = new ExtensionBridge({ registry });
   const debuggerBridge = new DebuggerBridge({ extensionBridge });
   const drive = new DriveController(extensionBridge, registry);
-  const inspect = createInspectService({ registry, debuggerBridge });
+  const inspect = createInspectService({ registry, debuggerBridge, extensionBridge });
   const recoveryTracker = new RecoveryTracker();
 
   app.use(express.json({ limit: "1mb" }));
@@ -51,10 +51,15 @@ export const createCoreServer = (options: CoreServerOptions = {}): CoreServer =>
 
   registerDriveRoutes(app, { drive });
   registerInspectRoutes(app, { registry, extensionBridge, inspectService: inspect });
-  registerArtifactsRoutes(app);
+  registerArtifactsRoutes(app, {
+    registry,
+    extensionBridge,
+    inspectService: inspect,
+  });
   registerDiagnosticsRoutes(app, {
     registry,
     extensionBridge,
+    debuggerBridge,
     drive,
     inspectService: inspect,
     recoveryTracker,

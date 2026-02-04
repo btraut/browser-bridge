@@ -12,5 +12,9 @@ describe("buildDiagnosticReport", () => {
   it("includes extension status by default", () => {
     const report = buildDiagnosticReport();
     expect(report.extension?.connected).toBe(false);
+    const debuggerCheck = report.checks?.find(
+      (check) => check.name === "debugger.attached"
+    );
+    expect(debuggerCheck?.ok).toBe(false);
   });
 });

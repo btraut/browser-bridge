@@ -7,6 +7,7 @@ This checklist validates the Drive + Inspect planes and artifact handling end-to
 2. Build the workspace: `npm run build`.
 3. Load the extension from `packages/extension` in `chrome://extensions`.
 4. Open a Chrome tab to a real page (example: `https://example.com`).
+5. Ensure DevTools is closed on the target tab (the debugger cannot attach while DevTools is open).
 
 ## Checklist (Core + CLI)
 1. Start the Core daemon in a terminal (optional if you rely on CLI auto-start):
@@ -39,4 +40,4 @@ This checklist validates the Drive + Inspect planes and artifact handling end-to
 - `drive tab-list` returns one or more tabs with URL/title metadata.
 - `inspect dom-snapshot` writes a snapshot JSON file.
 - `artifacts screenshot` returns an artifact path on disk.
-- `diagnostics doctor` reports extension connection status and session state.
+- `diagnostics doctor` reports extension connection status, debugger status, and session state.

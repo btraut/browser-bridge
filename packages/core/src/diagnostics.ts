@@ -16,6 +16,18 @@ export type DiagnosticReport = {
     version?: string;
     last_seen_at?: string;
   };
+  debugger?: {
+    attached?: boolean;
+    idle_timeout_ms?: number;
+    console_buffer_size?: number;
+    network_buffer_size?: number;
+    last_error?: {
+      code: string;
+      message: string;
+      retryable: boolean;
+      details?: Record<string, unknown>;
+    };
+  };
   artifacts?: {
     root_dir?: string;
   };
@@ -28,6 +40,18 @@ export type DiagnosticsContext = {
   extension?: {
     connected: boolean;
     lastSeenAt?: string;
+  };
+  debugger?: {
+    attached: boolean;
+    idleTimeoutMs: number;
+    consoleBufferSize: number;
+    networkBufferSize: number;
+    lastError?: {
+      code: string;
+      message: string;
+      retryable: boolean;
+      details?: Record<string, unknown>;
+    };
   };
   driveLastError?: {
     code: string;
@@ -55,6 +79,7 @@ export const buildDiagnosticReport = (
   context: DiagnosticsContext = {}
 ): DiagnosticReport => {
   const extensionConnected = context.extension?.connected ?? false;
+  const debuggerAttached = context.debugger?.attached ?? false;
   const sessionState = context.sessionState;
 
   const checks: DiagnosticCheck[] = [
@@ -64,6 +89,13 @@ export const buildDiagnosticReport = (
       message: extensionConnected
         ? "Extension is connected."
         : "Extension is not connected.",
+    },
+    {
+      name: "debugger.attached",
+      ok: debuggerAttached,
+      message: debuggerAttached
+        ? "Debugger is attached."
+        : "Debugger is not attached.",
     },
     {
       name: "session.state",
@@ -127,6 +159,15 @@ export const buildDiagnosticReport = (
       connected: extensionConnected,
       last_seen_at: context.extension?.lastSeenAt,
     },
+    debugger: context.debugger
+      ? {
+          attached: debuggerAttached,
+          idle_timeout_ms: context.debugger.idleTimeoutMs,
+          console_buffer_size: context.debugger.consoleBufferSize,
+          network_buffer_size: context.debugger.networkBufferSize,
+          last_error: context.debugger.lastError,
+        }
+      : undefined,
     artifacts: sessionId
       ? {
           root_dir: getArtifactRootDir(sessionId),

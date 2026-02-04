@@ -3,6 +3,7 @@ import { ErrorEnvelopeSchema } from "./errors";
 import {
   ArtifactsScreenshotInputSchema,
   DiagnosticsDoctorInputSchema,
+  DiagnosticReportSchema,
   DriveNavigateInputSchema,
   DriveScrollInputSchema,
   InspectDomSnapshotInputSchema,
@@ -61,6 +62,29 @@ describe("shared schemas", () => {
   it("parses diagnostics doctor with optional session", () => {
     const parsed = DiagnosticsDoctorInputSchema.parse({});
     expect(parsed.session_id).toBeUndefined();
+  });
+
+  it("parses diagnostics report with debugger info", () => {
+    const parsed = DiagnosticReportSchema.parse({
+      ok: true,
+      debugger: {
+        attached: true,
+        idle_timeout_ms: 15000,
+        console_buffer_size: 200,
+        network_buffer_size: 500,
+      },
+    });
+    expect(parsed.debugger?.attached).toBe(true);
+
+    const report = ErrorEnvelopeSchema.safeParse({
+      ok: false,
+      error: {
+        code: "DEBUGGER_IN_USE",
+        message: "Debugger already attached",
+        retryable: true,
+      },
+    });
+    expect(report.success).toBe(true);
   });
 
   it("validates the error envelope shape", () => {

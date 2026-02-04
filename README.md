@@ -27,6 +27,7 @@ The MCP adapter runs over stdio and forwards tool calls to Core.
 
 ## Diagnostics
 - CLI: `node packages/cli/dist/index.js diagnostics doctor --session-id <id>`
+- Reports extension and debugger status alongside session state.
 
 ## Extension (Drive Plane) - Load Unpacked
 1. Open Chrome and navigate to `chrome://extensions`.

@@ -82,6 +82,15 @@ export const DiagnosticReportSchema = z.object({
       last_seen_at: z.string().datetime().optional(),
     })
     .optional(),
+  debugger: z
+    .object({
+      attached: z.boolean().optional(),
+      idle_timeout_ms: z.number().finite().optional(),
+      console_buffer_size: z.number().finite().optional(),
+      network_buffer_size: z.number().finite().optional(),
+      last_error: ErrorInfoSchema.optional(),
+    })
+    .optional(),
   artifacts: z
     .object({
       root_dir: z.string().optional(),
