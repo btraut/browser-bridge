@@ -32,6 +32,12 @@ describe('transitionSession', () => {
     ).toBe(SessionState.READY);
   });
 
+  it('moves DRIVE_READY to INIT on drive disconnect', () => {
+    expect(
+      transitionSession(SessionState.DRIVE_READY, 'DRIVE_DISCONNECTED')
+    ).toBe(SessionState.INIT);
+  });
+
   it('moves READY to DEGRADED_DRIVE on drive disconnect', () => {
     expect(transitionSession(SessionState.READY, 'DRIVE_DISCONNECTED')).toBe(
       SessionState.DEGRADED_DRIVE
