@@ -33,6 +33,10 @@ The MCP adapter runs over stdio and forwards tool calls to Core.
 - Start the adapter: `node -e "require('@browser-vision/mcp-adapter').startMcpServer()"`
 - Use your MCP client to call `tools/list`, then `session.create`
 
+## API Notes
+- HTTP payloads use snake_case (for example `session_id`, `tab_id`, `include_metadata`), while TypeScript helpers use camelCase. This boundary is intentional at the HTTP edge.
+- Prefer `drive.go_back` / `drive.go_forward` for history navigation; `drive.back` / `drive.forward` remain as compatibility aliases.
+
 ## Diagnostics
 
 - CLI: `node packages/cli/dist/index.js diagnostics doctor --session-id <id>`
