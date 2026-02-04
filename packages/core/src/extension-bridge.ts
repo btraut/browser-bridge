@@ -55,6 +55,8 @@ export class ExtensionBridgeError extends Error {
 export type ExtensionBridgeOptions = {
   path?: string;
   registry?: SessionRegistry;
+  heartbeatIntervalMs?: number;
+  heartbeatTimeoutMs?: number;
 };
 
 export class ExtensionBridge {
@@ -66,8 +68,8 @@ export class ExtensionBridge {
   private tabs: DriveTabInfo[] = [];
   private heartbeatInterval: ReturnType<typeof setInterval> | null = null;
   private awaitingHeartbeat = false;
-  private readonly heartbeatIntervalMs = 15000;
-  private readonly heartbeatTimeoutMs = 5000;
+  private readonly heartbeatIntervalMs: number;
+  private readonly heartbeatTimeoutMs: number;
   private readonly path: string;
   private readonly registry?: SessionRegistry;
   private readonly debuggerListeners = new Set<DebuggerEventListener>();
@@ -76,6 +78,8 @@ export class ExtensionBridge {
     this.wss = new WebSocketServer({ noServer: true });
     this.path = options.path ?? '/drive';
     this.registry = options.registry;
+    this.heartbeatIntervalMs = options.heartbeatIntervalMs ?? 15000;
+    this.heartbeatTimeoutMs = options.heartbeatTimeoutMs ?? 5000;
 
     this.wss.on('connection', (socket) => {
       this.handleConnection(socket);
