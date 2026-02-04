@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CoreClient } from "./core-client";
+import { MCP_TOOL_FIXTURES } from "./tool-fixtures";
 import { createToolHandler, registerBrowserVisionTools, TOOL_DEFINITIONS } from "./tools";
 
 describe("mcp-adapter tools", () => {
@@ -50,13 +51,26 @@ describe("mcp-adapter tools", () => {
   });
 
   it("registers all tools and forwards to core paths", async () => {
-    const calls: string[] = [];
-    const configs = new Map<string, { inputSchema?: unknown; outputSchema?: unknown }>();
+    const calls: Array<{ path: string; body: unknown }> = [];
+    const configs = new Map<
+      string,
+      { inputSchema?: unknown; outputSchema?: unknown; title?: string; description?: string }
+    >();
+    const fixturesByName = new Map(
+      MCP_TOOL_FIXTURES.map((fixture) => [fixture.name, fixture])
+    );
+    const fixturesByPath = new Map(
+      MCP_TOOL_FIXTURES.map((fixture) => [fixture.corePath, fixture])
+    );
     const client: CoreClient = {
       baseUrl: "http://core",
-      post: vi.fn().mockImplementation(async (path: string) => {
-        calls.push(path);
-        return { ok: true, result: { ok: true } };
+      post: vi.fn().mockImplementation(async (path: string, body?: unknown) => {
+        calls.push({ path, body });
+        const fixture = fixturesByPath.get(path);
+        if (!fixture) {
+          throw new Error(`Missing fixture for ${path}`);
+        }
+        return fixture.successEnvelope;
       }),
     };
 
@@ -68,6 +82,8 @@ describe("mcp-adapter tools", () => {
       registerTool: (name, config, handler) => {
         handlers.set(name, handler as (args: unknown, extra?: unknown) => Promise<unknown>);
         configs.set(name, {
+          title: (config as { title?: string }).title,
+          description: (config as { description?: string }).description,
           inputSchema: (config as { inputSchema?: unknown }).inputSchema,
           outputSchema: (config as { outputSchema?: unknown }).outputSchema,
         });
@@ -83,13 +99,21 @@ describe("mcp-adapter tools", () => {
     for (const tool of TOOL_DEFINITIONS) {
       const handler = handlers.get(tool.name);
       const config = configs.get(tool.name);
+      const fixture = fixturesByName.get(tool.name);
       expect(handler).toBeDefined();
+      expect(fixture).toBeDefined();
+      expect(config?.title).toBe(tool.config.title);
+      expect(config?.description).toBe(tool.config.description);
       expect(config?.inputSchema).toBe(tool.config.inputSchema);
       expect(config?.outputSchema).toBe(tool.config.outputSchema);
-      await handler?.({}, {} as never);
+      await handler?.(fixture?.input ?? {}, {} as never);
     }
 
     const expectedPaths = TOOL_DEFINITIONS.map((tool) => tool.config.corePath);
-    expect(calls).toEqual(expectedPaths);
+    expect(calls.map((call) => call.path)).toEqual(expectedPaths);
+    for (const call of calls) {
+      const fixture = fixturesByPath.get(call.path);
+      expect(call.body).toEqual(fixture?.input);
+    }
   });
 });
