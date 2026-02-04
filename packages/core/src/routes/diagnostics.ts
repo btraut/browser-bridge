@@ -114,10 +114,10 @@ export const registerDiagnosticsRoutes = (
         const lastError = options.debuggerBridge.getLastError();
         context.debugger = {
           attached: options.debuggerBridge.hasAttachments(),
-          idleTimeoutMs: settings.idleTimeoutMs,
-          consoleBufferSize: settings.consoleBufferSize,
-          networkBufferSize: settings.networkBufferSize,
-          lastError: lastError
+          idle_timeout_ms: settings.idleTimeoutMs,
+          console_buffer_size: settings.consoleBufferSize,
+          network_buffer_size: settings.networkBufferSize,
+          last_error: lastError
             ? {
                 code: lastError.error.code,
                 message: lastError.error.message,

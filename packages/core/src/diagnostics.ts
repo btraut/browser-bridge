@@ -43,10 +43,10 @@ export type DiagnosticsContext = {
   };
   debugger?: {
     attached: boolean;
-    idleTimeoutMs: number;
-    consoleBufferSize: number;
-    networkBufferSize: number;
-    lastError?: {
+    idle_timeout_ms: number;
+    console_buffer_size: number;
+    network_buffer_size: number;
+    last_error?: {
       code: string;
       message: string;
       retryable: boolean;
@@ -162,10 +162,10 @@ export const buildDiagnosticReport = (
     debugger: context.debugger
       ? {
           attached: debuggerAttached,
-          idle_timeout_ms: context.debugger.idleTimeoutMs,
-          console_buffer_size: context.debugger.consoleBufferSize,
-          network_buffer_size: context.debugger.networkBufferSize,
-          last_error: context.debugger.lastError,
+          idle_timeout_ms: context.debugger.idle_timeout_ms,
+          console_buffer_size: context.debugger.console_buffer_size,
+          network_buffer_size: context.debugger.network_buffer_size,
+          last_error: context.debugger.last_error,
         }
       : undefined,
     artifacts: sessionId
