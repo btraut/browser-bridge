@@ -448,7 +448,6 @@ export const runDriveAction = async (
         const eventInit = {
           bubbles: true,
           cancelable: true,
-          view: window,
           clientX: centerX,
           clientY: centerY,
         };

@@ -2,6 +2,8 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { runDriveAction } from "./content";
 
+type PointerEventInit = { [key: string]: unknown };
+
 class TestPointerEvent extends MouseEvent {
   constructor(type: string, init?: PointerEventInit) {
     super(type, init);
