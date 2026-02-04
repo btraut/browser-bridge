@@ -1,5 +1,5 @@
-import { z } from "zod";
-import { ErrorInfoSchema } from "./errors";
+import { z } from 'zod';
+import { ErrorInfoSchema } from './errors';
 
 export const LocatorRoleSchema = z.object({
   name: z.string(),
@@ -16,7 +16,7 @@ export const LocatorSchema = z
   .refine(
     (value) => Boolean(value.testid || value.css || value.text || value.role),
     {
-      message: "Locator must include at least one selector.",
+      message: 'Locator must include at least one selector.',
     }
   );
 
@@ -27,14 +27,14 @@ export const OpResultSchema = z.object({
 });
 
 export const SessionStateSchema = z.enum([
-  "INIT",
-  "DRIVE_READY",
-  "INSPECT_READY",
-  "READY",
-  "DEGRADED_DRIVE",
-  "DEGRADED_INSPECT",
-  "BROKEN",
-  "CLOSED",
+  'INIT',
+  'DRIVE_READY',
+  'INSPECT_READY',
+  'READY',
+  'DEGRADED_DRIVE',
+  'DEGRADED_INSPECT',
+  'BROKEN',
+  'CLOSED',
 ]);
 
 export const SessionInfoSchema = z.object({
@@ -119,14 +119,14 @@ export const SessionCloseOutputSchema = z.object({
 });
 
 export const DriveWaitConditionSchema = z.object({
-  kind: z.enum(["locator_visible", "text_present", "url_matches"]),
+  kind: z.enum(['locator_visible', 'text_present', 'url_matches']),
   value: z.string().min(1),
 });
 
 export const DriveNavigateInputSchema = z.object({
   session_id: z.string().min(1),
   url: z.string().min(1),
-  wait: z.enum(["none", "domcontentloaded"]).default("domcontentloaded"),
+  wait: z.enum(['none', 'domcontentloaded']).default('domcontentloaded'),
 });
 export const DriveNavigateOutputSchema = OpResultSchema;
 
@@ -152,7 +152,7 @@ export const DriveScrollInputSchema = z.object({
   delta_y: z.number().finite().optional(),
   top: z.number().finite().optional(),
   left: z.number().finite().optional(),
-  behavior: z.enum(["auto", "smooth"]).optional(),
+  behavior: z.enum(['auto', 'smooth']).optional(),
   tab_id: z.number().finite().optional(),
 });
 export const DriveScrollOutputSchema = OpResultSchema;
@@ -190,8 +190,8 @@ export const DriveTabCloseInputSchema = z.object({
 });
 export const DriveTabCloseOutputSchema = OpResultSchema;
 
-export const InspectDomFormatSchema = z.enum(["ax", "html"]);
-export const InspectConsistencySchema = z.enum(["best_effort", "quiesce"]);
+export const InspectDomFormatSchema = z.enum(['ax', 'html']);
+export const InspectConsistencySchema = z.enum(['best_effort', 'quiesce']);
 
 export const DomSnapshotSchema = z
   .object({
@@ -202,8 +202,8 @@ export const DomSnapshotSchema = z
 
 export const InspectDomSnapshotInputSchema = z.object({
   session_id: z.string().min(1),
-  format: InspectDomFormatSchema.default("ax"),
-  consistency: InspectConsistencySchema.default("best_effort"),
+  format: InspectDomFormatSchema.default('ax'),
+  consistency: InspectConsistencySchema.default('best_effort'),
 });
 export const InspectDomSnapshotOutputSchema = DomSnapshotSchema;
 
@@ -262,7 +262,7 @@ export const InspectPerformanceMetricsOutputSchema = PerformanceMetricsSchema;
 
 export const ArtifactsScreenshotInputSchema = z.object({
   session_id: z.string().min(1),
-  target: z.enum(["viewport", "full"]).default("viewport"),
+  target: z.enum(['viewport', 'full']).default('viewport'),
 });
 export const ArtifactsScreenshotOutputSchema = ArtifactInfoSchema;
 

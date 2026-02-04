@@ -1,59 +1,66 @@
-import { describe, expect, it, vi } from "vitest";
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { CoreClient } from "./core-client";
-import { createToolHandler, registerBrowserVisionTools, TOOL_DEFINITIONS } from "./tools";
+import { describe, expect, it, vi } from 'vitest';
+import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import type { CoreClient } from './core-client';
+import {
+  createToolHandler,
+  registerBrowserVisionTools,
+  TOOL_DEFINITIONS,
+} from './tools';
 
-describe("mcp-adapter tools", () => {
-  it("returns a success envelope as structured content", async () => {
+describe('mcp-adapter tools', () => {
+  it('returns a success envelope as structured content', async () => {
     const envelope = { ok: true as const, result: { ok: true } };
     const client: CoreClient = {
-      baseUrl: "http://core",
+      baseUrl: 'http://core',
       post: vi.fn().mockResolvedValue(envelope),
     };
 
-    const handler = createToolHandler(client, "/drive/navigate");
+    const handler = createToolHandler(client, '/drive/navigate');
     const result = await handler(
-      { session_id: "session-1", url: "https://example.com" },
+      { session_id: 'session-1', url: 'https://example.com' },
       {} as never
     );
 
-    expect(client.post).toHaveBeenCalledWith("/drive/navigate", {
-      session_id: "session-1",
-      url: "https://example.com",
+    expect(client.post).toHaveBeenCalledWith('/drive/navigate', {
+      session_id: 'session-1',
+      url: 'https://example.com',
     });
     expect(result.structuredContent).toEqual(envelope);
     const first = result.content[0];
-    expect(first?.type).toBe("text");
-    if (first && first.type === "text") {
+    expect(first?.type).toBe('text');
+    if (first && first.type === 'text') {
       expect(first.text).toBe(JSON.stringify(envelope));
     }
   });
 
-  it("propagates error envelopes without modification", async () => {
+  it('propagates error envelopes without modification', async () => {
     const envelope = {
       ok: false as const,
       error: {
-        code: "INVALID_ARGUMENT",
-        message: "Bad request.",
+        code: 'INVALID_ARGUMENT',
+        message: 'Bad request.',
         retryable: false,
       },
     };
     const client: CoreClient = {
-      baseUrl: "http://core",
+      baseUrl: 'http://core',
       post: vi.fn().mockResolvedValue(envelope),
     };
 
-    const handler = createToolHandler(client, "/session/create");
+    const handler = createToolHandler(client, '/session/create');
     const result = await handler({}, {} as never);
 
     expect(result.structuredContent).toEqual(envelope);
   });
 
-  it("registers all tools and forwards to core paths", async () => {
+  it('registers all tools and forwards to core paths', async () => {
     const calls: string[] = [];
-    const configs = new Map<string, { inputSchema?: unknown; outputSchema?: unknown }>();
+    const configs = new Map<
+      string,
+      { inputSchema?: unknown; outputSchema?: unknown }
+    >();
     const client: CoreClient = {
-      baseUrl: "http://core",
+      baseUrl: 'http://core',
       post: vi.fn().mockImplementation(async (path: string) => {
         calls.push(path);
         return { ok: true, result: { ok: true } };
@@ -64,9 +71,12 @@ describe("mcp-adapter tools", () => {
       string,
       (args: unknown, extra?: unknown) => Promise<unknown>
     >();
-    const server: Pick<McpServer, "registerTool"> = {
+    const server: Pick<McpServer, 'registerTool'> = {
       registerTool: (name, config, handler) => {
-        handlers.set(name, handler as (args: unknown, extra?: unknown) => Promise<unknown>);
+        handlers.set(
+          name,
+          handler as (args: unknown, extra?: unknown) => Promise<unknown>
+        );
         configs.set(name, {
           inputSchema: (config as { inputSchema?: unknown }).inputSchema,
           outputSchema: (config as { outputSchema?: unknown }).outputSchema,

@@ -18,16 +18,17 @@ export type RankedTarget = {
 };
 
 const normalizeText = (value?: string): string =>
-  (value ?? "").trim().toLowerCase();
+  (value ?? '').trim().toLowerCase();
 
 const normalizeUrl = (value?: string): string => {
   const normalized = normalizeText(value);
   if (!normalized) {
-    return "";
+    return '';
   }
-  const hashIndex = normalized.indexOf("#");
-  const withoutHash = hashIndex >= 0 ? normalized.slice(0, hashIndex) : normalized;
-  return withoutHash.endsWith("/") && withoutHash.length > 1
+  const hashIndex = normalized.indexOf('#');
+  const withoutHash =
+    hashIndex >= 0 ? normalized.slice(0, hashIndex) : normalized;
+  return withoutHash.endsWith('/') && withoutHash.length > 1
     ? withoutHash.slice(0, -1)
     : withoutHash;
 };
@@ -52,7 +53,10 @@ const scoreTitleMatch = (candidateTitle: string, hintTitle: string): number => {
   if (candidateTitle === hintTitle) {
     return 80;
   }
-  if (candidateTitle.includes(hintTitle) || hintTitle.includes(candidateTitle)) {
+  if (
+    candidateTitle.includes(hintTitle) ||
+    hintTitle.includes(candidateTitle)
+  ) {
     return 40;
   }
   return 0;
@@ -78,7 +82,7 @@ const scoreHintRecency = (
 };
 
 const isBlankUrl = (url: string): boolean =>
-  url.length === 0 || url === "about:blank";
+  url.length === 0 || url === 'about:blank';
 
 export const rankTargetCandidates = (
   candidates: TargetCandidate[],
@@ -100,19 +104,19 @@ export const rankTargetCandidates = (
     const urlScore = scoreUrlMatch(normalizedUrl, normalizedHintUrl);
     if (urlScore > 0) {
       score += urlScore;
-      reasons.push(urlScore >= 100 ? "url:exact" : "url:partial");
+      reasons.push(urlScore >= 100 ? 'url:exact' : 'url:partial');
     }
 
     const titleScore = scoreTitleMatch(normalizedTitle, normalizedHintTitle);
     if (titleScore > 0) {
       score += titleScore;
-      reasons.push(titleScore >= 80 ? "title:exact" : "title:partial");
+      reasons.push(titleScore >= 80 ? 'title:exact' : 'title:partial');
     }
 
     const recencyScore = scoreRecency(candidate.lastSeenAt, now);
     if (recencyScore > 0) {
       score += recencyScore;
-      reasons.push("recency");
+      reasons.push('recency');
     }
 
     const hintRecencyScore = scoreHintRecency(
@@ -121,12 +125,12 @@ export const rankTargetCandidates = (
     );
     if (hintRecencyScore > 0) {
       score += hintRecencyScore;
-      reasons.push("hint-recency");
+      reasons.push('hint-recency');
     }
 
     if (isBlankUrl(normalizedUrl)) {
       score -= 50;
-      reasons.push("blank-url");
+      reasons.push('blank-url');
     }
 
     return { candidate, score, reasons };

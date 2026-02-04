@@ -1,5 +1,5 @@
-import { ErrorEnvelope, ErrorInfo, ApiEnvelope } from "@browser-vision/shared";
-import { ZodError, z } from "zod";
+import { ErrorEnvelope, ErrorInfo, ApiEnvelope } from '@browser-vision/shared';
+import { ZodError, z } from 'zod';
 
 type OutputOptions = {
   json: boolean;
@@ -22,21 +22,24 @@ export const parseInput = <T>(schema: z.ZodType<T>, payload: unknown): T => {
 
   const [issue] = result.error.issues;
   throw new CliError({
-    code: "INVALID_ARGUMENT",
-    message: issue?.message ?? "Invalid input.",
+    code: 'INVALID_ARGUMENT',
+    message: issue?.message ?? 'Invalid input.',
     retryable: false,
     details: { issues: result.error.issues },
   });
 };
 
-export const outputEnvelope = (envelope: ApiEnvelope<unknown>, options: OutputOptions): void => {
+export const outputEnvelope = (
+  envelope: ApiEnvelope<unknown>,
+  options: OutputOptions
+): void => {
   if (options.json) {
     console.log(JSON.stringify(envelope, null, 2));
     return;
   }
 
   if (envelope.ok) {
-    if (typeof envelope.result === "string") {
+    if (typeof envelope.result === 'string') {
       console.log(envelope.result);
       return;
     }
@@ -59,8 +62,8 @@ const toErrorInfo = (error: unknown): ErrorInfo => {
   if (error instanceof ZodError) {
     const [issue] = error.issues;
     return {
-      code: "INVALID_ARGUMENT",
-      message: issue?.message ?? "Invalid input.",
+      code: 'INVALID_ARGUMENT',
+      message: issue?.message ?? 'Invalid input.',
       retryable: false,
       details: { issues: error.issues },
     };
@@ -68,15 +71,15 @@ const toErrorInfo = (error: unknown): ErrorInfo => {
 
   if (error instanceof Error) {
     return {
-      code: "INTERNAL",
+      code: 'INTERNAL',
       message: error.message,
       retryable: false,
     };
   }
 
   return {
-    code: "INTERNAL",
-    message: "Unknown error.",
+    code: 'INTERNAL',
+    message: 'Unknown error.',
     retryable: false,
   };
 };

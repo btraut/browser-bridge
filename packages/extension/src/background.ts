@@ -5,13 +5,12 @@ import type {
   DriveErrorInfo,
   DriveEvent,
   DriveHelloParams,
-  DriveRequest,
   DriveResponse,
   DriveTabInfo,
   DriveTabListResult,
   ExtensionMessage,
   ExtensionRequest,
-} from "./protocol.js";
+} from './protocol.js';
 
 type ContentResult =
   | { ok: true; result?: unknown }
@@ -34,11 +33,11 @@ type DebuggerSession = {
 };
 
 const DEFAULT_CORE_PORT = 3210;
-const CORE_PORT_KEY = "corePort";
-const CORE_WS_PATH = "/drive";
+const CORE_PORT_KEY = 'corePort';
+const CORE_WS_PATH = '/drive';
 
-const DEBUGGER_PROTOCOL_VERSION = "1.3";
-const DEBUGGER_IDLE_TIMEOUT_KEY = "debuggerIdleTimeoutMs";
+const DEBUGGER_PROTOCOL_VERSION = '1.3';
+const DEBUGGER_IDLE_TIMEOUT_KEY = 'debuggerIdleTimeoutMs';
 const DEFAULT_DEBUGGER_IDLE_TIMEOUT_MS = 15000;
 const DEFAULT_DEBUGGER_COMMAND_TIMEOUT_MS = 10000;
 
@@ -50,6 +49,11 @@ const makeEventId = (() => {
 })();
 
 const lastActiveAtByTab = new Map<number, string>();
+
+const isDebuggerRequest = (
+  message: ExtensionRequest
+): message is DebuggerRequest =>
+  typeof message.action === 'string' && message.action.startsWith('debugger.');
 
 const ensureLastActiveAt = (tabId: number): string => {
   const existing = lastActiveAtByTab.get(tabId);
@@ -81,7 +85,9 @@ const wrapChromeCallback = <T>(
     });
   });
 
-const wrapChromeVoid = (invoker: (callback: () => void) => void): Promise<void> => {
+const wrapChromeVoid = (
+  invoker: (callback: () => void) => void
+): Promise<void> => {
   return new Promise<void>((resolve, reject) => {
     invoker(() => {
       const error = chrome.runtime.lastError;
@@ -96,21 +102,24 @@ const wrapChromeVoid = (invoker: (callback: () => void) => void): Promise<void> 
 
 const readCorePort = async (): Promise<number> => {
   return await new Promise<number>((resolve) => {
-    chrome.storage.local.get([CORE_PORT_KEY], (result: Record<string, unknown>) => {
-      const raw = result?.[CORE_PORT_KEY];
-      if (typeof raw === "number" && Number.isFinite(raw)) {
-        resolve(raw);
-        return;
-      }
-      if (typeof raw === "string") {
-        const parsed = Number(raw);
-        if (Number.isFinite(parsed)) {
-          resolve(parsed);
+    chrome.storage.local.get(
+      [CORE_PORT_KEY],
+      (result: Record<string, unknown>) => {
+        const raw = result?.[CORE_PORT_KEY];
+        if (typeof raw === 'number' && Number.isFinite(raw)) {
+          resolve(raw);
           return;
         }
+        if (typeof raw === 'string') {
+          const parsed = Number(raw);
+          if (Number.isFinite(parsed)) {
+            resolve(parsed);
+            return;
+          }
+        }
+        resolve(DEFAULT_CORE_PORT);
       }
-      resolve(DEFAULT_CORE_PORT);
-    });
+    );
   });
 };
 
@@ -120,11 +129,11 @@ const readDebuggerIdleTimeoutMs = async (): Promise<number> => {
       [DEBUGGER_IDLE_TIMEOUT_KEY],
       (result: Record<string, unknown>) => {
         const raw = result?.[DEBUGGER_IDLE_TIMEOUT_KEY];
-        if (typeof raw === "number" && Number.isFinite(raw) && raw > 0) {
+        if (typeof raw === 'number' && Number.isFinite(raw) && raw > 0) {
           resolve(raw);
           return;
         }
-        if (typeof raw === "string") {
+        if (typeof raw === 'string') {
           const parsed = Number(raw);
           if (Number.isFinite(parsed) && parsed > 0) {
             resolve(parsed);
@@ -138,17 +147,17 @@ const readDebuggerIdleTimeoutMs = async (): Promise<number> => {
 };
 
 const RESTRICTED_URL_PREFIXES = [
-  "chrome://",
-  "chrome-extension://",
-  "chrome-devtools://",
-  "devtools://",
-  "edge://",
-  "brave://",
-  "view-source:",
+  'chrome://',
+  'chrome-extension://',
+  'chrome-devtools://',
+  'devtools://',
+  'edge://',
+  'brave://',
+  'view-source:',
 ];
 
 const isRestrictedUrl = (url?: string): boolean => {
-  if (!url || typeof url !== "string") {
+  if (!url || typeof url !== 'string') {
     return false;
   }
   const lowered = url.toLowerCase();
@@ -157,11 +166,11 @@ const isRestrictedUrl = (url?: string): boolean => {
   }
   try {
     const parsed = new URL(url);
-    if (parsed.hostname === "chromewebstore.google.com") {
+    if (parsed.hostname === 'chromewebstore.google.com') {
       return true;
     }
-    if (parsed.hostname === "chrome.google.com") {
-      return parsed.pathname.startsWith("/webstore");
+    if (parsed.hostname === 'chrome.google.com') {
+      return parsed.pathname.startsWith('/webstore');
     }
   } catch {
     // Ignore invalid URLs and treat as supported.
@@ -171,49 +180,49 @@ const isRestrictedUrl = (url?: string): boolean => {
 
 const mapDebuggerErrorMessage = (
   message: string,
-  fallbackCode = "INSPECT_UNAVAILABLE"
+  fallbackCode = 'INSPECT_UNAVAILABLE'
 ): DriveErrorInfo => {
   const normalized = message.toLowerCase();
   if (
-    normalized.includes("already attached") ||
-    normalized.includes("another debugger") ||
-    normalized.includes("attached to this target")
+    normalized.includes('already attached') ||
+    normalized.includes('another debugger') ||
+    normalized.includes('attached to this target')
   ) {
     return {
-      code: "DEBUGGER_IN_USE",
+      code: 'DEBUGGER_IN_USE',
       message,
       retryable: true,
     };
   }
   if (
-    normalized.includes("no tab") ||
-    normalized.includes("no target") ||
-    normalized.includes("tab id")
+    normalized.includes('no tab') ||
+    normalized.includes('no target') ||
+    normalized.includes('tab id')
   ) {
     return {
-      code: "TAB_NOT_FOUND",
+      code: 'TAB_NOT_FOUND',
       message,
       retryable: false,
     };
   }
   if (
-    normalized.includes("not allowed") ||
-    normalized.includes("permission") ||
-    normalized.includes("denied")
+    normalized.includes('not allowed') ||
+    normalized.includes('permission') ||
+    normalized.includes('denied')
   ) {
     return {
-      code: "ATTACH_DENIED",
+      code: 'ATTACH_DENIED',
       message,
       retryable: false,
     };
   }
   if (
-    normalized.includes("cannot access") ||
-    normalized.includes("not supported") ||
-    normalized.includes("disallowed")
+    normalized.includes('cannot access') ||
+    normalized.includes('not supported') ||
+    normalized.includes('disallowed')
   ) {
     return {
-      code: "NOT_SUPPORTED",
+      code: 'NOT_SUPPORTED',
       message,
       retryable: false,
     };
@@ -228,15 +237,15 @@ const mapDebuggerErrorMessage = (
 const buildTabInfo = (tab: Record<string, unknown>): DriveTabInfo | null => {
   const tabId = tab.id;
   const windowId = tab.windowId;
-  if (typeof tabId !== "number" || typeof windowId !== "number") {
+  if (typeof tabId !== 'number' || typeof windowId !== 'number') {
     return null;
   }
   return {
     tab_id: tabId,
     window_id: windowId,
-    url: typeof tab.url === "string" ? tab.url : undefined,
-    title: typeof tab.title === "string" ? tab.title : undefined,
-    active: typeof tab.active === "boolean" ? tab.active : undefined,
+    url: typeof tab.url === 'string' ? tab.url : undefined,
+    title: typeof tab.title === 'string' ? tab.title : undefined,
+    active: typeof tab.active === 'boolean' ? tab.active : undefined,
     last_active_at: ensureLastActiveAt(tabId),
   };
 };
@@ -266,10 +275,10 @@ const getActiveTabId = async (): Promise<number> => {
     chrome.tabs.query({ active: true, lastFocusedWindow: true }, callback)
   );
   const first = tabs[0];
-  if (first && typeof first.id === "number") {
+  if (first && typeof first.id === 'number') {
     return first.id;
   }
-  throw new Error("No active tab found.");
+  throw new Error('No active tab found.');
 };
 
 const sendToTab = async (
@@ -285,19 +294,19 @@ const sendToTab = async (
         resolve({
           ok: false,
           error: {
-            code: "EVALUATION_FAILED",
+            code: 'EVALUATION_FAILED',
             message: error.message,
             retryable: false,
           },
         });
         return;
       }
-      if (!response || typeof response !== "object") {
+      if (!response || typeof response !== 'object') {
         resolve({
           ok: false,
           error: {
-            code: "EVALUATION_FAILED",
-            message: "Empty response from content script.",
+            code: 'EVALUATION_FAILED',
+            message: 'Empty response from content script.',
             retryable: false,
           },
         });
@@ -332,7 +341,7 @@ const waitForDomContentLoaded = async (
     chrome.webNavigation.onDOMContentLoaded.addListener(listener);
     timeout = self.setTimeout(() => {
       cleanup();
-      reject(new Error("Timed out waiting for domcontentloaded."));
+      reject(new Error('Timed out waiting for domcontentloaded.'));
     }, timeoutMs);
   });
 };
@@ -390,21 +399,21 @@ class DriveSocket {
       const socket = new WebSocket(url);
       this.socket = socket;
 
-      socket.addEventListener("open", () => {
+      socket.addEventListener('open', () => {
         this.reconnectDelayMs = 1000;
         void this.sendHello();
       });
 
-      socket.addEventListener("message", (event) => {
+      socket.addEventListener('message', (event) => {
         this.handleMessage(event.data);
       });
 
-      socket.addEventListener("close", () => {
+      socket.addEventListener('close', () => {
         this.socket = null;
         this.scheduleReconnect();
       });
 
-      socket.addEventListener("error", () => {
+      socket.addEventListener('error', () => {
         this.socket = null;
         this.scheduleReconnect();
       });
@@ -425,33 +434,36 @@ class DriveSocket {
       version: manifest.version,
       tabs,
     };
-    this.sendEvent("drive.hello", params);
+    this.sendEvent('drive.hello', params);
   }
 
   private async emitTabReport(): Promise<void> {
     try {
       const tabs = await queryTabs();
-      this.sendEvent("drive.tab_report", { tabs });
+      this.sendEvent('drive.tab_report', { tabs });
     } catch {
       // Ignore tab reporting errors.
     }
   }
 
-  private sendEvent(action: DriveEvent["action"], params: DriveEvent["params"]): void {
+  private sendEvent(
+    action: DriveEvent['action'],
+    params: DriveEvent['params']
+  ): void {
     const message: DriveEvent = {
       id: makeEventId(),
       action,
-      status: "event",
+      status: 'event',
       params,
     };
     this.sendMessage(message);
   }
 
-  private sendDebuggerEvent(params: DebuggerEvent["params"]): void {
+  private sendDebuggerEvent(params: DebuggerEvent['params']): void {
     const message: DebuggerEvent = {
       id: makeEventId(),
-      action: "debugger.event",
-      status: "event",
+      action: 'debugger.event',
+      status: 'event',
       params,
     };
     this.sendMessage(message);
@@ -465,7 +477,7 @@ class DriveSocket {
   }
 
   private handleMessage(raw: unknown): void {
-    if (typeof raw !== "string") {
+    if (typeof raw !== 'string') {
       return;
     }
     let message: ExtensionMessage | null = null;
@@ -474,20 +486,25 @@ class DriveSocket {
     } catch {
       return;
     }
-    if (!message || typeof message !== "object") {
+    if (!message || typeof message !== 'object') {
       return;
     }
-    if (message.status === "request") {
+    if (message.status === 'request') {
       void this.handleRequest(message as ExtensionRequest);
     }
   }
 
   private async handleRequest(message: ExtensionRequest): Promise<void> {
+    if (isDebuggerRequest(message)) {
+      await this.handleDebuggerRequest(message);
+      return;
+    }
+
     const respondOk = (result?: unknown): void => {
       const response: DriveResponse = {
         id: message.id,
         action: message.action,
-        status: "ok",
+        status: 'ok',
         result,
       };
       this.sendMessage(response);
@@ -497,38 +514,30 @@ class DriveSocket {
       const response: DriveResponse = {
         id: message.id,
         action: message.action,
-        status: "error",
+        status: 'error',
         error,
       };
       this.sendMessage(response);
     };
 
     try {
-      if (
-        typeof message.action === "string" &&
-        message.action.startsWith("debugger.")
-      ) {
-        await this.handleDebuggerRequest(message as DebuggerRequest);
-        return;
-      }
-
       switch (message.action) {
-        case "drive.navigate": {
+        case 'drive.navigate': {
           const params = (message.params ?? {}) as Record<string, unknown>;
           const url = params.url;
-          if (typeof url !== "string" || url.length === 0) {
+          if (typeof url !== 'string' || url.length === 0) {
             respondError({
-              code: "INVALID_ARGUMENT",
-              message: "url must be a non-empty string.",
+              code: 'INVALID_ARGUMENT',
+              message: 'url must be a non-empty string.',
               retryable: false,
             });
             return;
           }
           let tabId = params.tab_id;
-          if (tabId !== undefined && typeof tabId !== "number") {
+          if (tabId !== undefined && typeof tabId !== 'number') {
             respondError({
-              code: "INVALID_ARGUMENT",
-              message: "tab_id must be a number when provided.",
+              code: 'INVALID_ARGUMENT',
+              message: 'tab_id must be a number when provided.',
               retryable: false,
             });
             return;
@@ -537,20 +546,21 @@ class DriveSocket {
             tabId = await getActiveTabId();
           }
           const waitMode =
-            params.wait === "none" || params.wait === "domcontentloaded"
+            params.wait === 'none' || params.wait === 'domcontentloaded'
               ? params.wait
-              : "domcontentloaded";
+              : 'domcontentloaded';
           await wrapChromeVoid((callback) =>
             chrome.tabs.update(tabId as number, { url }, () => callback())
           );
           markTabActive(tabId as number);
-          if (waitMode === "domcontentloaded") {
+          if (waitMode === 'domcontentloaded') {
             try {
               await waitForDomContentLoaded(tabId as number, 30000);
             } catch (error) {
               respondError({
-                code: "TIMEOUT",
-                message: error instanceof Error ? error.message : "Timed out waiting.",
+                code: 'TIMEOUT',
+                message:
+                  error instanceof Error ? error.message : 'Timed out waiting.',
                 retryable: true,
               });
               return;
@@ -559,18 +569,19 @@ class DriveSocket {
           respondOk({ ok: true });
           return;
         }
-        case "drive.tab_list": {
+        case 'drive.tab_list': {
           const tabs = await queryTabs();
           const result: DriveTabListResult = { tabs };
           respondOk(result);
           return;
         }
-        case "drive.tab_activate": {
-          const tabId = (message.params as Record<string, unknown> | undefined)?.tab_id;
-          if (typeof tabId !== "number") {
+        case 'drive.tab_activate': {
+          const tabId = (message.params as Record<string, unknown> | undefined)
+            ?.tab_id;
+          if (typeof tabId !== 'number') {
             respondError({
-              code: "INVALID_ARGUMENT",
-              message: "tab_id must be a number.",
+              code: 'INVALID_ARGUMENT',
+              message: 'tab_id must be a number.',
               retryable: false,
             });
             return;
@@ -580,9 +591,11 @@ class DriveSocket {
             chrome.tabs.update(tabId, { active: true }, () => callback())
           );
           const windowId = tab.windowId;
-          if (typeof windowId === "number") {
+          if (typeof windowId === 'number') {
             await wrapChromeVoid((callback) =>
-              chrome.windows.update(windowId, { focused: true }, () => callback())
+              chrome.windows.update(windowId, { focused: true }, () =>
+                callback()
+              )
             );
           }
           markTabActive(tabId);
@@ -590,32 +603,35 @@ class DriveSocket {
           this.sendTabReport();
           return;
         }
-        case "drive.tab_close": {
-          const tabId = (message.params as Record<string, unknown> | undefined)?.tab_id;
-          if (typeof tabId !== "number") {
+        case 'drive.tab_close': {
+          const tabId = (message.params as Record<string, unknown> | undefined)
+            ?.tab_id;
+          if (typeof tabId !== 'number') {
             respondError({
-              code: "INVALID_ARGUMENT",
-              message: "tab_id must be a number.",
+              code: 'INVALID_ARGUMENT',
+              message: 'tab_id must be a number.',
               retryable: false,
             });
             return;
           }
-          await wrapChromeVoid((callback) => chrome.tabs.remove(tabId, () => callback()));
+          await wrapChromeVoid((callback) =>
+            chrome.tabs.remove(tabId, () => callback())
+          );
           lastActiveAtByTab.delete(tabId);
           respondOk({ ok: true });
           this.sendTabReport();
           return;
         }
-        case "drive.click":
-        case "drive.type":
-        case "drive.scroll":
-        case "drive.wait_for": {
+        case 'drive.click':
+        case 'drive.type':
+        case 'drive.scroll':
+        case 'drive.wait_for': {
           const params = (message.params ?? {}) as Record<string, unknown>;
           let tabId = params.tab_id;
-          if (tabId !== undefined && typeof tabId !== "number") {
+          if (tabId !== undefined && typeof tabId !== 'number') {
             respondError({
-              code: "INVALID_ARGUMENT",
-              message: "tab_id must be a number when provided.",
+              code: 'INVALID_ARGUMENT',
+              message: 'tab_id must be a number when provided.',
               retryable: false,
             });
             return;
@@ -623,7 +639,11 @@ class DriveSocket {
           if (tabId === undefined) {
             tabId = await getActiveTabId();
           }
-          const result = await sendToTab(tabId as number, message.action, params);
+          const result = await sendToTab(
+            tabId as number,
+            message.action,
+            params
+          );
           if (result.ok) {
             respondOk(result.result ?? { ok: true });
           } else {
@@ -633,15 +653,16 @@ class DriveSocket {
         }
         default:
           respondError({
-            code: "NOT_IMPLEMENTED",
+            code: 'NOT_IMPLEMENTED',
             message: `${message.action} not implemented in extension yet.`,
             retryable: false,
           });
       }
     } catch (error) {
-      const messageText = error instanceof Error ? error.message : "Unknown error";
+      const messageText =
+        error instanceof Error ? error.message : 'Unknown error';
       respondError({
-        code: "EVALUATION_FAILED",
+        code: 'EVALUATION_FAILED',
         message: messageText,
         retryable: false,
       });
@@ -653,7 +674,7 @@ class DriveSocket {
       this.sendMessage({
         id: message.id,
         action: message.action,
-        status: "ack",
+        status: 'ack',
         result,
       });
     };
@@ -662,20 +683,20 @@ class DriveSocket {
       this.sendMessage({
         id: message.id,
         action: message.action,
-        status: "error",
+        status: 'error',
         error,
       });
     };
 
     try {
       switch (message.action) {
-        case "debugger.attach": {
+        case 'debugger.attach': {
           const params = (message.params ?? {}) as { tab_id?: unknown };
           const tabId = params.tab_id;
-          if (typeof tabId !== "number") {
+          if (typeof tabId !== 'number') {
             respondError({
-              code: "INVALID_ARGUMENT",
-              message: "tab_id must be a number.",
+              code: 'INVALID_ARGUMENT',
+              message: 'tab_id must be a number.',
               retryable: false,
             });
             return;
@@ -689,13 +710,13 @@ class DriveSocket {
           respondAck({ ok: true });
           return;
         }
-        case "debugger.detach": {
+        case 'debugger.detach': {
           const params = (message.params ?? {}) as { tab_id?: unknown };
           const tabId = params.tab_id;
-          if (typeof tabId !== "number") {
+          if (typeof tabId !== 'number') {
             respondError({
-              code: "INVALID_ARGUMENT",
-              message: "tab_id must be a number.",
+              code: 'INVALID_ARGUMENT',
+              message: 'tab_id must be a number.',
               retryable: false,
             });
             return;
@@ -708,21 +729,21 @@ class DriveSocket {
           respondAck({ ok: true });
           return;
         }
-        case "debugger.command": {
+        case 'debugger.command': {
           const params = (message.params ?? {}) as DebuggerCommandParams;
           const tabId = params.tab_id;
-          if (typeof tabId !== "number") {
+          if (typeof tabId !== 'number') {
             respondError({
-              code: "INVALID_ARGUMENT",
-              message: "tab_id must be a number.",
+              code: 'INVALID_ARGUMENT',
+              message: 'tab_id must be a number.',
               retryable: false,
             });
             return;
           }
-          if (typeof params.method !== "string" || params.method.length === 0) {
+          if (typeof params.method !== 'string' || params.method.length === 0) {
             respondError({
-              code: "INVALID_ARGUMENT",
-              message: "method must be a non-empty string.",
+              code: 'INVALID_ARGUMENT',
+              message: 'method must be a non-empty string.',
               retryable: false,
             });
             return;
@@ -734,7 +755,9 @@ class DriveSocket {
               await session.attachPromise;
             } catch (error) {
               const info = mapDebuggerErrorMessage(
-                error instanceof Error ? error.message : "Debugger attach failed."
+                error instanceof Error
+                  ? error.message
+                  : 'Debugger attach failed.'
               );
               this.clearDebuggerSession(tabId);
               respondError(info);
@@ -745,8 +768,8 @@ class DriveSocket {
           const attachedSession = this.debuggerSessions.get(tabId);
           if (!attachedSession?.attached) {
             respondError({
-              code: "FAILED_PRECONDITION",
-              message: "Debugger is not attached to the requested tab.",
+              code: 'FAILED_PRECONDITION',
+              message: 'Debugger is not attached to the requested tab.',
               retryable: false,
             });
             return;
@@ -764,14 +787,16 @@ class DriveSocket {
           } catch (error) {
             if (error instanceof DebuggerTimeoutError) {
               respondError({
-                code: "TIMEOUT",
+                code: 'TIMEOUT',
                 message: error.message,
                 retryable: true,
               });
               return;
             }
             const info = mapDebuggerErrorMessage(
-              error instanceof Error ? error.message : "Debugger command failed."
+              error instanceof Error
+                ? error.message
+                : 'Debugger command failed.'
             );
             respondError(info);
           }
@@ -779,16 +804,16 @@ class DriveSocket {
         }
         default:
           respondError({
-            code: "NOT_IMPLEMENTED",
+            code: 'NOT_IMPLEMENTED',
             message: `${message.action} not implemented in extension yet.`,
             retryable: false,
           });
       }
     } catch (error) {
       const messageText =
-        error instanceof Error ? error.message : "Unexpected debugger error.";
+        error instanceof Error ? error.message : 'Unexpected debugger error.';
       respondError({
-        code: "INSPECT_UNAVAILABLE",
+        code: 'INSPECT_UNAVAILABLE',
         message: messageText,
         retryable: false,
       });
@@ -801,7 +826,7 @@ class DriveSocket {
     params?: Record<string, unknown>
   ): Promise<void> {
     const tabId = source.tabId;
-    if (typeof tabId !== "number") {
+    if (typeof tabId !== 'number') {
       return;
     }
     this.touchDebuggerSession(tabId);
@@ -818,19 +843,21 @@ class DriveSocket {
     reason?: string
   ): Promise<void> {
     const tabId = source.tabId;
-    if (typeof tabId !== "number") {
+    if (typeof tabId !== 'number') {
       return;
     }
     this.clearDebuggerSession(tabId);
     this.sendDebuggerEvent({
       tab_id: tabId,
-      method: "Debugger.detached",
-      params: { reason: reason ?? "unknown" },
+      method: 'Debugger.detached',
+      params: { reason: reason ?? 'unknown' },
       timestamp: nowIso(),
     });
   }
 
-  private async ensureDebuggerAttached(tabId: number): Promise<DriveErrorInfo | null> {
+  private async ensureDebuggerAttached(
+    tabId: number
+  ): Promise<DriveErrorInfo | null> {
     const existing = this.debuggerSessions.get(tabId);
     if (existing?.attached) {
       this.touchDebuggerSession(tabId);
@@ -842,7 +869,7 @@ class DriveSocket {
         await existing.attachPromise;
       } catch (error) {
         const info = mapDebuggerErrorMessage(
-          error instanceof Error ? error.message : "Debugger attach failed."
+          error instanceof Error ? error.message : 'Debugger attach failed.'
         );
         this.clearDebuggerSession(tabId);
         return info;
@@ -865,7 +892,9 @@ class DriveSocket {
     this.debuggerSessions.set(tabId, session);
 
     session.attachPromise = wrapChromeVoid((callback) =>
-      chrome.debugger.attach({ tabId }, DEBUGGER_PROTOCOL_VERSION, () => callback())
+      chrome.debugger.attach({ tabId }, DEBUGGER_PROTOCOL_VERSION, () =>
+        callback()
+      )
     );
 
     try {
@@ -876,29 +905,31 @@ class DriveSocket {
       return null;
     } catch (error) {
       const info = mapDebuggerErrorMessage(
-        error instanceof Error ? error.message : "Debugger attach failed."
+        error instanceof Error ? error.message : 'Debugger attach failed.'
       );
       this.clearDebuggerSession(tabId);
       return info;
     }
   }
 
-  private async checkDebuggerTarget(tabId: number): Promise<DriveErrorInfo | null> {
+  private async checkDebuggerTarget(
+    tabId: number
+  ): Promise<DriveErrorInfo | null> {
     try {
       const tab = await getTab(tabId);
-      const url = typeof tab.url === "string" ? tab.url : undefined;
+      const url = typeof tab.url === 'string' ? tab.url : undefined;
       if (isRestrictedUrl(url)) {
         return {
-          code: "NOT_SUPPORTED",
-          message: "Debugger cannot attach to restricted pages.",
+          code: 'NOT_SUPPORTED',
+          message: 'Debugger cannot attach to restricted pages.',
           retryable: false,
           details: { url },
         };
       }
     } catch (error) {
       return mapDebuggerErrorMessage(
-        error instanceof Error ? error.message : "Failed to locate tab.",
-        "TAB_NOT_FOUND"
+        error instanceof Error ? error.message : 'Failed to locate tab.',
+        'TAB_NOT_FOUND'
       );
     }
     return null;
@@ -927,7 +958,7 @@ class DriveSocket {
       );
     } catch (error) {
       return mapDebuggerErrorMessage(
-        error instanceof Error ? error.message : "Debugger detach failed."
+        error instanceof Error ? error.message : 'Debugger detach failed.'
       );
     } finally {
       this.clearDebuggerSession(tabId);
@@ -1016,7 +1047,7 @@ class DriveSocket {
 class DebuggerTimeoutError extends Error {
   constructor(timeoutMs: number) {
     super(`Debugger command timed out after ${timeoutMs}ms.`);
-    this.name = "DebuggerTimeoutError";
+    this.name = 'DebuggerTimeoutError';
   }
 }
 
@@ -1028,7 +1059,7 @@ chrome.tabs.onActivated.addListener((activeInfo: { tabId: number }) => {
 });
 
 chrome.tabs.onCreated.addListener((tab: Record<string, unknown>) => {
-  if (typeof tab.id === "number") {
+  if (typeof tab.id === 'number') {
     ensureLastActiveAt(tab.id);
   }
   socket.sendTabReport();
@@ -1043,7 +1074,7 @@ chrome.tabs.onUpdated.addListener(
     const shouldReport =
       Boolean(changeInfo.url) ||
       Boolean(changeInfo.title) ||
-      changeInfo.status === "complete";
+      changeInfo.status === 'complete';
     if (!shouldReport) {
       return;
     }
@@ -1065,8 +1096,10 @@ chrome.debugger.onEvent.addListener(
   }
 );
 
-chrome.debugger.onDetach.addListener((source: DebuggerTarget, reason?: string) => {
-  void socket.handleDebuggerDetach(source, reason);
-});
+chrome.debugger.onDetach.addListener(
+  (source: DebuggerTarget, reason?: string) => {
+    void socket.handleDebuggerDetach(source, reason);
+  }
+);
 
 socket.start();

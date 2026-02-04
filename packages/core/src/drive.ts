@@ -1,7 +1,11 @@
-import type { DriveAction, DriveErrorInfo } from "./drive-protocol";
-import { ExtensionBridge, ExtensionBridgeError, toDriveError } from "./extension-bridge";
-import { SessionError, SessionRegistry } from "./session";
-import { SessionState, shouldRetryDriveOp } from "./state";
+import type { DriveAction, DriveErrorInfo } from './drive-protocol';
+import {
+  ExtensionBridge,
+  ExtensionBridgeError,
+  toDriveError,
+} from './extension-bridge';
+import { SessionError, SessionRegistry } from './session';
+import { SessionState, shouldRetryDriveOp } from './state';
 
 export type DriveResult<T> =
   | { ok: true; result: T }
@@ -33,9 +37,7 @@ export class DriveController {
     this.registry = registry;
   }
 
-  getLastError():
-    | { error: DriveErrorInfo; at: string }
-    | undefined {
+  getLastError(): { error: DriveErrorInfo; at: string } | undefined {
     if (!this.lastError || !this.lastErrorAt) {
       return undefined;
     }
@@ -70,8 +72,8 @@ export class DriveController {
           };
         }
         const errorInfo: DriveErrorInfo = {
-          code: "INTERNAL",
-          message: "Unexpected error while validating session.",
+          code: 'INTERNAL',
+          message: 'Unexpected error while validating session.',
           retryable: false,
         };
         this.recordError(errorInfo);
@@ -88,20 +90,23 @@ export class DriveController {
       let attempt = 0;
       while (true) {
         try {
-          const response = await this.bridge.request<T>(action, params, timeoutMs);
-          if (response.status === "ok") {
+          const response = await this.bridge.request<T>(
+            action,
+            params,
+            timeoutMs
+          );
+          if (response.status === 'ok') {
             return {
               ok: true,
               result: response.result as T,
             };
           }
 
-          const errorInfo: DriveErrorInfo =
-            response.error ?? {
-              code: "UNKNOWN",
-              message: "Drive operation failed.",
-              retryable: false,
-            };
+          const errorInfo: DriveErrorInfo = response.error ?? {
+            code: 'UNKNOWN',
+            message: 'Drive operation failed.',
+            retryable: false,
+          };
 
           if (shouldRetryDriveOp({ attempt, retryable: errorInfo.retryable })) {
             attempt += 1;
@@ -112,11 +117,13 @@ export class DriveController {
           return { ok: false, error: errorInfo };
         } catch (error) {
           if (error instanceof ExtensionBridgeError) {
-            if (error.code === "EXTENSION_DISCONNECTED") {
+            if (error.code === 'EXTENSION_DISCONNECTED') {
               this.applyDriveDisconnected(sessionId);
             }
             const errorInfo = toDriveError(error);
-            if (shouldRetryDriveOp({ attempt, retryable: errorInfo.retryable })) {
+            if (
+              shouldRetryDriveOp({ attempt, retryable: errorInfo.retryable })
+            ) {
               attempt += 1;
               continue;
             }
@@ -125,8 +132,8 @@ export class DriveController {
           }
 
           const errorInfo: DriveErrorInfo = {
-            code: "INTERNAL",
-            message: "Unexpected error while executing drive action.",
+            code: 'INTERNAL',
+            message: 'Unexpected error while executing drive action.',
             retryable: false,
           };
           this.recordError(errorInfo);
@@ -143,11 +150,11 @@ export class DriveController {
     try {
       const session = this.registry.require(sessionId);
       if (session.state === SessionState.INIT) {
-        this.registry.apply(sessionId, "DRIVE_CONNECTED");
+        this.registry.apply(sessionId, 'DRIVE_CONNECTED');
       } else if (session.state === SessionState.INSPECT_READY) {
-        this.registry.apply(sessionId, "DRIVE_CONNECTED");
+        this.registry.apply(sessionId, 'DRIVE_CONNECTED');
       } else if (session.state === SessionState.DEGRADED_DRIVE) {
-        this.registry.apply(sessionId, "RECOVER_SUCCEEDED");
+        this.registry.apply(sessionId, 'RECOVER_SUCCEEDED');
       }
     } catch {
       // Ignore invalid transitions.
@@ -158,7 +165,7 @@ export class DriveController {
     try {
       const session = this.registry.require(sessionId);
       if (session.state === SessionState.READY) {
-        this.registry.apply(sessionId, "DRIVE_DISCONNECTED");
+        this.registry.apply(sessionId, 'DRIVE_DISCONNECTED');
       }
     } catch {
       // Ignore invalid transitions.

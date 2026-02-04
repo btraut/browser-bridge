@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from 'zod';
 import {
   ArtifactInfoSchema,
   ArtifactsScreenshotInputSchema,
@@ -60,7 +60,7 @@ import {
   SessionStatusInputSchema,
   SessionStatusOutputSchema,
   SessionStatusSchema,
-} from "./schemas";
+} from './schemas';
 
 export type LocatorRole = z.infer<typeof LocatorRoleSchema>;
 export type Locator = z.infer<typeof LocatorSchema>;
@@ -102,32 +102,58 @@ export type DriveTabInfo = z.infer<typeof DriveTabInfoSchema>;
 export type DriveTabListInput = z.infer<typeof DriveTabListInputSchema>;
 export type DriveTabListOutput = z.infer<typeof DriveTabListOutputSchema>;
 export type DriveTabActivateInput = z.infer<typeof DriveTabActivateInputSchema>;
-export type DriveTabActivateOutput = z.infer<typeof DriveTabActivateOutputSchema>;
+export type DriveTabActivateOutput = z.infer<
+  typeof DriveTabActivateOutputSchema
+>;
 export type DriveTabCloseInput = z.infer<typeof DriveTabCloseInputSchema>;
 export type DriveTabCloseOutput = z.infer<typeof DriveTabCloseOutputSchema>;
 
 export type InspectDomFormat = z.infer<typeof InspectDomFormatSchema>;
 export type InspectConsistency = z.infer<typeof InspectConsistencySchema>;
 export type DomSnapshot = z.infer<typeof DomSnapshotSchema>;
-export type InspectDomSnapshotInput = z.infer<typeof InspectDomSnapshotInputSchema>;
-export type InspectDomSnapshotOutput = z.infer<typeof InspectDomSnapshotOutputSchema>;
-export type InspectConsoleListInput = z.infer<typeof InspectConsoleListInputSchema>;
+export type InspectDomSnapshotInput = z.infer<
+  typeof InspectDomSnapshotInputSchema
+>;
+export type InspectDomSnapshotOutput = z.infer<
+  typeof InspectDomSnapshotOutputSchema
+>;
+export type InspectConsoleListInput = z.infer<
+  typeof InspectConsoleListInputSchema
+>;
 export type ConsoleEntry = z.infer<typeof ConsoleEntrySchema>;
 export type ConsoleList = z.infer<typeof ConsoleListSchema>;
-export type InspectConsoleListOutput = z.infer<typeof InspectConsoleListOutputSchema>;
+export type InspectConsoleListOutput = z.infer<
+  typeof InspectConsoleListOutputSchema
+>;
 export type ArtifactInfo = z.infer<typeof ArtifactInfoSchema>;
-export type InspectNetworkHarInput = z.infer<typeof InspectNetworkHarInputSchema>;
-export type InspectNetworkHarOutput = z.infer<typeof InspectNetworkHarOutputSchema>;
+export type InspectNetworkHarInput = z.infer<
+  typeof InspectNetworkHarInputSchema
+>;
+export type InspectNetworkHarOutput = z.infer<
+  typeof InspectNetworkHarOutputSchema
+>;
 export type InspectEvaluateInput = z.infer<typeof InspectEvaluateInputSchema>;
 export type EvaluateResult = z.infer<typeof EvaluateResultSchema>;
 export type InspectEvaluateOutput = z.infer<typeof InspectEvaluateOutputSchema>;
-export type InspectPerformanceMetricsInput = z.infer<typeof InspectPerformanceMetricsInputSchema>;
+export type InspectPerformanceMetricsInput = z.infer<
+  typeof InspectPerformanceMetricsInputSchema
+>;
 export type PerformanceMetric = z.infer<typeof PerformanceMetricSchema>;
 export type PerformanceMetrics = z.infer<typeof PerformanceMetricsSchema>;
-export type InspectPerformanceMetricsOutput = z.infer<typeof InspectPerformanceMetricsOutputSchema>;
+export type InspectPerformanceMetricsOutput = z.infer<
+  typeof InspectPerformanceMetricsOutputSchema
+>;
 
-export type ArtifactsScreenshotInput = z.infer<typeof ArtifactsScreenshotInputSchema>;
-export type ArtifactsScreenshotOutput = z.infer<typeof ArtifactsScreenshotOutputSchema>;
+export type ArtifactsScreenshotInput = z.infer<
+  typeof ArtifactsScreenshotInputSchema
+>;
+export type ArtifactsScreenshotOutput = z.infer<
+  typeof ArtifactsScreenshotOutputSchema
+>;
 
-export type DiagnosticsDoctorInput = z.infer<typeof DiagnosticsDoctorInputSchema>;
-export type DiagnosticsDoctorOutput = z.infer<typeof DiagnosticsDoctorOutputSchema>;
+export type DiagnosticsDoctorInput = z.infer<
+  typeof DiagnosticsDoctorInputSchema
+>;
+export type DiagnosticsDoctorOutput = z.infer<
+  typeof DiagnosticsDoctorOutputSchema
+>;

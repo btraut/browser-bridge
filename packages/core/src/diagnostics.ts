@@ -1,4 +1,4 @@
-import { getArtifactRootDir } from "./artifacts";
+import { getArtifactRootDir } from './artifacts';
 
 export type DiagnosticCheck = {
   name: string;
@@ -84,37 +84,37 @@ export const buildDiagnosticReport = (
 
   const checks: DiagnosticCheck[] = [
     {
-      name: "extension.connected",
+      name: 'extension.connected',
       ok: extensionConnected,
       message: extensionConnected
-        ? "Extension is connected."
-        : "Extension is not connected.",
+        ? 'Extension is connected.'
+        : 'Extension is not connected.',
     },
     {
-      name: "debugger.attached",
+      name: 'debugger.attached',
       ok: debuggerAttached,
       message: debuggerAttached
-        ? "Debugger is attached."
-        : "Debugger is not attached.",
+        ? 'Debugger is attached.'
+        : 'Debugger is not attached.',
     },
     {
-      name: "session.state",
+      name: 'session.state',
       ok: Boolean(sessionState),
       message: sessionState
         ? `Session state is ${sessionState}.`
         : sessionId
-        ? "Session state unavailable."
-        : "Session id not provided.",
+          ? 'Session state unavailable.'
+          : 'Session id not provided.',
       details: {
         session_id: sessionId || null,
-        state: sessionState ?? "UNKNOWN",
+        state: sessionState ?? 'UNKNOWN',
       },
     },
   ];
 
   if (context.driveLastError) {
     checks.push({
-      name: "drive.last_error",
+      name: 'drive.last_error',
       ok: false,
       message: context.driveLastError.message,
       details: {
@@ -127,7 +127,7 @@ export const buildDiagnosticReport = (
 
   if (context.inspectLastError) {
     checks.push({
-      name: "inspect.last_error",
+      name: 'inspect.last_error',
       ok: false,
       message: context.inspectLastError.message,
       details: {
@@ -140,9 +140,9 @@ export const buildDiagnosticReport = (
 
   if (context.recoveryAttempt) {
     checks.push({
-      name: "recovery.last_attempt",
+      name: 'recovery.last_attempt',
       ok: context.recoveryAttempt.recovered,
-      message: context.recoveryAttempt.message ?? "Recovery attempt recorded.",
+      message: context.recoveryAttempt.message ?? 'Recovery attempt recorded.',
       details: {
         session_id: context.recoveryAttempt.sessionId,
         state: context.recoveryAttempt.state,
@@ -173,7 +173,7 @@ export const buildDiagnosticReport = (
           root_dir: getArtifactRootDir(sessionId),
         }
       : undefined,
-    notes: ["Diagnostics include runtime status; some checks may be stubbed."],
+    notes: ['Diagnostics include runtime status; some checks may be stubbed.'],
   };
 
   return report;

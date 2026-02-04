@@ -1,7 +1,7 @@
-import { Command } from "commander";
-import { ApiEnvelope } from "@browser-vision/shared";
-import { createCoreClient, CoreClient } from "./core-client";
-import { outputEnvelope, outputError } from "./cli-output";
+import { Command } from 'commander';
+import { ApiEnvelope } from '@browser-vision/shared';
+import { createCoreClient, CoreClient } from './core-client';
+import { outputEnvelope, outputError } from './cli-output';
 
 type GlobalOptions = {
   host?: string;

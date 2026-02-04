@@ -1,6 +1,6 @@
-import { ApiEnvelope } from "@browser-vision/shared";
-import { spawn } from "node:child_process";
-import { setTimeout as delay } from "node:timers/promises";
+import { ApiEnvelope } from '@browser-vision/shared';
+import { spawn } from 'node:child_process';
+import { setTimeout as delay } from 'node:timers/promises';
 
 type FetchLike = typeof fetch;
 
@@ -21,7 +21,7 @@ export type CoreClient = {
   post: <T>(path: string, body?: unknown) => Promise<ApiEnvelope<T>>;
 };
 
-const DEFAULT_HOST = "127.0.0.1";
+const DEFAULT_HOST = '127.0.0.1';
 const DEFAULT_PORT = 3210;
 const DEFAULT_TIMEOUT_MS = 4000;
 const HEALTH_RETRY_MS = 250;
@@ -46,7 +46,8 @@ const resolvePort = (port?: number | string): number => {
     return DEFAULT_PORT;
   }
 
-  const parsed = typeof candidate === "number" ? candidate : Number.parseInt(candidate, 10);
+  const parsed =
+    typeof candidate === 'number' ? candidate : Number.parseInt(candidate, 10);
   if (!Number.isFinite(parsed) || parsed <= 0) {
     throw new Error(`Invalid port: ${String(candidate)}`);
   }
@@ -54,9 +55,12 @@ const resolvePort = (port?: number | string): number => {
   return parsed;
 };
 
-const normalizePath = (path: string): string => (path.startsWith("/") ? path : `/${path}`);
+const normalizePath = (path: string): string =>
+  path.startsWith('/') ? path : `/${path}`;
 
-export const createCoreClient = (options: CoreClientOptions = {}): CoreClient => {
+export const createCoreClient = (
+  options: CoreClientOptions = {}
+): CoreClient => {
   const host = resolveHost(options.host);
   const port = resolvePort(options.port);
   const baseUrl = `http://${host}:${port}`;
@@ -66,7 +70,7 @@ export const createCoreClient = (options: CoreClientOptions = {}): CoreClient =>
   const ensureDaemon = options.ensureDaemon ?? true;
 
   const requestJson = async <T>(
-    method: "GET" | "POST",
+    method: 'GET' | 'POST',
     path: string,
     body?: unknown
   ): Promise<T> => {
@@ -76,7 +80,7 @@ export const createCoreClient = (options: CoreClientOptions = {}): CoreClient =>
       const response = await fetchImpl(`${baseUrl}${normalizePath(path)}`, {
         method,
         headers: {
-          "content-type": "application/json",
+          'content-type': 'application/json',
         },
         body: body === undefined ? undefined : JSON.stringify(body),
         signal: controller.signal,
@@ -90,7 +94,8 @@ export const createCoreClient = (options: CoreClientOptions = {}): CoreClient =>
       try {
         return JSON.parse(raw) as T;
       } catch (error) {
-        const message = error instanceof Error ? error.message : "Unknown JSON parse error";
+        const message =
+          error instanceof Error ? error.message : 'Unknown JSON parse error';
         throw new Error(`Failed to parse Core response: ${message}`);
       }
     } finally {
@@ -104,13 +109,15 @@ export const createCoreClient = (options: CoreClientOptions = {}): CoreClient =>
       const timeout = setTimeout(() => controller.abort(), timeoutMs);
       try {
         const response = await fetchImpl(`${baseUrl}/health`, {
-          method: "GET",
+          method: 'GET',
           signal: controller.signal,
         });
         if (!response.ok) {
           return false;
         }
-        const data = (await response.json().catch(() => null)) as { ok?: boolean } | null;
+        const data = (await response.json().catch(() => null)) as {
+          ok?: boolean;
+        } | null;
         return Boolean(data?.ok);
       } finally {
         clearTimeout(timeout);
@@ -125,9 +132,9 @@ export const createCoreClient = (options: CoreClientOptions = {}): CoreClient =>
       host
     )}, port: ${port} })\n  .catch((err) => { console.error(err); process.exit(1); });`;
 
-    const child = spawnImpl(process.execPath, ["-e", script], {
+    const child = spawnImpl(process.execPath, ['-e', script], {
       detached: true,
-      stdio: "ignore",
+      stdio: 'ignore',
       env: {
         ...process.env,
         BROWSER_VISION_CORE_HOST: host,
@@ -166,9 +173,12 @@ export const createCoreClient = (options: CoreClientOptions = {}): CoreClient =>
     await ensurePromise;
   };
 
-  const post = async <T>(path: string, body?: unknown): Promise<ApiEnvelope<T>> => {
+  const post = async <T>(
+    path: string,
+    body?: unknown
+  ): Promise<ApiEnvelope<T>> => {
     await ensureReady();
-    return requestJson<ApiEnvelope<T>>("POST", path, body);
+    return requestJson<ApiEnvelope<T>>('POST', path, body);
   };
 
   return { baseUrl, ensureReady, post };

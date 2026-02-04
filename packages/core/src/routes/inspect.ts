@@ -1,8 +1,8 @@
-import { InspectError, InspectService, createInspectService } from "../inspect";
-import { TargetHint } from "../target-matching";
-import { SessionRegistry } from "../session";
-import type { ExtensionBridge } from "../extension-bridge";
-import type { DriveTabInfo } from "../drive-protocol";
+import { InspectError, InspectService, createInspectService } from '../inspect';
+import { TargetHint } from '../target-matching';
+import { SessionRegistry } from '../session';
+import type { ExtensionBridge } from '../extension-bridge';
+import type { DriveTabInfo } from '../drive-protocol';
 
 type RequestLike = {
   body?: unknown;
@@ -14,24 +14,27 @@ type ResponseLike = {
 };
 
 type RouteRegistry = {
-  post: (path: string, handler: (req: RequestLike, res: ResponseLike) => void) => void;
+  post: (
+    path: string,
+    handler: (req: RequestLike, res: ResponseLike) => void
+  ) => void;
 };
 
 type ErrorCode =
-  | "INVALID_ARGUMENT"
-  | "NOT_IMPLEMENTED"
-  | "SESSION_NOT_FOUND"
-  | "SESSION_CLOSED"
-  | "INSPECT_UNAVAILABLE"
-  | "EXTENSION_DISCONNECTED"
-  | "DEBUGGER_IN_USE"
-  | "ATTACH_DENIED"
-  | "TAB_NOT_FOUND"
-  | "NOT_SUPPORTED"
-  | "TIMEOUT"
-  | "EVALUATION_FAILED"
-  | "ARTIFACT_IO_ERROR"
-  | "INTERNAL";
+  | 'INVALID_ARGUMENT'
+  | 'NOT_IMPLEMENTED'
+  | 'SESSION_NOT_FOUND'
+  | 'SESSION_CLOSED'
+  | 'INSPECT_UNAVAILABLE'
+  | 'EXTENSION_DISCONNECTED'
+  | 'DEBUGGER_IN_USE'
+  | 'ATTACH_DENIED'
+  | 'TAB_NOT_FOUND'
+  | 'NOT_SUPPORTED'
+  | 'TIMEOUT'
+  | 'EVALUATION_FAILED'
+  | 'ARTIFACT_IO_ERROR'
+  | 'INTERNAL';
 
 type ErrorEnvelope = {
   ok: false;
@@ -62,7 +65,7 @@ type InspectRoutesOptions = {
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
+  typeof value === 'object' && value !== null && !Array.isArray(value);
 
 const errorEnvelope = (
   code: ErrorCode,
@@ -88,29 +91,29 @@ const sendError = (
 ): void => {
   const status = (() => {
     switch (code) {
-      case "INVALID_ARGUMENT":
+      case 'INVALID_ARGUMENT':
         return 400;
-      case "SESSION_NOT_FOUND":
+      case 'SESSION_NOT_FOUND':
         return 404;
-      case "TAB_NOT_FOUND":
+      case 'TAB_NOT_FOUND':
         return 404;
-      case "SESSION_CLOSED":
+      case 'SESSION_CLOSED':
         return 409;
-      case "DEBUGGER_IN_USE":
+      case 'DEBUGGER_IN_USE':
         return 409;
-      case "ATTACH_DENIED":
+      case 'ATTACH_DENIED':
         return 403;
-      case "EXTENSION_DISCONNECTED":
+      case 'EXTENSION_DISCONNECTED':
         return 503;
-      case "NOT_SUPPORTED":
+      case 'NOT_SUPPORTED':
         return 501;
-      case "TIMEOUT":
+      case 'TIMEOUT':
         return 504;
-      case "INSPECT_UNAVAILABLE":
+      case 'INSPECT_UNAVAILABLE':
         return 503;
-      case "EVALUATION_FAILED":
-      case "ARTIFACT_IO_ERROR":
-      case "INTERNAL":
+      case 'EVALUATION_FAILED':
+      case 'ARTIFACT_IO_ERROR':
+      case 'INTERNAL':
       default:
         return 500;
     }
@@ -125,7 +128,7 @@ const sendResult = <T>(res: ResponseLike, result: T): void => {
 
 const requireObject = (body: unknown): ValidationError | null => {
   if (!isRecord(body)) {
-    return { message: "Request body must be an object." };
+    return { message: 'Request body must be an object.' };
   }
   return null;
 };
@@ -136,7 +139,7 @@ const requireString = (
   label = field
 ): ValidationError | null => {
   const value = obj[field];
-  if (typeof value !== "string" || value.trim().length === 0) {
+  if (typeof value !== 'string' || value.trim().length === 0) {
     return {
       message: `${label} must be a non-empty string.`,
       details: { field },
@@ -154,7 +157,7 @@ const optionalString = (
   if (value === undefined) {
     return null;
   }
-  if (typeof value !== "string" || value.trim().length === 0) {
+  if (typeof value !== 'string' || value.trim().length === 0) {
     return {
       message: `${label} must be a non-empty string.`,
       details: { field },
@@ -173,61 +176,72 @@ const optionalEnum = (
   if (value === undefined) {
     return null;
   }
-  if (typeof value !== "string" || !allowed.includes(value)) {
+  if (typeof value !== 'string' || !allowed.includes(value)) {
     return {
       message: `${label} must be one of ${allowed
         .map((entry) => `'${entry}'`)
-        .join(", ")}.`,
+        .join(', ')}.`,
       details: { field },
     };
   }
   return null;
 };
 
-const optionalTargetHint = (obj: Record<string, unknown>): ValidationError | null => {
+const optionalTargetHint = (
+  obj: Record<string, unknown>
+): ValidationError | null => {
   const target = obj.target;
   if (target === undefined) {
     return null;
   }
   if (!isRecord(target)) {
     return {
-      message: "target must be an object.",
-      details: { field: "target" },
+      message: 'target must be an object.',
+      details: { field: 'target' },
     };
   }
   const url = target.url;
-  if (url !== undefined && (typeof url !== "string" || url.trim().length === 0)) {
+  if (
+    url !== undefined &&
+    (typeof url !== 'string' || url.trim().length === 0)
+  ) {
     return {
-      message: "target.url must be a non-empty string.",
-      details: { field: "target.url" },
+      message: 'target.url must be a non-empty string.',
+      details: { field: 'target.url' },
     };
   }
   const title = target.title;
-  if (title !== undefined && (typeof title !== "string" || title.trim().length === 0)) {
+  if (
+    title !== undefined &&
+    (typeof title !== 'string' || title.trim().length === 0)
+  ) {
     return {
-      message: "target.title must be a non-empty string.",
-      details: { field: "target.title" },
+      message: 'target.title must be a non-empty string.',
+      details: { field: 'target.title' },
     };
   }
   const lastActiveAt = target.last_active_at ?? target.lastActiveAt;
-  if (lastActiveAt !== undefined && typeof lastActiveAt !== "string") {
+  if (lastActiveAt !== undefined && typeof lastActiveAt !== 'string') {
     return {
-      message: "target.last_active_at must be a string.",
-      details: { field: "target.last_active_at" },
+      message: 'target.last_active_at must be a string.',
+      details: { field: 'target.last_active_at' },
     };
   }
   return null;
 };
 
-const readTargetHint = (obj: Record<string, unknown>): TargetHint | undefined => {
+const readTargetHint = (
+  obj: Record<string, unknown>
+): TargetHint | undefined => {
   const target = obj.target;
   if (!isRecord(target)) {
     return undefined;
   }
-  const url = typeof target.url === "string" ? target.url : undefined;
-  const title = typeof target.title === "string" ? target.title : undefined;
+  const url = typeof target.url === 'string' ? target.url : undefined;
+  const title = typeof target.title === 'string' ? target.title : undefined;
   const lastActiveAtRaw = target.last_active_at ?? target.lastActiveAt;
-  const lastActiveAt = typeof lastActiveAtRaw === "string" ? lastActiveAtRaw : undefined;
+  const lastActiveAt =
+    typeof lastActiveAtRaw === 'string' ? lastActiveAtRaw : undefined;
   if (!url && !title && !lastActiveAt) {
     return undefined;
   }
@@ -274,8 +288,9 @@ const resolveTargetHint = (
   return deriveHintFromTabs(tabs);
 };
 
-const validateSessionId = (obj: Record<string, unknown>): ValidationError | null =>
-  requireString(obj, "session_id");
+const validateSessionId = (
+  obj: Record<string, unknown>
+): ValidationError | null => requireString(obj, 'session_id');
 
 const validateDomSnapshot: Validator = (body) => {
   const objectError = requireObject(body);
@@ -287,11 +302,14 @@ const validateDomSnapshot: Validator = (body) => {
   if (sessionError) {
     return sessionError;
   }
-  const formatError = optionalEnum(obj, "format", ["ax", "html"]);
+  const formatError = optionalEnum(obj, 'format', ['ax', 'html']);
   if (formatError) {
     return formatError;
   }
-  const consistencyError = optionalEnum(obj, "consistency", ["best_effort", "quiesce"]);
+  const consistencyError = optionalEnum(obj, 'consistency', [
+    'best_effort',
+    'quiesce',
+  ]);
   if (consistencyError) {
     return consistencyError;
   }
@@ -334,7 +352,7 @@ const validateEvaluate: Validator = (body) => {
   if (sessionError) {
     return sessionError;
   }
-  const expressionError = optionalString(obj, "expression", "expression");
+  const expressionError = optionalString(obj, 'expression', 'expression');
   if (expressionError) {
     return expressionError;
   }
@@ -354,14 +372,15 @@ const validatePerformanceMetrics: Validator = (body) => {
   return optionalTargetHint(obj);
 };
 
-const makeHandler = <T>(
-  validator: Validator,
-  handler: (body: Record<string, unknown>) => Promise<T>
-) =>
+const makeHandler =
+  <T>(
+    validator: Validator,
+    handler: (body: Record<string, unknown>) => Promise<T>
+  ) =>
   async (req: RequestLike, res: ResponseLike): Promise<void> => {
     const error = validator(req.body);
     if (error) {
-      sendError(res, "INVALID_ARGUMENT", error.message, false, error.details);
+      sendError(res, 'INVALID_ARGUMENT', error.message, false, error.details);
       return;
     }
 
@@ -374,7 +393,7 @@ const makeHandler = <T>(
         sendError(res, err.code, err.message, err.retryable, err.details);
         return;
       }
-      sendError(res, "INTERNAL", "Unexpected inspect error.", false);
+      sendError(res, 'INTERNAL', 'Unexpected inspect error.', false);
     }
   };
 
@@ -390,18 +409,19 @@ export const registerInspectRoutes = (
     });
 
   router.post(
-    "/inspect/dom_snapshot",
+    '/inspect/dom_snapshot',
     makeHandler(validateDomSnapshot, async (body) => {
       return await inspect.domSnapshot({
         sessionId: body.session_id as string,
-        format: (body.format as "ax" | "html") ?? "ax",
-        consistency: (body.consistency as "best_effort" | "quiesce") ?? "best_effort",
+        format: (body.format as 'ax' | 'html') ?? 'ax',
+        consistency:
+          (body.consistency as 'best_effort' | 'quiesce') ?? 'best_effort',
         targetHint: resolveTargetHint(body, options),
       });
     })
   );
   router.post(
-    "/inspect/console_list",
+    '/inspect/console_list',
     makeHandler(validateConsoleList, async (body) => {
       return await inspect.consoleList({
         sessionId: body.session_id as string,
@@ -410,7 +430,7 @@ export const registerInspectRoutes = (
     })
   );
   router.post(
-    "/inspect/network_har",
+    '/inspect/network_har',
     makeHandler(validateNetworkHar, async (body) => {
       return await inspect.networkHar({
         sessionId: body.session_id as string,
@@ -419,7 +439,7 @@ export const registerInspectRoutes = (
     })
   );
   router.post(
-    "/inspect/evaluate",
+    '/inspect/evaluate',
     makeHandler(validateEvaluate, async (body) => {
       return await inspect.evaluate({
         sessionId: body.session_id as string,
@@ -429,7 +449,7 @@ export const registerInspectRoutes = (
     })
   );
   router.post(
-    "/inspect/performance_metrics",
+    '/inspect/performance_metrics',
     makeHandler(validatePerformanceMetrics, async (body) => {
       return await inspect.performanceMetrics({
         sessionId: body.session_id as string,

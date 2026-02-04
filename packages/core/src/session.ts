@@ -1,10 +1,10 @@
-import { randomUUID } from "crypto";
+import { randomUUID } from 'crypto';
 import {
   InvalidSessionTransition,
   SessionEvent,
   SessionState,
   transitionSession,
-} from "./state";
+} from './state';
 
 export type SessionRecord = {
   id: string;
@@ -20,14 +20,14 @@ export type RecoverResult = {
   message?: string;
 };
 
-export type SessionErrorCode = "SESSION_NOT_FOUND" | "SESSION_CLOSED";
+export type SessionErrorCode = 'SESSION_NOT_FOUND' | 'SESSION_CLOSED';
 
 export class SessionError extends Error {
   public readonly code: SessionErrorCode;
 
   constructor(code: SessionErrorCode, message: string) {
     super(message);
-    this.name = "SessionError";
+    this.name = 'SessionError';
     this.code = code;
   }
 }
@@ -61,7 +61,7 @@ export class SessionRegistry {
     const session = this.sessions.get(sessionId);
     if (!session) {
       throw new SessionError(
-        "SESSION_NOT_FOUND",
+        'SESSION_NOT_FOUND',
         `Session ${sessionId} does not exist.`
       );
     }
@@ -71,9 +71,9 @@ export class SessionRegistry {
 
   apply(sessionId: string, event: SessionEvent): SessionRecord {
     const session = this.require(sessionId);
-    if (session.state === SessionState.CLOSED && event !== "CLOSE") {
+    if (session.state === SessionState.CLOSED && event !== 'CLOSE') {
       throw new SessionError(
-        "SESSION_CLOSED",
+        'SESSION_CLOSED',
         `Session ${sessionId} is closed.`
       );
     }
@@ -98,7 +98,7 @@ export class SessionRegistry {
     const session = this.require(sessionId);
     if (session.state === SessionState.CLOSED) {
       throw new SessionError(
-        "SESSION_CLOSED",
+        'SESSION_CLOSED',
         `Session ${sessionId} is closed.`
       );
     }
@@ -111,23 +111,23 @@ export class SessionRegistry {
       session.state === SessionState.DEGRADED_INSPECT
     ) {
       if (outcome?.recovered) {
-        session.state = transitionSession(session.state, "RECOVER_SUCCEEDED");
+        session.state = transitionSession(session.state, 'RECOVER_SUCCEEDED');
         recovered = true;
-        message = outcome.message ?? "Recovery succeeded.";
+        message = outcome.message ?? 'Recovery succeeded.';
       } else if (outcome) {
-        session.state = transitionSession(session.state, "RECOVER_FAILED");
+        session.state = transitionSession(session.state, 'RECOVER_FAILED');
         recovered = false;
-        message = outcome.message ?? "Recovery failed.";
+        message = outcome.message ?? 'Recovery failed.';
       } else {
         recovered = false;
-        message = "Recovery not attempted.";
+        message = 'Recovery not attempted.';
       }
     } else if (session.state === SessionState.BROKEN) {
       recovered = false;
-      message = "Session is broken.";
+      message = 'Session is broken.';
     } else {
       recovered = false;
-      message = "No recovery needed.";
+      message = 'No recovery needed.';
     }
 
     session.updatedAt = new Date();
@@ -142,7 +142,7 @@ export class SessionRegistry {
 
   close(sessionId: string): SessionRecord {
     const session = this.require(sessionId);
-    session.state = transitionSession(session.state, "CLOSE");
+    session.state = transitionSession(session.state, 'CLOSE');
     session.updatedAt = new Date();
     return session;
   }

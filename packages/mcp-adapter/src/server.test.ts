@@ -1,18 +1,18 @@
-import { describe, expect, it, vi } from "vitest";
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import type { CoreClient } from "./core-client";
-import { createMcpServer, startMcpServer } from "./server";
-import { TOOL_DEFINITIONS } from "./tools";
+import { describe, expect, it, vi } from 'vitest';
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import type { CoreClient } from './core-client';
+import { createMcpServer, startMcpServer } from './server';
+import { TOOL_DEFINITIONS } from './tools';
 
-describe("mcp-adapter server", () => {
-  it("registers all tools on createMcpServer", () => {
+describe('mcp-adapter server', () => {
+  it('registers all tools on createMcpServer', () => {
     const coreClient: CoreClient = {
-      baseUrl: "http://core",
+      baseUrl: 'http://core',
       post: vi.fn(),
     };
 
-    const registerSpy = vi.spyOn(McpServer.prototype, "registerTool");
+    const registerSpy = vi.spyOn(McpServer.prototype, 'registerTool');
 
     try {
       const { client } = createMcpServer({ coreClient });
@@ -28,14 +28,14 @@ describe("mcp-adapter server", () => {
     }
   });
 
-  it("connects via stdio transport on startMcpServer", async () => {
+  it('connects via stdio transport on startMcpServer', async () => {
     const coreClient: CoreClient = {
-      baseUrl: "http://core",
+      baseUrl: 'http://core',
       post: vi.fn(),
     };
 
     const connectSpy = vi
-      .spyOn(McpServer.prototype, "connect")
+      .spyOn(McpServer.prototype, 'connect')
       .mockResolvedValue(undefined);
 
     try {

@@ -3,12 +3,12 @@ import type {
   DebuggerEventParams,
   DebuggerResponse,
   DriveErrorInfo,
-} from "./drive-protocol";
+} from './drive-protocol';
 import {
   ExtensionBridge,
   ExtensionBridgeError,
   toDriveError,
-} from "./extension-bridge";
+} from './extension-bridge';
 
 export type DebuggerEventRecord = {
   tab_id: number;
@@ -33,19 +33,20 @@ const DEFAULT_NETWORK_BUFFER_SIZE = 500;
 const DEFAULT_IDLE_TIMEOUT_MS = 15000;
 
 const CONSOLE_METHODS = new Set([
-  "Runtime.consoleAPICalled",
-  "Runtime.exceptionThrown",
-  "Log.entryAdded",
+  'Runtime.consoleAPICalled',
+  'Runtime.exceptionThrown',
+  'Log.entryAdded',
 ]);
 
 const isConsoleEvent = (method: string): boolean => {
   if (CONSOLE_METHODS.has(method)) {
     return true;
   }
-  return method.startsWith("Runtime.") && method.includes("console");
+  return method.startsWith('Runtime.') && method.includes('console');
 };
 
-const isNetworkEvent = (method: string): boolean => method.startsWith("Network.");
+const isNetworkEvent = (method: string): boolean =>
+  method.startsWith('Network.');
 
 class RingBuffer<T> {
   private readonly capacity: number;
@@ -159,17 +160,17 @@ export class DebuggerBridge {
 
     try {
       const response = await this.bridge.requestDebugger(
-        "debugger.attach",
+        'debugger.attach',
         { tab_id: tabId },
         this.idleTimeoutMs
       );
 
-      if (response.status === "error") {
+      if (response.status === 'error') {
         const error =
           response.error ??
           ({
-            code: "INSPECT_UNAVAILABLE",
-            message: "Debugger attach failed.",
+            code: 'INSPECT_UNAVAILABLE',
+            message: 'Debugger attach failed.',
             retryable: false,
           } as DriveErrorInfo);
         this.recordError(error);
@@ -193,17 +194,17 @@ export class DebuggerBridge {
 
     try {
       const response = await this.bridge.requestDebugger(
-        "debugger.detach",
+        'debugger.detach',
         { tab_id: tabId },
         this.idleTimeoutMs
       );
 
-      if (response.status === "error") {
+      if (response.status === 'error') {
         const error =
           response.error ??
           ({
-            code: "INSPECT_UNAVAILABLE",
-            message: "Debugger detach failed.",
+            code: 'INSPECT_UNAVAILABLE',
+            message: 'Debugger detach failed.',
             retryable: false,
           } as DriveErrorInfo);
         this.recordError(error);
@@ -232,7 +233,7 @@ export class DebuggerBridge {
 
     try {
       const response: DebuggerResponse<T> = await this.bridge.requestDebugger(
-        "debugger.command",
+        'debugger.command',
         {
           tab_id: tabId,
           method,
@@ -241,12 +242,12 @@ export class DebuggerBridge {
         timeoutMs
       );
 
-      if (response.status === "error") {
+      if (response.status === 'error') {
         const error =
           response.error ??
           ({
-            code: "INSPECT_UNAVAILABLE",
-            message: "Debugger command failed.",
+            code: 'INSPECT_UNAVAILABLE',
+            message: 'Debugger command failed.',
             retryable: false,
           } as DriveErrorInfo);
         this.recordError(error);
@@ -272,12 +273,12 @@ export class DebuggerBridge {
   }
 
   private handleDebuggerEvent(event: DebuggerEvent): void {
-    if (event.action !== "debugger.event") {
+    if (event.action !== 'debugger.event') {
       return;
     }
 
     const params = event.params as DebuggerEventParams | undefined;
-    if (!params || typeof params.tab_id !== "number") {
+    if (!params || typeof params.tab_id !== 'number') {
       return;
     }
 
@@ -290,7 +291,7 @@ export class DebuggerBridge {
 
     const state = this.ensureTab(params.tab_id);
 
-    if (record.method === "Debugger.detached") {
+    if (record.method === 'Debugger.detached') {
       this.markDetached(params.tab_id);
       return;
     }
@@ -359,8 +360,9 @@ export class DebuggerBridge {
     }
 
     const info: DriveErrorInfo = {
-      code: "INSPECT_UNAVAILABLE",
-      message: error instanceof Error ? error.message : "Debugger request failed.",
+      code: 'INSPECT_UNAVAILABLE',
+      message:
+        error instanceof Error ? error.message : 'Debugger request failed.',
       retryable: false,
     };
     this.recordError(info);
