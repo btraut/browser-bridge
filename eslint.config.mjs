@@ -25,5 +25,15 @@ export default [
     rules: {
       ...tsPlugin.configs.recommended.rules
     }
+  },
+  {
+    files: ["packages/extension/**/*.ts"],
+    languageOptions: {
+      globals: {
+        ...globals.browser,
+        ...globals.serviceworker,
+        ...globals.webextensions
+      }
+    }
   }
 ];

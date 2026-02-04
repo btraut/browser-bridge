@@ -6,9 +6,12 @@ import {
   transitionSession,
 } from "./state";
 
+export type SessionMode = "auto" | "attach" | "launch";
+
 export type SessionRecord = {
   id: string;
   state: SessionState;
+  mode: SessionMode;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -35,12 +38,13 @@ export class SessionError extends Error {
 export class SessionRegistry {
   private sessions = new Map<string, SessionRecord>();
 
-  create(): SessionRecord {
+  create(mode: SessionMode = "auto"): SessionRecord {
     const now = new Date();
     const id = `session-${randomUUID()}`;
     const session: SessionRecord = {
       id,
       state: SessionState.INIT,
+      mode,
       createdAt: now,
       updatedAt: now,
     };
@@ -51,6 +55,10 @@ export class SessionRegistry {
 
   get(sessionId: string): SessionRecord | undefined {
     return this.sessions.get(sessionId);
+  }
+
+  list(): SessionRecord[] {
+    return Array.from(this.sessions.values());
   }
 
   require(sessionId: string): SessionRecord {

@@ -1,0 +1,19 @@
+{
+  "manifest_version": 3,
+  "name": "Browser Vision Drive",
+  "version": "0.1.0",
+  "description": "Drive plane extension for local browser control.",
+  "background": {
+    "service_worker": "dist/background.js",
+    "type": "module"
+  },
+  "permissions": ["tabs", "scripting", "storage", "webNavigation"],
+  "host_permissions": ["<all_urls>"],
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["dist/content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

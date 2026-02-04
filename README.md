@@ -26,6 +26,13 @@ These commands are provided by the workspace scaffolding at the repo root. If th
 4. Confirm the extension's background service worker is running.
 5. Start the Core daemon (or CLI) so the extension can connect to `127.0.0.1`.
 
+## Drive Plane Manual Check
+1. Build the workspace: `npm run build`.
+2. Start Core (default `127.0.0.1:3210`, override with `BROWSER_VISION_CORE_PORT`).
+3. Load the extension as above and open any page.
+4. Create a session: `curl -s localhost:3210/session/create -X POST -H 'content-type: application/json' -d '{}'`.
+5. Call a drive route (for example `drive.tab_list`) and verify a tab list is returned.
+
 ## Workspace Layout (Planned)
 ```
 packages/

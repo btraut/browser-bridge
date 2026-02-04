@@ -1,13 +1,18 @@
+import { createServer } from "http";
 import express, { Express } from "express";
 import { createSessionRouter } from "./routes/session";
 import { registerArtifactsRoutes } from "./routes/artifacts";
 import { registerDiagnosticsRoutes } from "./routes/diagnostics";
 import { registerDriveRoutes, registerInspectRoutes } from "./routes";
 import { SessionRegistry } from "./session";
+import { ExtensionBridge } from "./extension-bridge";
+import { DriveController } from "./drive";
 
 export type CoreServer = {
   app: Express;
   registry: SessionRegistry;
+  extensionBridge: ExtensionBridge;
+  drive: DriveController;
 };
 
 export type CoreServerOptions = {
@@ -17,6 +22,8 @@ export type CoreServerOptions = {
 export const createCoreServer = (options: CoreServerOptions = {}): CoreServer => {
   const app = express();
   const registry = options.registry ?? new SessionRegistry();
+  const extensionBridge = new ExtensionBridge({ registry });
+  const drive = new DriveController(extensionBridge, registry);
 
   app.use(express.json({ limit: "1mb" }));
 
@@ -24,14 +31,19 @@ export const createCoreServer = (options: CoreServerOptions = {}): CoreServer =>
     res.status(200).json({ ok: true });
   });
 
-  app.use("/session", createSessionRouter(registry));
+  app.use(
+    "/session",
+    createSessionRouter(registry, {
+      driveConnected: () => extensionBridge.isConnected(),
+    })
+  );
 
-  registerDriveRoutes(app);
-  registerInspectRoutes(app);
+  registerDriveRoutes(app, { drive });
+  registerInspectRoutes(app, { registry, extensionBridge });
   registerArtifactsRoutes(app);
   registerDiagnosticsRoutes(app);
 
-  return { app, registry };
+  return { app, registry, extensionBridge, drive };
 };
 
 export type CoreServerStartOptions = {
@@ -43,20 +55,38 @@ export type CoreServerStartOptions = {
 export type CoreServerHandle = {
   app: Express;
   registry: SessionRegistry;
-  server: ReturnType<Express["listen"]>;
+  server: ReturnType<typeof createServer>;
   host: string;
   port: number;
+};
+
+const resolveCorePort = (portOverride?: number): number => {
+  if (portOverride !== undefined) {
+    return portOverride;
+  }
+  const env = process.env.BROWSER_VISION_CORE_PORT;
+  if (env) {
+    const parsed = Number(env);
+    if (Number.isFinite(parsed) && parsed > 0) {
+      return parsed;
+    }
+  }
+  return 3210;
 };
 
 export const startCoreServer = (
   options: CoreServerStartOptions = {}
 ): Promise<CoreServerHandle> => {
   const host = options.host ?? "127.0.0.1";
-  const port = options.port ?? 0;
-  const { app, registry } = createCoreServer({ registry: options.registry });
+  const port = resolveCorePort(options.port);
+  const { app, registry, extensionBridge } = createCoreServer({
+    registry: options.registry,
+  });
 
   return new Promise((resolve, reject) => {
-    const server = app.listen(port, host, () => {
+    const server = createServer(app);
+    extensionBridge.attach(server);
+    server.listen(port, host, () => {
       const address = server.address();
       const resolvedPort =
         typeof address === "object" && address !== null ? address.port : port;

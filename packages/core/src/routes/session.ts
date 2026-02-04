@@ -1,6 +1,6 @@
 import { Response, Router } from "express";
 import { InvalidSessionTransition } from "../state";
-import { SessionError, SessionRegistry } from "../session";
+import { SessionError, SessionMode, SessionRegistry } from "../session";
 
 const SESSION_MODES = new Set(["auto", "attach", "launch"]);
 
@@ -48,7 +48,14 @@ const readSessionId = (body: unknown): string | undefined => {
   return sessionId;
 };
 
-export const createSessionRouter = (registry: SessionRegistry): Router => {
+type SessionRouterOptions = {
+  driveConnected?: () => boolean;
+};
+
+export const createSessionRouter = (
+  registry: SessionRegistry,
+  options: SessionRouterOptions = {}
+): Router => {
   const router = Router();
 
   router.post("/create", (req, res) => {
@@ -63,7 +70,17 @@ export const createSessionRouter = (registry: SessionRegistry): Router => {
       }
     }
 
-    const session = registry.create();
+    const mode = isRecord(body) && typeof body.mode === "string"
+      ? (body.mode as SessionMode)
+      : "auto";
+    const session = registry.create(mode);
+    if (options.driveConnected?.()) {
+      try {
+        registry.apply(session.id, "DRIVE_CONNECTED");
+      } catch {
+        // Ignore invalid transitions.
+      }
+    }
     return sendResult(res, {
       session_id: session.id,
       state: session.state,

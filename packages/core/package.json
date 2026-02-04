@@ -8,9 +8,12 @@
     "dist"
   ],
   "dependencies": {
-    "express": "^5.0.0"
+    "express": "^5.0.0",
+    "puppeteer": "^24.36.1",
+    "ws": "^8.19.0"
   },
   "devDependencies": {
-    "@types/express": "^5.0.0"
+    "@types/express": "^5.0.0",
+    "@types/ws": "^8.5.12"
   }
 }

@@ -1,3 +1,6 @@
+import { DriveController } from "../drive";
+import type { DriveAction } from "../drive-protocol";
+
 type RequestLike = {
   body?: unknown;
 };
@@ -11,16 +14,19 @@ type RouteRegistry = {
   post: (path: string, handler: (req: RequestLike, res: ResponseLike) => void) => void;
 };
 
-type ErrorCode = "INVALID_ARGUMENT" | "NOT_IMPLEMENTED";
-
 type ErrorEnvelope = {
   ok: false;
   error: {
-    code: ErrorCode;
+    code: string;
     message: string;
     retryable: boolean;
     details?: Record<string, unknown>;
   };
+};
+
+type SuccessEnvelope<T> = {
+  ok: true;
+  result: T;
 };
 
 type ValidationError = {
@@ -30,41 +36,50 @@ type ValidationError = {
 
 type Validator = (body: unknown) => ValidationError | null;
 
-type DriveMutex = {
-  runExclusive: <T>(work: () => T | Promise<T>) => Promise<T>;
+type DriveRouteOptions = {
+  drive: DriveController;
 };
 
-export const driveMutex: DriveMutex = {
-  async runExclusive<T>(work: () => T | Promise<T>): Promise<T> {
-    return await work();
-  },
+type HandlerOptions = {
+  defaultResult?: unknown;
+  timeoutFromParams?: (params: Record<string, unknown>) => number | undefined;
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
-const errorEnvelope = (
-  code: ErrorCode,
-  message: string,
-  details?: Record<string, unknown>
-): ErrorEnvelope => ({
-  ok: false,
-  error: {
-    code,
-    message,
-    retryable: false,
-    ...(details ? { details } : {}),
-  },
-});
-
 const sendError = (
   res: ResponseLike,
-  code: ErrorCode,
-  message: string,
-  details?: Record<string, unknown>
+  status: number,
+  error: ErrorEnvelope["error"]
 ): void => {
-  const status = code === "INVALID_ARGUMENT" ? 400 : 501;
-  res.status(status).json(errorEnvelope(code, message, details));
+  res.status(status).json({ ok: false, error });
+};
+
+const sendResult = <T>(res: ResponseLike, result: T): void => {
+  const envelope: SuccessEnvelope<T> = { ok: true, result };
+  res.status(200).json(envelope);
+};
+
+const errorStatus = (code: string): number => {
+  switch (code) {
+    case "INVALID_ARGUMENT":
+      return 400;
+    case "SESSION_NOT_FOUND":
+    case "LOCATOR_NOT_FOUND":
+      return 404;
+    case "SESSION_CLOSED":
+    case "FAILED_PRECONDITION":
+      return 409;
+    case "NOT_IMPLEMENTED":
+      return 501;
+    case "EXTENSION_DISCONNECTED":
+      return 503;
+    case "TIMEOUT":
+      return 504;
+    default:
+      return 500;
+  }
 };
 
 const requireObject = (body: unknown): ValidationError | null => {
@@ -241,6 +256,10 @@ const validateDriveNavigate: Validator = (body) => {
   if (urlError) {
     return urlError;
   }
+  const tabError = optionalNumber(obj, "tab_id", "tab_id");
+  if (tabError) {
+    return tabError;
+  }
   return optionalEnum(obj, "wait", ["none", "domcontentloaded"]);
 };
 
@@ -257,6 +276,10 @@ const validateDriveClick: Validator = (body) => {
   const locatorError = validateLocator(obj.locator);
   if (locatorError) {
     return locatorError;
+  }
+  const tabError = optionalNumber(obj, "tab_id", "tab_id");
+  if (tabError) {
+    return tabError;
   }
   return optionalNumber(obj, "click_count");
 };
@@ -282,11 +305,63 @@ const validateDriveType: Validator = (body) => {
   if (textError) {
     return textError;
   }
+  const tabError = optionalNumber(obj, "tab_id", "tab_id");
+  if (tabError) {
+    return tabError;
+  }
   const clearError = optionalBoolean(obj, "clear");
   if (clearError) {
     return clearError;
   }
   return optionalBoolean(obj, "submit");
+};
+
+const validateDriveScroll: Validator = (body) => {
+  const objectError = requireObject(body);
+  if (objectError) {
+    return objectError;
+  }
+  const obj = body as Record<string, unknown>;
+  const sessionError = validateSessionId(obj);
+  if (sessionError) {
+    return sessionError;
+  }
+  const deltaXError = optionalNumber(obj, "delta_x", "delta_x");
+  if (deltaXError) {
+    return deltaXError;
+  }
+  const deltaYError = optionalNumber(obj, "delta_y", "delta_y");
+  if (deltaYError) {
+    return deltaYError;
+  }
+  const topError = optionalNumber(obj, "top", "top");
+  if (topError) {
+    return topError;
+  }
+  const leftError = optionalNumber(obj, "left", "left");
+  if (leftError) {
+    return leftError;
+  }
+  const behaviorError = optionalEnum(obj, "behavior", ["auto", "smooth"]);
+  if (behaviorError) {
+    return behaviorError;
+  }
+  if (
+    obj.delta_x === undefined &&
+    obj.delta_y === undefined &&
+    obj.top === undefined &&
+    obj.left === undefined
+  ) {
+    return {
+      message: "scroll requires delta_x/delta_y or top/left.",
+      details: { field: "scroll" },
+    };
+  }
+  const tabError = optionalNumber(obj, "tab_id", "tab_id");
+  if (tabError) {
+    return tabError;
+  }
+  return null;
 };
 
 const validateDriveWaitFor: Validator = (body) => {
@@ -328,7 +403,11 @@ const validateDriveWaitFor: Validator = (body) => {
     };
   }
 
-  return optionalNumber(obj, "timeout_ms");
+  const timeoutError = optionalNumber(obj, "timeout_ms");
+  if (timeoutError) {
+    return timeoutError;
+  }
+  return optionalNumber(obj, "tab_id", "tab_id");
 };
 
 const validateDriveTabList: Validator = (body) => {
@@ -385,27 +464,91 @@ const validateDriveTabClose: Validator = (body) => {
   return null;
 };
 
-const makeHandler = (action: string, validator: Validator) =>
-  (req: RequestLike, res: ResponseLike): void => {
+const makeHandler = (
+  action: DriveAction,
+  validator: Validator,
+  drive: DriveController,
+  options: HandlerOptions = {}
+) => {
+  return (req: RequestLike, res: ResponseLike): void => {
     const error = validator(req.body);
     if (error) {
-      sendError(res, "INVALID_ARGUMENT", error.message, error.details);
+      sendError(res, errorStatus("INVALID_ARGUMENT"), {
+        code: "INVALID_ARGUMENT",
+        message: error.message,
+        retryable: false,
+        ...(error.details ? { details: error.details } : {}),
+      });
       return;
     }
 
-    void driveMutex.runExclusive(() => {
-      sendError(res, "NOT_IMPLEMENTED", `${action} is not implemented yet.`, {
-        action,
-      });
+    const body = req.body as Record<string, unknown>;
+    const sessionId = body.session_id as string;
+    const params = { ...body };
+    delete params.session_id;
+
+    const timeoutMs = options.timeoutFromParams
+      ? options.timeoutFromParams(params)
+      : undefined;
+
+    void drive.execute(sessionId, action, params, timeoutMs).then((result) => {
+      if (result.ok) {
+        const payload =
+          result.result === undefined
+            ? options.defaultResult ?? { ok: true }
+            : result.result;
+        sendResult(res, payload);
+        return;
+      }
+      sendError(res, errorStatus(result.error.code), result.error);
     });
   };
+};
 
-export const registerDriveRoutes = (router: RouteRegistry): void => {
-  router.post("/drive/navigate", makeHandler("drive.navigate", validateDriveNavigate));
-  router.post("/drive/click", makeHandler("drive.click", validateDriveClick));
-  router.post("/drive/type", makeHandler("drive.type", validateDriveType));
-  router.post("/drive/wait_for", makeHandler("drive.wait_for", validateDriveWaitFor));
-  router.post("/drive/tab_list", makeHandler("drive.tab_list", validateDriveTabList));
-  router.post("/drive/tab_activate", makeHandler("drive.tab_activate", validateDriveTabActivate));
-  router.post("/drive/tab_close", makeHandler("drive.tab_close", validateDriveTabClose));
+export const registerDriveRoutes = (
+  router: RouteRegistry,
+  options: DriveRouteOptions
+): void => {
+  const { drive } = options;
+
+  router.post(
+    "/drive/navigate",
+    makeHandler("drive.navigate", validateDriveNavigate, drive)
+  );
+  router.post(
+    "/drive/click",
+    makeHandler("drive.click", validateDriveClick, drive)
+  );
+  router.post(
+    "/drive/type",
+    makeHandler("drive.type", validateDriveType, drive)
+  );
+  router.post(
+    "/drive/scroll",
+    makeHandler("drive.scroll", validateDriveScroll, drive)
+  );
+  router.post(
+    "/drive/wait_for",
+    makeHandler("drive.wait_for", validateDriveWaitFor, drive, {
+      timeoutFromParams: (params) => {
+        const timeout = params.timeout_ms;
+        if (typeof timeout === "number" && Number.isFinite(timeout)) {
+          return Math.max(0, timeout + 1000);
+        }
+        return undefined;
+      },
+    })
+  );
+  router.post(
+    "/drive/tab_list",
+    makeHandler("drive.tab_list", validateDriveTabList, drive)
+  );
+  router.post(
+    "/drive/tab_activate",
+    makeHandler("drive.tab_activate", validateDriveTabActivate, drive)
+  );
+  router.post(
+    "/drive/tab_close",
+    makeHandler("drive.tab_close", validateDriveTabClose, drive)
+  );
 };
