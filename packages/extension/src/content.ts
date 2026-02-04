@@ -44,7 +44,33 @@ const runDriveAction = async (
     if (style.visibility === 'hidden' || style.display === 'none') {
       return false;
     }
-    return element.getClientRects().length > 0;
+    const rect = element.getBoundingClientRect();
+    if (rect.width === 0 && rect.height === 0) {
+      return false;
+    }
+    if (
+      element.offsetWidth === 0 &&
+      element.offsetHeight === 0 &&
+      element.getClientRects().length === 0
+    ) {
+      return false;
+    }
+    let current: HTMLElement | null = element;
+    while (current) {
+      const style = window.getComputedStyle(current);
+      if (style.display === "none") {
+        return false;
+      }
+      if (style.visibility === "hidden" || style.visibility === "collapse") {
+        return false;
+      }
+      const opacity = Number.parseFloat(style.opacity ?? "1");
+      if (Number.isFinite(opacity) && opacity <= 0) {
+        return false;
+      }
+      current = current.parentElement;
+    }
+    return true;
   };
 
   // Heuristic guard against unsafe regex patterns to avoid ReDoS in url_matches.
