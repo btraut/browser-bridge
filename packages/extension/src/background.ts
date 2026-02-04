@@ -500,10 +500,11 @@ class DriveSocket {
       return;
     }
 
+    const driveMessage = message as DriveRequest;
     const respondOk = (result?: unknown): void => {
       const response: DriveResponse = {
-        id: message.id,
-        action: message.action,
+        id: driveMessage.id,
+        action: driveMessage.action,
         status: 'ok',
         result,
       };
@@ -512,8 +513,8 @@ class DriveSocket {
 
     const respondError = (error: DriveErrorInfo): void => {
       const response: DriveResponse = {
-        id: message.id,
-        action: message.action,
+        id: driveMessage.id,
+        action: driveMessage.action,
         status: 'error',
         error,
       };
