@@ -131,7 +131,12 @@ export type InspectServiceOptions = {
     isConnected: () => boolean;
     getStatus: () => { tabs: DriveTabInfo[] };
   };
+  maxSnapshotsPerSession?: number;
+  maxSnapshotHistory?: number;
 };
+
+const DEFAULT_MAX_SNAPSHOTS_PER_SESSION = 20;
+const DEFAULT_MAX_SNAPSHOT_HISTORY = 100;
 
 export class InspectService {
   private readonly registry: SessionRegistry;
@@ -143,12 +148,17 @@ export class InspectService {
   private lastError?: InspectError;
   private lastErrorAt?: string;
   private readonly snapshotHistory: SnapshotRecord[] = [];
-  private readonly maxSnapshots = 20;
+  private readonly maxSnapshotsPerSession: number;
+  private readonly maxSnapshotHistory: number;
 
   constructor(options: InspectServiceOptions) {
     this.registry = options.registry;
     this.debugger = options.debuggerBridge;
     this.extensionBridge = options.extensionBridge;
+    this.maxSnapshotsPerSession =
+      options.maxSnapshotsPerSession ?? DEFAULT_MAX_SNAPSHOTS_PER_SESSION;
+    this.maxSnapshotHistory =
+      options.maxSnapshotHistory ?? DEFAULT_MAX_SNAPSHOT_HISTORY;
   }
 
   isConnected(): boolean {
@@ -724,7 +734,7 @@ export class InspectService {
         count += 1;
       }
     }
-    while (count > this.maxSnapshots) {
+    while (count > this.maxSnapshotsPerSession) {
       const index = this.snapshotHistory.findIndex(
         (record) => record.sessionId === sessionId
       );
@@ -733,6 +743,9 @@ export class InspectService {
       }
       this.snapshotHistory.splice(index, 1);
       count -= 1;
+    }
+    while (this.snapshotHistory.length > this.maxSnapshotHistory) {
+      this.snapshotHistory.shift();
     }
   }
 
