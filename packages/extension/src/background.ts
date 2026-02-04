@@ -526,8 +526,11 @@ class DriveSocket {
   }
 
   private async handleRequest(message: ExtensionRequest): Promise<void> {
-    const driveMessage = message as DriveRequest;
+    let driveMessage: DriveRequest | null = null;
     const respondOk = (result?: unknown): void => {
+      if (!driveMessage) {
+        return;
+      }
       const response: DriveResponse = {
         id: driveMessage.id,
         action: driveMessage.action,
@@ -538,6 +541,9 @@ class DriveSocket {
     };
 
     const respondError = (error: DriveErrorInfo): void => {
+      if (!driveMessage) {
+        return;
+      }
       const response: DriveResponse = {
         id: driveMessage.id,
         action: driveMessage.action,
@@ -549,12 +555,23 @@ class DriveSocket {
 
     try {
       if (
-        typeof message.action === 'string' &&
-        message.action.startsWith('debugger.')
+        !message ||
+        typeof message !== 'object' ||
+        typeof message.id !== 'string' ||
+        typeof message.action !== 'string'
       ) {
+        return;
+      }
+      if (message.action.startsWith('debugger.')) {
         await this.handleDebuggerRequest(message as DebuggerRequest);
         return;
       }
+
+      if (!message.action.startsWith('drive.')) {
+        return;
+      }
+
+      driveMessage = message as DriveRequest;
       switch (message.action) {
         case 'drive.ping': {
           respondOk({ ok: true });
