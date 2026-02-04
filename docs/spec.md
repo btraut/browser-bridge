@@ -1,0 +1,117 @@
+# Hybrid Browser Control MCP (Drive + Inspect) - Spec + Plan
+
+## Context
+This project builds a local, developer-focused browser control system for coding agents. It exposes a hybrid Drive + Inspect controller via MCP and a CLI, backed by a single Core daemon. Requirements are captured in `docs/requirements.md`.
+
+## Assumptions and Constraints
+- Node.js 20+ and Chrome stable are available on the developer machine.
+- V1 prioritizes reliability over speed; no production or remote automation.
+- V1 may launch a managed Chrome profile with remote debugging enabled and the extension installed.
+- All network services bind only to 127.0.0.1.
+- All APIs use a standard error envelope with stable error codes and retryable flag.
+
+## Implementation Plan
+
+1. Repository scaffolding and workspace setup
+Files to touch: `package.json`, `package-lock.json` or `pnpm-lock.yaml`, `tsconfig.json`, `tsconfig.base.json`, `docs/spec.md`, `docs/requirements.md`, `packages/`
+Code changes: initialize a workspace (npm workspaces or pnpm), set Node 20 engines, add TypeScript, ESLint, and a minimal build pipeline. Create workspace package folders (`core`, `shared`, `mcp-adapter`, `cli`, `extension`). Add root scripts for `build`, `lint`, `test`.
+Tests: add a placeholder `vitest` config and a single smoke test in `packages/core` to validate the test runner.
+Docs: update or add `README.md` with setup, build, and dev commands.
+Verify: `npm install`, `npm run lint`, `npm test`.
+
+2. Shared package: schemas, types, and error envelope
+Files to touch: `packages/shared/src/index.ts`, `packages/shared/src/schemas.ts`, `packages/shared/src/errors.ts`, `packages/shared/src/types.ts`
+Code changes: implement Zod schemas for all MCP tools and common types (Locator, OpResult, SessionInfo, SessionStatus, RecoverResult, DiagnosticReport). Define stable error codes and a standard envelope (success, error, retryable, details). Export shared types for Core, CLI, MCP adapter.
+Tests: unit tests for schema validation and error envelope shapes.
+Docs: update `docs/spec.md` with references to shared package exports.
+Verify: `npm test -- -t shared`.
+
+3. Core daemon skeleton (no Chrome yet)
+Files to touch: `packages/core/src/server.ts`, `packages/core/src/state.ts`, `packages/core/src/session.ts`, `packages/core/src/index.ts`, `packages/core/src/routes/*.ts`
+Code changes: build an HTTP server (Fastify or Express). Implement session state machine with required states and transitions. Provide in-memory session registry and lifecycle API (`session.create/status/recover/close`). Implement `drive_mutex` and stubs for drive/inspect endpoints returning structured “not implemented” errors.
+Tests: unit tests for the state machine transitions and retry rules. API tests for session endpoints using supertest.
+Docs: add API endpoint list to `README.md`.
+Verify: `npm run test -- -t core` and a manual `curl` to `session.create`.
+
+4. Core artifact storage and diagnostics
+Files to touch: `packages/core/src/artifacts.ts`, `packages/core/src/diagnostics.ts`, `packages/core/src/routes/artifacts.ts`, `packages/core/src/routes/diagnostics.ts`
+Code changes: implement artifact directory management (`$TMPDIR/browser-agent/<session_id>/`). Add diagnostics `doctor` endpoint to report Chrome path, extension status, CDP availability, and session state.
+Tests: unit tests for artifact path creation and cleanup behavior. API tests for diagnostics output.
+Docs: add a “Diagnostics” section to `README.md`.
+Verify: `npm run test -- -t diagnostics` and check created temp folders.
+
+5. Chrome extension skeleton and WebSocket protocol
+Files to touch: `packages/extension/manifest.json`, `packages/extension/src/background.ts`, `packages/extension/src/content.ts`, `packages/extension/src/protocol.ts`
+Code changes: build MV3 extension with a background service worker. Implement a WebSocket client to the Core daemon on `127.0.0.1`. Define a simple protocol for drive commands and responses (request id, action, params, status). Content script executes DOM actions (click/type/scroll/navigate). Background manages tab events and reports `{ tabId, url, title, windowId, lastActiveAt }`.
+Tests: unit tests for protocol message validation; minimal manual test checklist for extension actions.
+Docs: add extension install/dev steps to `README.md`.
+Verify: load unpacked extension and confirm it connects to Core and can report tab info.
+
+6. Drive plane integration in Core
+Files to touch: `packages/core/src/drive.ts`, `packages/core/src/extension-bridge.ts`, `packages/core/src/routes/drive.ts`
+Code changes: Core tracks extension connection, sets state to DRIVE_READY, and forwards drive actions to extension. Enforce single in-flight drive operation via `drive_mutex`. Implement locator resolution order and `drive.wait_for` logic. Add retries per requirements.
+Tests: unit tests for locator selection and retry behavior. Integration tests using a mocked WebSocket client.
+Docs: document drive tool behaviors and wait semantics.
+Verify: run a local demo that navigates and clicks within a sample page.
+
+7. CDP integration (Inspect plane)
+Files to touch: `packages/core/src/inspect.ts`, `packages/core/src/cdp.ts`, `packages/core/src/routes/inspect.ts`
+Code changes: use Puppeteer to launch or attach to Chrome. Maintain CDP connection, set state to INSPECT_READY, implement inspect operations (dom snapshot with AX/HTML, console list, network HAR, performance metrics, evaluate). Implement tab-to-target heuristic matching and verification steps.
+Tests: unit tests for target matching logic. Integration tests using a headless Chrome instance if feasible; otherwise add a manual verification script.
+Docs: document inspect endpoints and consistency modes (`best_effort`, `quiesce`).
+Verify: run `inspect.dom_snapshot` and confirm output on a known page.
+
+8. Recovery and reliability
+Files to touch: `packages/core/src/recovery.ts`, `packages/core/src/session.ts`
+Code changes: implement `session.recover()` with clear transitions to DEGRADED states and back to READY. Apply retry rules on drive/inspect failures with no infinite loops. Emit structured diagnostic events for failures.
+Tests: state machine tests covering all transitions and retry paths.
+Docs: add a “Recovery” section to `README.md`.
+Verify: simulate extension/CDP disconnects and confirm recovery behavior.
+
+9. MCP adapter
+Files to touch: `packages/mcp-adapter/src/index.ts`, `packages/mcp-adapter/src/server.ts`
+Code changes: implement an MCP server that exposes all tools in `packages/shared`. Each tool forwards to Core HTTP API with no additional logic. Provide configuration to point at Core host/port.
+Tests: mock Core API and validate MCP tool calls and error propagation.
+Docs: add MCP usage config to `README.md`.
+Verify: run MCP adapter and confirm tool list and basic call flow.
+
+10. CLI
+Files to touch: `packages/cli/src/index.ts`, `packages/cli/src/commands/*.ts`, `packages/cli/src/core-client.ts`
+Code changes: implement CLI commands mirroring MCP tools, always supporting `--json`. Add bootstrap behavior to start Core daemon if not running. Add `diagnostics` and `open-artifacts` helpers.
+Tests: CLI smoke tests with mocked Core API responses.
+Docs: document CLI usage and examples.
+Verify: `cli session create`, `cli drive navigate`, `cli inspect dom-snapshot`.
+
+11. End-to-end manual verification workflow
+Files to touch: `docs/manual-test.md`, `scripts/demo.sh`
+Code changes: add a reproducible manual workflow that uses CLI + MCP adapter to drive and inspect a local test page.
+Tests: manual checklist only.
+Docs: include a short “Demo” section in `README.md`.
+Verify: run the demo script end-to-end.
+
+12. Packaging and release hygiene
+Files to touch: `package.json` files in each package, `LICENSE`, `README.md`
+Code changes: set package names, bin entry for CLI, and minimal publish config (private by default). Ensure builds output to `dist/` and work from fresh checkout.
+Tests: run `npm pack` dry run to verify packaging.
+Docs: add “Versioning and Release” notes (local-only v1).
+Verify: `npm run build` from clean repo.
+
+## Testing Strategy and Checkpoints
+- Unit tests for shared schemas, core state machine, recovery logic, locator resolution, and target matching.
+- API tests for Core HTTP endpoints with mocked extension/CDP clients.
+- Manual verification for extension-driven interactions and full end-to-end loop.
+- Checkpoints after tasks 3, 6, 7, and 9 to ensure basic drive/inspect/mcp flows work before adding more surface area.
+
+## Rollout and Risks
+- Risk: extension and CDP target mismatch. Mitigation: strict heuristic matching and post-attach verification with warnings.
+- Risk: WebSocket instability. Mitigation: explicit reconnection handling and `session.recover()`.
+- Risk: Chrome launch flakiness. Mitigation: managed profile v1 and explicit diagnostics.
+
+## Beads Handoff
+This plan should be translated into Beads epics and issues. Suggested epics align to milestones A-F and supporting infrastructure. After filing, use `beads-review` to polish.
+
+## Appendix: Commands
+- `npm install`
+- `npm run build`
+- `npm test`
+- `npm run lint`
