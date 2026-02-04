@@ -2,7 +2,6 @@ import { InspectError, InspectService, createInspectService } from '../inspect';
 import { TargetHint } from '../target-matching';
 import { SessionRegistry } from '../session';
 import type { ExtensionBridge } from '../extension-bridge';
-import type { DriveTabInfo } from '../drive-protocol';
 import {
   InspectConsoleListInputSchema,
   InspectDomSnapshotInputSchema,
@@ -10,14 +9,17 @@ import {
   InspectNetworkHarInputSchema,
   InspectPerformanceMetricsInputSchema,
 } from '@browser-vision/shared';
+} from '@browser-vision/shared';
+import {
+  ResponseLike,
+  deriveHintFromTabs,
+  errorStatus,
+  sendError,
+  sendResult,
+} from './shared';
 
 type RequestLike = {
   body?: unknown;
-};
-
-type ResponseLike = {
-  status: (code: number) => ResponseLike;
-  json: (body: unknown) => void;
 };
 
 type RouteRegistry = {
@@ -43,21 +45,6 @@ type ErrorCode =
   | 'ARTIFACT_IO_ERROR'
   | 'INTERNAL';
 
-type ErrorEnvelope = {
-  ok: false;
-  error: {
-    code: ErrorCode;
-    message: string;
-    retryable: boolean;
-    details?: Record<string, unknown>;
-  };
-};
-
-type SuccessEnvelope<T> = {
-  ok: true;
-  result: T;
-};
-
 type ValidationError = {
   message: string;
   details?: Record<string, unknown>;
@@ -80,63 +67,19 @@ type InspectRoutesOptions = {
   extensionBridge?: ExtensionBridge;
 };
 
-const errorEnvelope = (
-  code: ErrorCode,
-  message: string,
-  retryable: boolean,
-  details?: Record<string, unknown>
-): ErrorEnvelope => ({
-  ok: false,
-  error: {
-    code,
-    message,
-    retryable,
-    ...(details ? { details } : {}),
-  },
-});
-
-const sendError = (
+const sendInspectError = (
   res: ResponseLike,
   code: ErrorCode,
   message: string,
   retryable: boolean,
   details?: Record<string, unknown>
 ): void => {
-  const status = (() => {
-    switch (code) {
-      case 'INVALID_ARGUMENT':
-        return 400;
-      case 'SESSION_NOT_FOUND':
-        return 404;
-      case 'TAB_NOT_FOUND':
-        return 404;
-      case 'SESSION_CLOSED':
-        return 409;
-      case 'DEBUGGER_IN_USE':
-        return 409;
-      case 'ATTACH_DENIED':
-        return 403;
-      case 'EXTENSION_DISCONNECTED':
-        return 503;
-      case 'NOT_SUPPORTED':
-        return 501;
-      case 'TIMEOUT':
-        return 504;
-      case 'INSPECT_UNAVAILABLE':
-        return 503;
-      case 'EVALUATION_FAILED':
-      case 'ARTIFACT_IO_ERROR':
-      case 'INTERNAL':
-      default:
-        return 500;
-    }
-  })();
-  res.status(status).json(errorEnvelope(code, message, retryable, details));
-};
-
-const sendResult = <T>(res: ResponseLike, result: T): void => {
-  const envelope: SuccessEnvelope<T> = { ok: true, result };
-  res.status(200).json(envelope);
+  sendError(res, errorStatus(code), {
+    code,
+    message,
+    retryable,
+    ...(details ? { details } : {}),
+  });
 };
 
 type TargetHintInput = {
@@ -182,34 +125,6 @@ const readTargetHint = (target?: TargetHintInput): TargetHint | undefined => {
   return { url, title, lastActiveAt };
 };
 
-const deriveHintFromTabs = (tabs: DriveTabInfo[]): TargetHint | undefined => {
-  if (!Array.isArray(tabs) || tabs.length === 0) {
-    return undefined;
-  }
-  let best: DriveTabInfo | undefined;
-  let bestTime = -Infinity;
-  for (const tab of tabs) {
-    const raw = tab.last_active_at;
-    const time = raw ? Date.parse(raw) : NaN;
-    const score = Number.isFinite(time) ? time : -Infinity;
-    if (!best || score > bestTime) {
-      best = tab;
-      bestTime = score;
-    }
-  }
-  if (!best) {
-    return undefined;
-  }
-  if (!best.url && !best.title && !best.last_active_at) {
-    return undefined;
-  }
-  return {
-    url: best.url,
-    title: best.title,
-    lastActiveAt: best.last_active_at,
-  };
-};
-
 const resolveTargetHint = (
   target: TargetHintInput | undefined,
   options: InspectRoutesOptions
@@ -229,7 +144,7 @@ const makeHandler = <TBody extends { session_id: string }, TResult>(
   async (req: RequestLike, res: ResponseLike): Promise<void> => {
     const parsed = parseBody(schema, req.body ?? {});
     if (parsed.error) {
-      sendError(
+      sendInspectError(
         res,
         'INVALID_ARGUMENT',
         parsed.error.message,
@@ -244,10 +159,10 @@ const makeHandler = <TBody extends { session_id: string }, TResult>(
       sendResult(res, result);
     } catch (err) {
       if (err instanceof InspectError) {
-        sendError(res, err.code, err.message, err.retryable, err.details);
+        sendInspectError(res, err.code, err.message, err.retryable, err.details);
         return;
       }
-      sendError(res, 'INTERNAL', 'Unexpected inspect error.', false);
+      sendInspectError(res, 'INTERNAL', 'Unexpected inspect error.', false);
     }
   };
 

@@ -5,14 +5,10 @@ import type { DriveController } from '../drive';
 import type { InspectService } from '../inspect';
 import type { DebuggerBridge } from '../debugger-bridge';
 import type { RecoveryTracker } from '../recovery';
+import { ResponseLike, isRecord, sendError, sendResult } from './shared';
 
 type RequestLike = {
   body?: unknown;
-};
-
-type ResponseLike = {
-  status: (code: number) => ResponseLike;
-  json: (body: unknown) => void;
 };
 
 type RouteRegistry = {
@@ -40,27 +36,6 @@ type ErrorEnvelope = {
     details?: Record<string, unknown>;
   };
 };
-
-type SuccessEnvelope<T> = {
-  ok: true;
-  result: T;
-};
-
-const sendError = (
-  res: ResponseLike,
-  status: number,
-  error: ErrorEnvelope['error']
-): void => {
-  res.status(status).json({ ok: false, error });
-};
-
-const sendResult = <T>(res: ResponseLike, result: T): void => {
-  const envelope: SuccessEnvelope<T> = { ok: true, result };
-  res.status(200).json(envelope);
-};
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value);
 
 export const registerDiagnosticsRoutes = (
   router: RouteRegistry,

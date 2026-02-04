@@ -10,14 +10,11 @@ import {
   DriveTypeInputSchema,
   DriveWaitForInputSchema,
 } from '@browser-vision/shared';
+} from '@browser-vision/shared';
+import { ResponseLike, errorStatus, sendError, sendResult } from './shared';
 
 type RequestLike = {
   body?: unknown;
-};
-
-type ResponseLike = {
-  status: (code: number) => ResponseLike;
-  json: (body: unknown) => void;
 };
 
 type RouteRegistry = {
@@ -25,21 +22,6 @@ type RouteRegistry = {
     path: string,
     handler: (req: RequestLike, res: ResponseLike) => void
   ) => void;
-};
-
-type ErrorEnvelope = {
-  ok: false;
-  error: {
-    code: string;
-    message: string;
-    retryable: boolean;
-    details?: Record<string, unknown>;
-  };
-};
-
-type SuccessEnvelope<T> = {
-  ok: true;
-  result: T;
 };
 
 type ValidationError = {
@@ -65,40 +47,6 @@ type DriveRouteOptions = {
 type HandlerOptions = {
   defaultResult?: unknown;
   timeoutFromParams?: (params: Record<string, unknown>) => number | undefined;
-};
-
-const sendError = (
-  res: ResponseLike,
-  status: number,
-  error: ErrorEnvelope['error']
-): void => {
-  res.status(status).json({ ok: false, error });
-};
-
-const sendResult = <T>(res: ResponseLike, result: T): void => {
-  const envelope: SuccessEnvelope<T> = { ok: true, result };
-  res.status(200).json(envelope);
-};
-
-const errorStatus = (code: string): number => {
-  switch (code) {
-    case 'INVALID_ARGUMENT':
-      return 400;
-    case 'SESSION_NOT_FOUND':
-    case 'LOCATOR_NOT_FOUND':
-      return 404;
-    case 'SESSION_CLOSED':
-    case 'FAILED_PRECONDITION':
-      return 409;
-    case 'NOT_IMPLEMENTED':
-      return 501;
-    case 'EXTENSION_DISCONNECTED':
-      return 503;
-    case 'TIMEOUT':
-      return 504;
-    default:
-      return 500;
-  }
 };
 
 const parseBody = <T>(

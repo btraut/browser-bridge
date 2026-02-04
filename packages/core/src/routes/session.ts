@@ -1,36 +1,13 @@
 import { Response, Router } from 'express';
 import { InvalidSessionTransition, SessionState } from '../state';
 import { SessionError, SessionRegistry } from '../session';
+import { isRecord, sendError, sendResult } from './shared';
 
 type ErrorInfo = {
   code: string;
   message: string;
   retryable: boolean;
   details?: Record<string, unknown>;
-};
-
-type ErrorEnvelope = {
-  ok: false;
-  error: ErrorInfo;
-};
-
-type SuccessEnvelope<T> = {
-  ok: true;
-  result: T;
-};
-
-const sendError = (res: Response, status: number, error: ErrorInfo) => {
-  const envelope: ErrorEnvelope = { ok: false, error };
-  res.status(status).json(envelope);
-};
-
-const sendResult = <T>(res: Response, result: T) => {
-  const envelope: SuccessEnvelope<T> = { ok: true, result };
-  res.status(200).json(envelope);
-};
-
-const isRecord = (value: unknown): value is Record<string, unknown> => {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
 };
 
 const readSessionId = (body: unknown): string | undefined => {
