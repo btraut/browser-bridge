@@ -11,6 +11,8 @@ import {
   DriveDragOutputSchema,
   DriveFillFormInputSchema,
   DriveFillFormOutputSchema,
+  DriveHandleDialogInputSchema,
+  DriveHandleDialogOutputSchema,
   DriveNavigateInputSchema,
   DriveNavigateOutputSchema,
   DriveScrollInputSchema,
@@ -180,6 +182,16 @@ export const TOOL_DEFINITIONS: Array<{ name: string; config: ToolConfig }> = [
       inputSchema: DriveDragInputSchema,
       outputSchema: envelope(DriveDragOutputSchema),
       corePath: '/drive/drag',
+    },
+  },
+  {
+    name: 'drive.handle_dialog',
+    config: {
+      title: 'Drive Handle Dialog',
+      description: 'Handle a JavaScript dialog.',
+      inputSchema: DriveHandleDialogInputSchema,
+      outputSchema: envelope(DriveHandleDialogOutputSchema),
+      corePath: '/drive/handle_dialog',
     },
   },
   {

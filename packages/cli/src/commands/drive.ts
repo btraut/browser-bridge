@@ -3,6 +3,7 @@ import {
   DriveClickInputSchema,
   DriveDragInputSchema,
   DriveFillFormInputSchema,
+  DriveHandleDialogInputSchema,
   DriveNavigateInputSchema,
   DriveScrollInputSchema,
   DriveTabActivateInputSchema,
@@ -169,6 +170,25 @@ export const registerDriveCommands = (program: Command): void => {
           tab_id: parseNumber(options.tabId),
         });
         return client.post('/drive/drag', payload);
+      });
+    });
+
+  drive
+    .command('handle-dialog')
+    .description('Handle a JavaScript dialog')
+    .requiredOption('--session-id <id>', 'Session identifier')
+    .requiredOption('--action <action>', 'Dialog action (accept, dismiss)')
+    .option('--prompt-text <text>', 'Prompt text for prompt() dialogs')
+    .option('--tab-id <id>', 'Tab identifier')
+    .action(async (options, command) => {
+      await runCommand(command, (client) => {
+        const payload = parseInput(DriveHandleDialogInputSchema, {
+          session_id: options.sessionId,
+          action: options.action,
+          promptText: options.promptText,
+          tab_id: parseNumber(options.tabId),
+        });
+        return client.post('/drive/handle_dialog', payload);
       });
     });
 

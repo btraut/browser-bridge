@@ -640,6 +640,65 @@ class DriveSocket {
           this.sendTabReport();
           return;
         }
+        case 'drive.handle_dialog': {
+          const params = (message.params ?? {}) as Record<string, unknown>;
+          const action = params.action;
+          if (action !== 'accept' && action !== 'dismiss') {
+            respondError({
+              code: 'INVALID_ARGUMENT',
+              message: 'action must be accept or dismiss.',
+              retryable: false,
+            });
+            return;
+          }
+          const promptText = params.promptText;
+          if (promptText !== undefined && typeof promptText !== 'string') {
+            respondError({
+              code: 'INVALID_ARGUMENT',
+              message: 'promptText must be a string when provided.',
+              retryable: false,
+            });
+            return;
+          }
+          let tabId = params.tab_id;
+          if (tabId !== undefined && typeof tabId !== 'number') {
+            respondError({
+              code: 'INVALID_ARGUMENT',
+              message: 'tab_id must be a number when provided.',
+              retryable: false,
+            });
+            return;
+          }
+          if (tabId === undefined) {
+            tabId = await getActiveTabId();
+          }
+
+          const error = await this.ensureDebuggerAttached(tabId as number);
+          if (error) {
+            respondError(error);
+            return;
+          }
+
+          try {
+            await this.sendDebuggerCommand(
+              tabId as number,
+              'Page.handleJavaScriptDialog',
+              {
+                accept: action === 'accept',
+                ...(promptText ? { promptText } : {}),
+              },
+              DEFAULT_DEBUGGER_COMMAND_TIMEOUT_MS
+            );
+            this.touchDebuggerSession(tabId as number);
+            respondOk({ ok: true });
+          } catch (error) {
+            const info = mapDebuggerErrorMessage(
+              error instanceof Error ? error.message : 'Dialog handling failed.'
+            );
+            respondError(info);
+          }
+          return;
+        }
         case 'drive.click':
         case 'drive.type':
         case 'drive.fill_form':

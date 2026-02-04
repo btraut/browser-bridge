@@ -58,6 +58,12 @@ export type DriveDragParams = {
   tab_id?: number;
 };
 
+export type DriveHandleDialogParams = {
+  action: "accept" | "dismiss";
+  promptText?: string;
+  tab_id?: number;
+};
+
 export type DriveScrollParams = {
   delta_x?: number;
   delta_y?: number;
@@ -99,6 +105,7 @@ export type DriveAction =
   | 'drive.type'
   | 'drive.fill_form'
   | 'drive.drag'
+  | 'drive.handle_dialog'
   | 'drive.scroll'
   | 'drive.wait_for'
   | 'drive.tab_list'

@@ -16,6 +16,8 @@ import {
   DriveDragOutputSchema,
   DriveFillFormInputSchema,
   DriveFillFormOutputSchema,
+  DriveHandleDialogInputSchema,
+  DriveHandleDialogOutputSchema,
   DriveNavigateInputSchema,
   DriveNavigateOutputSchema,
   DriveScrollInputSchema,
@@ -102,6 +104,8 @@ export type DriveFillFormInput = z.infer<typeof DriveFillFormInputSchema>;
 export type DriveFillFormOutput = z.infer<typeof DriveFillFormOutputSchema>;
 export type DriveDragInput = z.infer<typeof DriveDragInputSchema>;
 export type DriveDragOutput = z.infer<typeof DriveDragOutputSchema>;
+export type DriveHandleDialogInput = z.infer<typeof DriveHandleDialogInputSchema>;
+export type DriveHandleDialogOutput = z.infer<typeof DriveHandleDialogOutputSchema>;
 export type DriveScrollInput = z.infer<typeof DriveScrollInputSchema>;
 export type DriveScrollOutput = z.infer<typeof DriveScrollOutputSchema>;
 export type DriveWaitForInput = z.infer<typeof DriveWaitForInputSchema>;

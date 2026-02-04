@@ -213,6 +213,14 @@ export const DriveDragInputSchema = z.object({
 });
 export const DriveDragOutputSchema = OpResultSchema;
 
+export const DriveHandleDialogInputSchema = z.object({
+  session_id: z.string().min(1),
+  action: z.enum(["accept", "dismiss"]),
+  promptText: z.string().optional(),
+  tab_id: z.number().finite().optional(),
+});
+export const DriveHandleDialogOutputSchema = OpResultSchema;
+
 export const DriveScrollInputSchema = z
   .object({
     session_id: z.string().min(1),

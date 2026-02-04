@@ -7,6 +7,7 @@ import {
   DriveClickInputSchema,
   DriveDragInputSchema,
   DriveFillFormInputSchema,
+  DriveHandleDialogInputSchema,
   DriveNavigateInputSchema,
   DriveScrollInputSchema,
   DriveTypeInputSchema,
@@ -100,6 +101,15 @@ describe('shared schemas', () => {
       to: { css: '.drop-target' },
     });
     expect(parsed.steps).toBe(12);
+  });
+
+  it('parses handle dialog input', () => {
+    const parsed = DriveHandleDialogInputSchema.parse({
+      session_id: 'session-1',
+      action: 'accept',
+      promptText: 'ok',
+    });
+    expect(parsed.action).toBe('accept');
   });
 
   it('requires a scroll delta or position', () => {
