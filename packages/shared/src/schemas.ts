@@ -204,6 +204,15 @@ export const DriveFillFormOutputSchema = z.object({
   errors: z.array(z.string()).optional(),
 });
 
+export const DriveDragInputSchema = z.object({
+  session_id: z.string().min(1),
+  from: LocatorSchema,
+  to: LocatorSchema,
+  steps: z.number().min(1).max(50).default(12),
+  tab_id: z.number().finite().optional(),
+});
+export const DriveDragOutputSchema = OpResultSchema;
+
 export const DriveScrollInputSchema = z
   .object({
     session_id: z.string().min(1),

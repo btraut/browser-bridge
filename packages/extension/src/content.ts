@@ -246,6 +246,48 @@ const runDriveAction = async (
     }
   };
 
+  const sleep = (ms: number): Promise<void> =>
+    new Promise((resolve) => window.setTimeout(resolve, ms));
+
+  const dispatchPointer = (
+    element: Element,
+    type: string,
+    x: number,
+    y: number
+  ): void => {
+    element.dispatchEvent(
+      new PointerEvent(type, {
+        bubbles: true,
+        cancelable: true,
+        clientX: x,
+        clientY: y,
+        button: 0,
+      })
+    );
+  };
+
+  const dispatchDrag = (
+    element: Element,
+    type: string,
+    x: number,
+    y: number,
+    dataTransfer?: DataTransfer
+  ): void => {
+    try {
+      element.dispatchEvent(
+        new DragEvent(type, {
+          bubbles: true,
+          cancelable: true,
+          clientX: x,
+          clientY: y,
+          dataTransfer,
+        })
+      );
+    } catch {
+      element.dispatchEvent(new Event(type, { bubbles: true, cancelable: true }));
+    }
+  };
+
   const activeEditableElement = (): HTMLElement | null => {
     const active = document.activeElement;
     if (!active || !(active instanceof HTMLElement)) {
@@ -427,6 +469,59 @@ const runDriveAction = async (
           attempted: fields.length,
           errors: errors.length > 0 ? errors : [],
         });
+      }
+      case 'drive.drag': {
+        const { from, to, steps } = parseParams();
+        const fromEl = resolveLocator(from as Record<string, unknown>);
+        if (!fromEl) {
+          return buildError(
+            'LOCATOR_NOT_FOUND',
+            'Failed to resolve drag source.'
+          );
+        }
+        const toEl = resolveLocator(to as Record<string, unknown>);
+        if (!toEl) {
+          return buildError(
+            'LOCATOR_NOT_FOUND',
+            'Failed to resolve drag target.'
+          );
+        }
+
+        const fromRect = fromEl.getBoundingClientRect();
+        const toRect = toEl.getBoundingClientRect();
+        const startX = fromRect.left + fromRect.width / 2;
+        const startY = fromRect.top + fromRect.height / 2;
+        const endX = toRect.left + toRect.width / 2;
+        const endY = toRect.top + toRect.height / 2;
+        const totalSteps =
+          typeof steps === 'number' && Number.isFinite(steps)
+            ? Math.max(1, Math.min(50, Math.floor(steps)))
+            : 12;
+        let dataTransfer: DataTransfer | undefined;
+        try {
+          dataTransfer = new DataTransfer();
+        } catch {
+          dataTransfer = undefined;
+        }
+
+        dispatchPointer(fromEl, 'pointerdown', startX, startY);
+        dispatchDrag(fromEl, 'dragstart', startX, startY, dataTransfer);
+
+        for (let i = 1; i <= totalSteps; i += 1) {
+          const progress = i / totalSteps;
+          const x = startX + (endX - startX) * progress;
+          const y = startY + (endY - startY) * progress;
+          const target = document.elementFromPoint(x, y) ?? toEl;
+          dispatchPointer(target, 'pointermove', x, y);
+          dispatchDrag(target, 'dragover', x, y, dataTransfer);
+          await sleep(10);
+        }
+
+        const dropTarget = document.elementFromPoint(endX, endY) ?? toEl;
+        dispatchDrag(dropTarget, 'drop', endX, endY, dataTransfer);
+        dispatchPointer(dropTarget, 'pointerup', endX, endY);
+        dispatchDrag(fromEl, 'dragend', endX, endY, dataTransfer);
+        return ok();
       }
       case 'drive.scroll': {
         const { delta_x, delta_y, top, left, behavior } = parseParams();

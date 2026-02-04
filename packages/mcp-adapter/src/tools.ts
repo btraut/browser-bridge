@@ -7,6 +7,8 @@ import {
   ErrorEnvelopeSchema,
   DriveClickInputSchema,
   DriveClickOutputSchema,
+  DriveDragInputSchema,
+  DriveDragOutputSchema,
   DriveFillFormInputSchema,
   DriveFillFormOutputSchema,
   DriveNavigateInputSchema,
@@ -168,6 +170,16 @@ export const TOOL_DEFINITIONS: Array<{ name: string; config: ToolConfig }> = [
       inputSchema: DriveFillFormInputSchema,
       outputSchema: envelope(DriveFillFormOutputSchema),
       corePath: '/drive/fill_form',
+    },
+  },
+  {
+    name: 'drive.drag',
+    config: {
+      title: 'Drive Drag',
+      description: 'Drag an element to a target.',
+      inputSchema: DriveDragInputSchema,
+      outputSchema: envelope(DriveDragOutputSchema),
+      corePath: '/drive/drag',
     },
   },
   {

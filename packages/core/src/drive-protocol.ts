@@ -51,6 +51,13 @@ export type DriveFillFormParams = {
   tab_id?: number;
 };
 
+export type DriveDragParams = {
+  from: DriveLocator;
+  to: DriveLocator;
+  steps?: number;
+  tab_id?: number;
+};
+
 export type DriveScrollParams = {
   delta_x?: number;
   delta_y?: number;
@@ -91,6 +98,7 @@ export type DriveAction =
   | 'drive.click'
   | 'drive.type'
   | 'drive.fill_form'
+  | 'drive.drag'
   | 'drive.scroll'
   | 'drive.wait_for'
   | 'drive.tab_list'

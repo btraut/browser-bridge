@@ -1,6 +1,7 @@
 import { Command } from 'commander';
 import {
   DriveClickInputSchema,
+  DriveDragInputSchema,
   DriveFillFormInputSchema,
   DriveNavigateInputSchema,
   DriveScrollInputSchema,
@@ -125,6 +126,49 @@ export const registerDriveCommands = (program: Command): void => {
           tab_id: parseNumber(options.tabId),
         });
         return client.post('/drive/fill_form', payload);
+      });
+    });
+
+  drive
+    .command('drag')
+    .description('Drag an element to a target')
+    .requiredOption('--session-id <id>', 'Session identifier')
+    .option('--from-locator-testid <id>', 'Source locator test id')
+    .option('--from-locator-css <selector>', 'Source locator CSS selector')
+    .option('--from-locator-text <text>', 'Source locator text')
+    .option('--from-locator-role <role>', 'Source locator role name')
+    .option('--from-locator-role-value <value>', 'Source locator role value')
+    .option('--to-locator-testid <id>', 'Target locator test id')
+    .option('--to-locator-css <selector>', 'Target locator CSS selector')
+    .option('--to-locator-text <text>', 'Target locator text')
+    .option('--to-locator-role <role>', 'Target locator role name')
+    .option('--to-locator-role-value <value>', 'Target locator role value')
+    .option('--steps <steps>', 'Number of drag steps')
+    .option('--tab-id <id>', 'Tab identifier')
+    .action(async (options, command) => {
+      await runCommand(command, (client) => {
+        const from = requireLocator({
+          locatorTestid: options.fromLocatorTestid,
+          locatorCss: options.fromLocatorCss,
+          locatorText: options.fromLocatorText,
+          locatorRole: options.fromLocatorRole,
+          locatorRoleValue: options.fromLocatorRoleValue,
+        });
+        const to = requireLocator({
+          locatorTestid: options.toLocatorTestid,
+          locatorCss: options.toLocatorCss,
+          locatorText: options.toLocatorText,
+          locatorRole: options.toLocatorRole,
+          locatorRoleValue: options.toLocatorRoleValue,
+        });
+        const payload = parseInput(DriveDragInputSchema, {
+          session_id: options.sessionId,
+          from,
+          to,
+          steps: parseNumber(options.steps),
+          tab_id: parseNumber(options.tabId),
+        });
+        return client.post('/drive/drag', payload);
       });
     });
 

@@ -2,6 +2,7 @@ import { DriveController } from '../drive';
 import type { DriveAction } from '../drive-protocol';
 import {
   DriveClickInputSchema,
+  DriveDragInputSchema,
   DriveFillFormInputSchema,
   DriveNavigateInputSchema,
   DriveScrollInputSchema,
@@ -142,6 +143,10 @@ export const registerDriveRoutes = (
   router.post(
     '/drive/fill_form',
     makeHandler('drive.fill_form', DriveFillFormInputSchema, drive)
+  );
+  router.post(
+    '/drive/drag',
+    makeHandler('drive.drag', DriveDragInputSchema, drive)
   );
   router.post(
     '/drive/scroll',
