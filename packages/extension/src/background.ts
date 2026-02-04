@@ -172,8 +172,8 @@ const isRestrictedUrl = (url?: string): boolean => {
     if (parsed.hostname === 'chrome.google.com') {
       return parsed.pathname.startsWith('/webstore');
     }
-  } catch {
-    // Ignore invalid URLs and treat as supported.
+  } catch (error) {
+    console.debug("Ignoring invalid URL in restriction check.", error);
   }
   return false;
 };
@@ -425,7 +425,8 @@ class DriveSocket {
         this.socket = null;
         this.scheduleReconnect();
       });
-    } catch {
+    } catch (error) {
+      console.debug("DriveSocket connect failed, scheduling reconnect.", error);
       this.scheduleReconnect();
     }
   }
@@ -435,7 +436,8 @@ class DriveSocket {
     let tabs: DriveTabInfo[] = [];
     try {
       tabs = await queryTabs();
-    } catch {
+    } catch (error) {
+      console.debug("DriveSocket sendHello failed to read tabs.", error);
       tabs = [];
     }
     const params: DriveHelloParams = {
@@ -449,8 +451,8 @@ class DriveSocket {
     try {
       const tabs = await queryTabs();
       this.sendEvent('drive.tab_report', { tabs });
-    } catch {
-      // Ignore tab reporting errors.
+    } catch (error) {
+      console.debug('DriveSocket emitTabReport failed.', error);
     }
   }
 
@@ -491,7 +493,8 @@ class DriveSocket {
     let message: ExtensionMessage | null = null;
     try {
       message = JSON.parse(raw) as ExtensionMessage;
-    } catch {
+    } catch (error) {
+      console.debug("DriveSocket received invalid JSON message.", error);
       return;
     }
     if (!message || typeof message !== 'object') {
@@ -958,7 +961,8 @@ class DriveSocket {
     if (session.attachPromise) {
       try {
         await session.attachPromise;
-      } catch {
+      } catch (error) {
+        console.debug("Debugger attach promise failed before detach.", error);
         this.clearDebuggerSession(tabId);
         return null;
       }

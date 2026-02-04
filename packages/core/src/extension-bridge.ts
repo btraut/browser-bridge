@@ -336,8 +336,8 @@ export class ExtensionBridge {
     for (const listener of this.debuggerListeners) {
       try {
         listener(event);
-      } catch {
-        // Ignore debugger event handler failures.
+      } catch (error) {
+        console.debug("Debugger event listener failed.", error);
       }
     }
   }
@@ -356,8 +356,11 @@ export class ExtensionBridge {
         } else if (session.state === SessionState.DEGRADED_DRIVE) {
           this.registry.apply(session.id, 'RECOVER_SUCCEEDED');
         }
-      } catch {
-        // Ignore invalid transitions.
+      } catch (error) {
+        console.debug(
+          `Drive connect transition ignored for session ${session.id} (${session.state}).`,
+          error
+        );
       }
     }
   }
@@ -372,8 +375,11 @@ export class ExtensionBridge {
         if (session.state === SessionState.READY) {
           this.registry.apply(session.id, 'DRIVE_DISCONNECTED');
         }
-      } catch {
-        // Ignore invalid transitions.
+      } catch (error) {
+        console.debug(
+          `Drive disconnect transition ignored for session ${session.id} (${session.state}).`,
+          error
+        );
       }
     }
   }
