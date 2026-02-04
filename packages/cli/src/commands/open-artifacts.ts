@@ -1,15 +1,15 @@
-import { Command } from "commander";
-import { ensureArtifactRootDir } from "@browser-vision/core";
-import { SessionIdSchema } from "@browser-vision/shared";
-import { parseInput } from "../cli-output";
-import { runLocal } from "../cli-runtime";
-import { openPath } from "../open-path";
+import { Command } from 'commander';
+import { ensureArtifactRootDir } from '@browser-vision/core';
+import { SessionIdSchema } from '@browser-vision/shared';
+import { parseInput } from '../cli-output';
+import { runLocal } from '../cli-runtime';
+import { openPath } from '../open-path';
 
 export const registerOpenArtifactsCommand = (program: Command): void => {
   program
-    .command("open-artifacts")
-    .description("Open the artifact folder for a session")
-    .requiredOption("--session-id <id>", "Session identifier")
+    .command('open-artifacts')
+    .description('Open the artifact folder for a session')
+    .requiredOption('--session-id <id>', 'Session identifier')
     .action(async (options, command) => {
       await runLocal(command, async () => {
         const payload = parseInput(SessionIdSchema, {

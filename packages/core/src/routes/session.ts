@@ -1,6 +1,6 @@
-import { Response, Router } from "express";
-import { InvalidSessionTransition, SessionState } from "../state";
-import { SessionError, SessionRegistry } from "../session";
+import { Response, Router } from 'express';
+import { InvalidSessionTransition, SessionState } from '../state';
+import { SessionError, SessionRegistry } from '../session';
 
 type ErrorInfo = {
   code: string;
@@ -30,7 +30,7 @@ const sendResult = <T>(res: Response, result: T) => {
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> => {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 };
 
 const readSessionId = (body: unknown): string | undefined => {
@@ -39,7 +39,7 @@ const readSessionId = (body: unknown): string | undefined => {
   }
 
   const sessionId = body.session_id;
-  if (typeof sessionId !== "string" || sessionId.length === 0) {
+  if (typeof sessionId !== 'string' || sessionId.length === 0) {
     return undefined;
   }
 
@@ -64,20 +64,20 @@ export const createSessionRouter = (
 ): Router => {
   const router = Router();
 
-  router.post("/create", (req, res) => {
+  router.post('/create', (req, res) => {
     const body = req.body;
     if (body !== undefined) {
       if (!isRecord(body)) {
         return sendError(res, 400, {
-          code: "INVALID_ARGUMENT",
-          message: "Request body must be an object.",
+          code: 'INVALID_ARGUMENT',
+          message: 'Request body must be an object.',
           retryable: false,
         });
       }
       if (Object.keys(body).length > 0) {
         return sendError(res, 400, {
-          code: "INVALID_ARGUMENT",
-          message: "session.create does not accept any input fields.",
+          code: 'INVALID_ARGUMENT',
+          message: 'session.create does not accept any input fields.',
           retryable: false,
         });
       }
@@ -86,7 +86,7 @@ export const createSessionRouter = (
     const session = registry.create();
     if (options.driveConnected?.()) {
       try {
-        registry.apply(session.id, "DRIVE_CONNECTED");
+        registry.apply(session.id, 'DRIVE_CONNECTED');
       } catch {
         // Ignore invalid transitions.
       }
@@ -98,12 +98,12 @@ export const createSessionRouter = (
     });
   });
 
-  router.post("/status", (req, res) => {
+  router.post('/status', (req, res) => {
     const sessionId = readSessionId(req.body);
     if (!sessionId) {
       return sendError(res, 400, {
-        code: "INVALID_ARGUMENT",
-        message: "session_id is required",
+        code: 'INVALID_ARGUMENT',
+        message: 'session_id is required',
         retryable: false,
       });
     }
@@ -125,19 +125,19 @@ export const createSessionRouter = (
       }
 
       return sendError(res, 500, {
-        code: "INTERNAL",
-        message: "Unexpected error while fetching status.",
+        code: 'INTERNAL',
+        message: 'Unexpected error while fetching status.',
         retryable: false,
       });
     }
   });
 
-  router.post("/recover", async (req, res) => {
+  router.post('/recover', async (req, res) => {
     const sessionId = readSessionId(req.body);
     if (!sessionId) {
       return sendError(res, 400, {
-        code: "INVALID_ARGUMENT",
-        message: "session_id is required",
+        code: 'INVALID_ARGUMENT',
+        message: 'session_id is required',
         retryable: false,
       });
     }
@@ -155,7 +155,9 @@ export const createSessionRouter = (
         const connected = options.driveConnected?.() ?? false;
         outcome = {
           recovered: connected,
-          message: connected ? "Drive recovery succeeded." : "Drive recovery failed.",
+          message: connected
+            ? 'Drive recovery succeeded.'
+            : 'Drive recovery failed.',
         };
       } else if (session.state === SessionState.DEGRADED_INSPECT) {
         const recovered = options.inspectRecover
@@ -164,8 +166,8 @@ export const createSessionRouter = (
         outcome = {
           recovered,
           message: recovered
-            ? "Inspect recovery succeeded."
-            : "Inspect recovery failed.",
+            ? 'Inspect recovery succeeded.'
+            : 'Inspect recovery failed.',
         };
       }
 
@@ -179,9 +181,9 @@ export const createSessionRouter = (
           at: new Date().toISOString(),
         };
         options.recordRecovery?.(attempt);
-        const status = result.recovered ? "succeeded" : "failed";
+        const status = result.recovered ? 'succeeded' : 'failed';
         console.info(
-          `[recovery] session ${sessionId} ${status}: ${result.message ?? ""}`
+          `[recovery] session ${sessionId} ${status}: ${result.message ?? ''}`
         );
       }
       return sendResult(res, {
@@ -192,7 +194,7 @@ export const createSessionRouter = (
       });
     } catch (error) {
       if (error instanceof SessionError) {
-        const status = error.code === "SESSION_CLOSED" ? 409 : 404;
+        const status = error.code === 'SESSION_CLOSED' ? 409 : 404;
         return sendError(res, status, {
           code: error.code,
           message: error.message,
@@ -202,26 +204,26 @@ export const createSessionRouter = (
 
       if (error instanceof InvalidSessionTransition) {
         return sendError(res, 409, {
-          code: "FAILED_PRECONDITION",
+          code: 'FAILED_PRECONDITION',
           message: error.message,
           retryable: false,
         });
       }
 
       return sendError(res, 500, {
-        code: "INTERNAL",
-        message: "Unexpected error while recovering session.",
+        code: 'INTERNAL',
+        message: 'Unexpected error while recovering session.',
         retryable: false,
       });
     }
   });
 
-  router.post("/close", (req, res) => {
+  router.post('/close', (req, res) => {
     const sessionId = readSessionId(req.body);
     if (!sessionId) {
       return sendError(res, 400, {
-        code: "INVALID_ARGUMENT",
-        message: "session_id is required",
+        code: 'INVALID_ARGUMENT',
+        message: 'session_id is required',
         retryable: false,
       });
     }
@@ -240,15 +242,15 @@ export const createSessionRouter = (
 
       if (error instanceof InvalidSessionTransition) {
         return sendError(res, 409, {
-          code: "FAILED_PRECONDITION",
+          code: 'FAILED_PRECONDITION',
           message: error.message,
           retryable: false,
         });
       }
 
       return sendError(res, 500, {
-        code: "INTERNAL",
-        message: "Unexpected error while closing session.",
+        code: 'INTERNAL',
+        message: 'Unexpected error while closing session.',
         retryable: false,
       });
     }

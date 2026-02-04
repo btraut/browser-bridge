@@ -1,1 +1,1 @@
-export const extensionPlaceholder = (): string => "extension";
+export const extensionPlaceholder = (): string => 'extension';

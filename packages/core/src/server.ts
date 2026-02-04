@@ -1,15 +1,15 @@
-import { createServer } from "http";
-import express, { Express } from "express";
-import { createSessionRouter } from "./routes/session";
-import { registerArtifactsRoutes } from "./routes/artifacts";
-import { registerDiagnosticsRoutes } from "./routes/diagnostics";
-import { registerDriveRoutes, registerInspectRoutes } from "./routes";
-import { SessionRegistry } from "./session";
-import { ExtensionBridge } from "./extension-bridge";
-import { DriveController } from "./drive";
-import { InspectService, createInspectService } from "./inspect";
-import { RecoveryTracker } from "./recovery";
-import { DebuggerBridge } from "./debugger-bridge";
+import { createServer } from 'http';
+import express, { Express } from 'express';
+import { createSessionRouter } from './routes/session';
+import { registerArtifactsRoutes } from './routes/artifacts';
+import { registerDiagnosticsRoutes } from './routes/diagnostics';
+import { registerDriveRoutes, registerInspectRoutes } from './routes';
+import { SessionRegistry } from './session';
+import { ExtensionBridge } from './extension-bridge';
+import { DriveController } from './drive';
+import { InspectService, createInspectService } from './inspect';
+import { RecoveryTracker } from './recovery';
+import { DebuggerBridge } from './debugger-bridge';
 
 export type CoreServer = {
   app: Express;
@@ -25,23 +25,29 @@ export type CoreServerOptions = {
   registry?: SessionRegistry;
 };
 
-export const createCoreServer = (options: CoreServerOptions = {}): CoreServer => {
+export const createCoreServer = (
+  options: CoreServerOptions = {}
+): CoreServer => {
   const app = express();
   const registry = options.registry ?? new SessionRegistry();
   const extensionBridge = new ExtensionBridge({ registry });
   const debuggerBridge = new DebuggerBridge({ extensionBridge });
   const drive = new DriveController(extensionBridge, registry);
-  const inspect = createInspectService({ registry, debuggerBridge, extensionBridge });
+  const inspect = createInspectService({
+    registry,
+    debuggerBridge,
+    extensionBridge,
+  });
   const recoveryTracker = new RecoveryTracker();
 
-  app.use(express.json({ limit: "1mb" }));
+  app.use(express.json({ limit: '1mb' }));
 
-  app.get("/health", (_req, res) => {
+  app.get('/health', (_req, res) => {
     res.status(200).json({ ok: true });
   });
 
   app.use(
-    "/session",
+    '/session',
     createSessionRouter(registry, {
       driveConnected: () => extensionBridge.isConnected(),
       inspectRecover: (sessionId) => inspect.reconnect(sessionId),
@@ -50,7 +56,11 @@ export const createCoreServer = (options: CoreServerOptions = {}): CoreServer =>
   );
 
   registerDriveRoutes(app, { drive });
-  registerInspectRoutes(app, { registry, extensionBridge, inspectService: inspect });
+  registerInspectRoutes(app, {
+    registry,
+    extensionBridge,
+    inspectService: inspect,
+  });
   registerArtifactsRoutes(app, {
     registry,
     extensionBridge,
@@ -107,7 +117,7 @@ const resolveCorePort = (portOverride?: number): number => {
 export const startCoreServer = (
   options: CoreServerStartOptions = {}
 ): Promise<CoreServerHandle> => {
-  const host = options.host ?? "127.0.0.1";
+  const host = options.host ?? '127.0.0.1';
   const port = resolveCorePort(options.port);
   const { app, registry, extensionBridge } = createCoreServer({
     registry: options.registry,
@@ -119,11 +129,11 @@ export const startCoreServer = (
     server.listen(port, host, () => {
       const address = server.address();
       const resolvedPort =
-        typeof address === "object" && address !== null ? address.port : port;
+        typeof address === 'object' && address !== null ? address.port : port;
       resolve({ app, registry, server, host, port: resolvedPort });
     });
 
-    server.on("error", (error) => {
+    server.on('error', (error) => {
       reject(error);
     });
   });

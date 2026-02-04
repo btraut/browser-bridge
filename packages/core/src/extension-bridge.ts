@@ -1,7 +1,7 @@
-import { randomUUID } from "crypto";
-import type { Server } from "http";
-import type { RawData } from "ws";
-import { WebSocketServer, WebSocket } from "ws";
+import { randomUUID } from 'crypto';
+import type { Server } from 'http';
+import type { RawData } from 'ws';
+import { WebSocketServer, WebSocket } from 'ws';
 import type {
   DebuggerEvent,
   DebuggerRequestAction,
@@ -15,9 +15,9 @@ import type {
   ExtensionRequest,
   ExtensionRequestAction,
   ExtensionResponse,
-} from "./drive-protocol";
-import { SessionRegistry } from "./session";
-import { SessionState } from "./state";
+} from './drive-protocol';
+import { SessionRegistry } from './session';
+import { SessionState } from './state';
 
 export type ExtensionBridgeStatus = {
   connected: boolean;
@@ -45,7 +45,7 @@ export class ExtensionBridgeError extends Error {
     details?: Record<string, unknown>
   ) {
     super(message);
-    this.name = "ExtensionBridgeError";
+    this.name = 'ExtensionBridgeError';
     this.code = code;
     this.retryable = retryable;
     this.details = details;
@@ -70,24 +70,24 @@ export class ExtensionBridge {
 
   constructor(options: ExtensionBridgeOptions = {}) {
     this.wss = new WebSocketServer({ noServer: true });
-    this.path = options.path ?? "/drive";
+    this.path = options.path ?? '/drive';
     this.registry = options.registry;
 
-    this.wss.on("connection", (socket) => {
+    this.wss.on('connection', (socket) => {
       this.handleConnection(socket);
     });
   }
 
   attach(server: Server): void {
-    server.on("upgrade", (request, socket, head) => {
-      const url = new URL(request.url ?? "", "ws://127.0.0.1");
+    server.on('upgrade', (request, socket, head) => {
+      const url = new URL(request.url ?? '', 'ws://127.0.0.1');
       if (url.pathname !== this.path) {
         socket.destroy();
         return;
       }
 
       this.wss.handleUpgrade(request, socket, head, (ws) => {
-        this.wss.emit("connection", ws, request);
+        this.wss.emit('connection', ws, request);
       });
     });
   }
@@ -136,8 +136,8 @@ export class ExtensionBridge {
   ): Promise<ExtensionResponse> {
     if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
       throw new ExtensionBridgeError(
-        "EXTENSION_DISCONNECTED",
-        "Extension is not connected.",
+        'EXTENSION_DISCONNECTED',
+        'Extension is not connected.',
         true
       );
     }
@@ -146,7 +146,7 @@ export class ExtensionBridge {
     const request: ExtensionRequest = {
       id,
       action,
-      status: "request",
+      status: 'request',
       params,
     };
 
@@ -155,7 +155,7 @@ export class ExtensionBridge {
         this.pending.delete(id);
         reject(
           new ExtensionBridgeError(
-            "TIMEOUT",
+            'TIMEOUT',
             `Extension request timed out after ${timeoutMs}ms.`,
             true,
             { action }
@@ -186,15 +186,15 @@ export class ExtensionBridge {
 
     this.applyDriveConnected();
 
-    socket.on("message", (data) => {
+    socket.on('message', (data) => {
       this.handleMessage(data);
     });
 
-    socket.on("close", () => {
+    socket.on('close', () => {
       this.handleDisconnect();
     });
 
-    socket.on("error", () => {
+    socket.on('error', () => {
       this.handleDisconnect();
     });
   }
@@ -213,8 +213,8 @@ export class ExtensionBridge {
       clearTimeout(pending.timeout);
       pending.reject(
         new ExtensionBridgeError(
-          "EXTENSION_DISCONNECTED",
-          "Extension disconnected before responding.",
+          'EXTENSION_DISCONNECTED',
+          'Extension disconnected before responding.',
           true,
           { request_id: id }
         )
@@ -224,7 +224,7 @@ export class ExtensionBridge {
   }
 
   private handleMessage(data: RawData): void {
-    const text = typeof data === "string" ? data : data.toString();
+    const text = typeof data === 'string' ? data : data.toString();
 
     let message: ExtensionMessage | null = null;
     try {
@@ -233,21 +233,21 @@ export class ExtensionBridge {
       return;
     }
 
-    if (!message || typeof message !== "object") {
+    if (!message || typeof message !== 'object') {
       return;
     }
 
     this.lastSeenAt = new Date().toISOString();
 
-    if (message.status === "event") {
+    if (message.status === 'event') {
       this.handleEvent(message as ExtensionEvent);
       return;
     }
 
     if (
-      message.status === "ok" ||
-      message.status === "error" ||
-      message.status === "ack"
+      message.status === 'ok' ||
+      message.status === 'error' ||
+      message.status === 'ack'
     ) {
       const pending = this.pending.get(message.id);
       if (!pending) {
@@ -260,14 +260,21 @@ export class ExtensionBridge {
   }
 
   private handleEvent(message: ExtensionEvent): void {
-    if (message.action === "drive.hello" || message.action === "drive.tab_report") {
-      const tabs = (message.params as { tabs?: DriveTabInfo[] } | undefined)?.tabs;
+    if (
+      message.action === 'drive.hello' ||
+      message.action === 'drive.tab_report'
+    ) {
+      const tabs = (message.params as { tabs?: DriveTabInfo[] } | undefined)
+        ?.tabs;
       if (Array.isArray(tabs)) {
         this.tabs = tabs;
       }
     }
 
-    if (typeof message.action === "string" && message.action.startsWith("debugger.")) {
+    if (
+      typeof message.action === 'string' &&
+      message.action.startsWith('debugger.')
+    ) {
       this.emitDebuggerEvent(message as DebuggerEvent);
     }
   }
@@ -290,11 +297,11 @@ export class ExtensionBridge {
     for (const session of this.registry.list()) {
       try {
         if (session.state === SessionState.INIT) {
-          this.registry.apply(session.id, "DRIVE_CONNECTED");
+          this.registry.apply(session.id, 'DRIVE_CONNECTED');
         } else if (session.state === SessionState.INSPECT_READY) {
-          this.registry.apply(session.id, "DRIVE_CONNECTED");
+          this.registry.apply(session.id, 'DRIVE_CONNECTED');
         } else if (session.state === SessionState.DEGRADED_DRIVE) {
-          this.registry.apply(session.id, "RECOVER_SUCCEEDED");
+          this.registry.apply(session.id, 'RECOVER_SUCCEEDED');
         }
       } catch {
         // Ignore invalid transitions.
@@ -310,7 +317,7 @@ export class ExtensionBridge {
     for (const session of this.registry.list()) {
       try {
         if (session.state === SessionState.READY) {
-          this.registry.apply(session.id, "DRIVE_DISCONNECTED");
+          this.registry.apply(session.id, 'DRIVE_DISCONNECTED');
         }
       } catch {
         // Ignore invalid transitions.

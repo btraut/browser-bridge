@@ -21,7 +21,7 @@ export type DriveTabInfo = {
 
 export type DriveNavigateParams = {
   url: string;
-  wait?: "none" | "domcontentloaded";
+  wait?: 'none' | 'domcontentloaded';
 };
 
 export type DriveClickParams = {
@@ -43,13 +43,13 @@ export type DriveScrollParams = {
   delta_y?: number;
   top?: number;
   left?: number;
-  behavior?: "auto" | "smooth";
+  behavior?: 'auto' | 'smooth';
   tab_id?: number;
 };
 
 export type DriveWaitForParams = {
   condition: {
-    kind: "locator_visible" | "text_present" | "url_matches";
+    kind: 'locator_visible' | 'text_present' | 'url_matches';
     value: string;
   };
   timeout_ms?: number;
@@ -74,20 +74,20 @@ export type DriveTabReportParams = {
 };
 
 export type DriveAction =
-  | "drive.navigate"
-  | "drive.click"
-  | "drive.type"
-  | "drive.scroll"
-  | "drive.wait_for"
-  | "drive.tab_list"
-  | "drive.tab_activate"
-  | "drive.tab_close"
-  | "drive.hello"
-  | "drive.tab_report";
+  | 'drive.navigate'
+  | 'drive.click'
+  | 'drive.type'
+  | 'drive.scroll'
+  | 'drive.wait_for'
+  | 'drive.tab_list'
+  | 'drive.tab_activate'
+  | 'drive.tab_close'
+  | 'drive.hello'
+  | 'drive.tab_report';
 
-export type DriveRequestStatus = "request";
-export type DriveResponseStatus = "ok" | "error";
-export type DriveEventStatus = "event";
+export type DriveRequestStatus = 'request';
+export type DriveResponseStatus = 'ok' | 'error';
+export type DriveEventStatus = 'event';
 
 export type DriveMessageStatus =
   | DriveRequestStatus
@@ -157,12 +157,12 @@ export type DebuggerEventParams = {
 };
 
 export type DebuggerRequestAction =
-  | "debugger.attach"
-  | "debugger.detach"
-  | "debugger.command";
-export type DebuggerEventAction = "debugger.event";
-export type DebuggerAckAction = "debugger.ack";
-export type DebuggerErrorAction = "debugger.error";
+  | 'debugger.attach'
+  | 'debugger.detach'
+  | 'debugger.command';
+export type DebuggerEventAction = 'debugger.event';
+export type DebuggerAckAction = 'debugger.ack';
+export type DebuggerErrorAction = 'debugger.error';
 
 export type DebuggerAction =
   | DebuggerRequestAction
@@ -170,10 +170,10 @@ export type DebuggerAction =
   | DebuggerAckAction
   | DebuggerErrorAction;
 
-export type DebuggerRequestStatus = "request";
-export type DebuggerAckStatus = "ack";
-export type DebuggerErrorStatus = "error";
-export type DebuggerEventStatus = "event";
+export type DebuggerRequestStatus = 'request';
+export type DebuggerAckStatus = 'ack';
+export type DebuggerErrorStatus = 'error';
+export type DebuggerEventStatus = 'event';
 
 export type DebuggerMessageStatus =
   | DebuggerRequestStatus
@@ -215,7 +215,10 @@ export type DebuggerResponse<TResult = unknown> =
   | DebuggerAck<TResult>
   | DebuggerError;
 
-export type DebuggerMessage = DebuggerRequest | DebuggerResponse | DebuggerEvent;
+export type DebuggerMessage =
+  | DebuggerRequest
+  | DebuggerResponse
+  | DebuggerEvent;
 
 export type ExtensionRequestAction = DriveAction | DebuggerRequestAction;
 export type ExtensionAction = DriveAction | DebuggerAction;

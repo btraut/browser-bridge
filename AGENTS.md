@@ -62,6 +62,7 @@ This project uses **bd (beads)** for issue tracking. Run `bd onboard` to get sta
 7. **Hand off** - Provide context for next session
 
 **CRITICAL RULES:**
+
 - Work is NOT complete until `git push` succeeds
 - NEVER stop before pushing - that leaves work stranded locally
 - NEVER say "ready to push when you are" - YOU must push

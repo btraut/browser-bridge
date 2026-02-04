@@ -1,10 +1,10 @@
-import { DiagnosticsContext, buildDiagnosticReport } from "../diagnostics";
-import type { SessionRegistry } from "../session";
-import type { ExtensionBridge } from "../extension-bridge";
-import type { DriveController } from "../drive";
-import type { InspectService } from "../inspect";
-import type { DebuggerBridge } from "../debugger-bridge";
-import type { RecoveryTracker } from "../recovery";
+import { DiagnosticsContext, buildDiagnosticReport } from '../diagnostics';
+import type { SessionRegistry } from '../session';
+import type { ExtensionBridge } from '../extension-bridge';
+import type { DriveController } from '../drive';
+import type { InspectService } from '../inspect';
+import type { DebuggerBridge } from '../debugger-bridge';
+import type { RecoveryTracker } from '../recovery';
 
 type RequestLike = {
   body?: unknown;
@@ -16,7 +16,10 @@ type ResponseLike = {
 };
 
 type RouteRegistry = {
-  post: (path: string, handler: (req: RequestLike, res: ResponseLike) => void) => void;
+  post: (
+    path: string,
+    handler: (req: RequestLike, res: ResponseLike) => void
+  ) => void;
 };
 
 type DiagnosticsRoutesOptions = {
@@ -31,7 +34,7 @@ type DiagnosticsRoutesOptions = {
 type ErrorEnvelope = {
   ok: false;
   error: {
-    code: "INVALID_ARGUMENT" | "INTERNAL";
+    code: 'INVALID_ARGUMENT' | 'INTERNAL';
     message: string;
     retryable: boolean;
     details?: Record<string, unknown>;
@@ -46,7 +49,7 @@ type SuccessEnvelope<T> = {
 const sendError = (
   res: ResponseLike,
   status: number,
-  error: ErrorEnvelope["error"]
+  error: ErrorEnvelope['error']
 ): void => {
   res.status(status).json({ ok: false, error });
 };
@@ -57,30 +60,30 @@ const sendResult = <T>(res: ResponseLike, result: T): void => {
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
+  typeof value === 'object' && value !== null && !Array.isArray(value);
 
 export const registerDiagnosticsRoutes = (
   router: RouteRegistry,
   options: DiagnosticsRoutesOptions = {}
 ): void => {
-  router.post("/diagnostics/doctor", (req, res) => {
+  router.post('/diagnostics/doctor', (req, res) => {
     let sessionId: string | undefined;
     if (req.body !== undefined) {
       if (!isRecord(req.body)) {
         sendError(res, 400, {
-          code: "INVALID_ARGUMENT",
-          message: "Request body must be an object.",
+          code: 'INVALID_ARGUMENT',
+          message: 'Request body must be an object.',
           retryable: false,
         });
         return;
       }
       const raw = req.body.session_id;
-      if (raw !== undefined && (typeof raw !== "string" || raw.length === 0)) {
+      if (raw !== undefined && (typeof raw !== 'string' || raw.length === 0)) {
         sendError(res, 400, {
-          code: "INVALID_ARGUMENT",
-          message: "session_id must be a non-empty string.",
+          code: 'INVALID_ARGUMENT',
+          message: 'session_id must be a non-empty string.',
           retryable: false,
-          details: { field: "session_id" },
+          details: { field: 'session_id' },
         });
         return;
       }
@@ -166,8 +169,8 @@ export const registerDiagnosticsRoutes = (
       sendResult(res, report);
     } catch {
       sendError(res, 500, {
-        code: "INTERNAL",
-        message: "Failed to build diagnostics report.",
+        code: 'INTERNAL',
+        message: 'Failed to build diagnostics report.',
         retryable: false,
       });
     }

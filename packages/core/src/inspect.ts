@@ -1,30 +1,29 @@
-import { randomUUID } from "crypto";
-import { writeFile } from "node:fs/promises";
-import path from "node:path";
-import { ensureArtifactRootDir } from "./artifacts";
-import { driveMutex } from "./drive";
-import type { DebuggerBridge, DebuggerEventRecord } from "./debugger-bridge";
-import type { DriveErrorInfo, DriveTabInfo } from "./drive-protocol";
-import { SessionError, SessionRegistry, SessionRecord } from "./session";
-import { SessionState } from "./state";
-import { pickBestTarget } from "./target-matching";
-import type { TargetHint } from "./target-matching";
-import type { DebuggerBridge } from "./debugger-bridge";
+import { randomUUID } from 'crypto';
+import { writeFile } from 'node:fs/promises';
+import path from 'node:path';
+import { ensureArtifactRootDir } from './artifacts';
+import { driveMutex } from './drive';
+import type { DebuggerBridge, DebuggerEventRecord } from './debugger-bridge';
+import type { DriveErrorInfo, DriveTabInfo } from './drive-protocol';
+import { SessionError, SessionRegistry, SessionRecord } from './session';
+import { SessionState } from './state';
+import { pickBestTarget } from './target-matching';
+import type { TargetHint } from './target-matching';
 
 export type InspectErrorCode =
-  | "INVALID_ARGUMENT"
-  | "SESSION_NOT_FOUND"
-  | "SESSION_CLOSED"
-  | "INSPECT_UNAVAILABLE"
-  | "EXTENSION_DISCONNECTED"
-  | "DEBUGGER_IN_USE"
-  | "ATTACH_DENIED"
-  | "TAB_NOT_FOUND"
-  | "NOT_SUPPORTED"
-  | "TIMEOUT"
-  | "EVALUATION_FAILED"
-  | "ARTIFACT_IO_ERROR"
-  | "INTERNAL";
+  | 'INVALID_ARGUMENT'
+  | 'SESSION_NOT_FOUND'
+  | 'SESSION_CLOSED'
+  | 'INSPECT_UNAVAILABLE'
+  | 'EXTENSION_DISCONNECTED'
+  | 'DEBUGGER_IN_USE'
+  | 'ATTACH_DENIED'
+  | 'TAB_NOT_FOUND'
+  | 'NOT_SUPPORTED'
+  | 'TIMEOUT'
+  | 'EVALUATION_FAILED'
+  | 'ARTIFACT_IO_ERROR'
+  | 'INTERNAL';
 
 export class InspectError extends Error {
   public readonly code: InspectErrorCode;
@@ -37,7 +36,7 @@ export class InspectError extends Error {
     options: { retryable?: boolean; details?: Record<string, unknown> } = {}
   ) {
     super(message);
-    this.name = "InspectError";
+    this.name = 'InspectError';
     this.code = code;
     this.retryable = options.retryable ?? false;
     this.details = options.details;
@@ -45,7 +44,7 @@ export class InspectError extends Error {
 }
 
 export type DomSnapshotResult = {
-  format: "ax" | "html";
+  format: 'ax' | 'html';
   snapshot: unknown;
   warnings?: string[];
 };
@@ -107,22 +106,26 @@ export class InspectService {
     return this.debugger?.hasAttachments() ?? false;
   }
 
-  getLastError():
-    | { error: InspectError; at: string }
-    | undefined {
+  getLastError(): { error: InspectError; at: string } | undefined {
     if (!this.lastError || !this.lastErrorAt) {
       const debuggerError = this.debugger?.getLastError();
       if (!debuggerError) {
         return undefined;
       }
       return {
-        error: new InspectError("INSPECT_UNAVAILABLE", debuggerError.error.message, {
-          retryable: debuggerError.error.retryable,
-          details: {
-            code: debuggerError.error.code,
-            ...(debuggerError.error.details ? debuggerError.error.details : {}),
-          },
-        }),
+        error: new InspectError(
+          'INSPECT_UNAVAILABLE',
+          debuggerError.error.message,
+          {
+            retryable: debuggerError.error.retryable,
+            details: {
+              code: debuggerError.error.code,
+              ...(debuggerError.error.details
+                ? debuggerError.error.details
+                : {}),
+            },
+          }
+        ),
         at: debuggerError.at,
       };
     }
@@ -152,18 +155,18 @@ export class InspectService {
 
   async domSnapshot(input: {
     sessionId: string;
-    format: "ax" | "html";
-    consistency: "best_effort" | "quiesce";
+    format: 'ax' | 'html';
+    consistency: 'best_effort' | 'quiesce';
     targetHint?: TargetHint;
   }): Promise<DomSnapshotResult> {
     this.requireSession(input.sessionId);
     const selection = await this.resolveTab(input.targetHint);
 
     const work = async (): Promise<DomSnapshotResult> => {
-      if (input.format === "html") {
+      if (input.format === 'html') {
         const html = await this.captureHtml(selection.tabId);
         return {
-          format: "html",
+          format: 'html',
           snapshot: html,
           warnings: selection.warnings,
         };
@@ -173,20 +176,20 @@ export class InspectService {
         await this.enableAccessibility(selection.tabId);
         const result = await this.debuggerCommand(
           selection.tabId,
-          "Accessibility.getFullAXTree",
+          'Accessibility.getFullAXTree',
           {}
         );
         return {
-          format: "ax",
+          format: 'ax',
           snapshot: result,
           warnings: selection.warnings,
         };
       } catch (error) {
         if (error instanceof InspectError) {
           const fallbackCodes: InspectErrorCode[] = [
-            "NOT_SUPPORTED",
-            "INSPECT_UNAVAILABLE",
-            "EVALUATION_FAILED",
+            'NOT_SUPPORTED',
+            'INSPECT_UNAVAILABLE',
+            'EVALUATION_FAILED',
           ];
           if (!fallbackCodes.includes(error.code)) {
             throw error;
@@ -194,10 +197,10 @@ export class InspectService {
           const html = await this.captureHtml(selection.tabId);
           const warnings = [
             ...(selection.warnings ?? []),
-            "AX snapshot failed; returned HTML instead.",
+            'AX snapshot failed; returned HTML instead.',
           ];
           return {
-            format: "html",
+            format: 'html',
             snapshot: html,
             warnings,
           };
@@ -206,7 +209,7 @@ export class InspectService {
       }
     };
 
-    if (input.consistency === "quiesce") {
+    if (input.consistency === 'quiesce') {
       const result = await driveMutex.runExclusive(work);
       this.markInspectConnected(input.sessionId);
       return result;
@@ -252,18 +255,18 @@ export class InspectService {
       const rootDir = await ensureArtifactRootDir(input.sessionId);
       const artifactId = randomUUID();
       const filePath = path.join(rootDir, `har-${artifactId}.json`);
-      await writeFile(filePath, JSON.stringify(har, null, 2), "utf-8");
+      await writeFile(filePath, JSON.stringify(har, null, 2), 'utf-8');
       const result = {
         artifact_id: artifactId,
         path: filePath,
-        mime: "application/json",
+        mime: 'application/json',
       };
       this.markInspectConnected(input.sessionId);
       return result;
     } catch {
       const error = new InspectError(
-        "ARTIFACT_IO_ERROR",
-        "Failed to write HAR file."
+        'ARTIFACT_IO_ERROR',
+        'Failed to write HAR file.'
       );
       this.recordError(error);
       throw error;
@@ -277,20 +280,20 @@ export class InspectService {
   }): Promise<EvaluateResult> {
     this.requireSession(input.sessionId);
     const selection = await this.resolveTab(input.targetHint);
-    const expression = input.expression ?? "undefined";
+    const expression = input.expression ?? 'undefined';
 
-    await this.debuggerCommand(selection.tabId, "Runtime.enable", {});
-    const result = await this.debuggerCommand(selection.tabId, "Runtime.evaluate", {
-      expression,
-      returnByValue: true,
-      awaitPromise: true,
-    });
+    await this.debuggerCommand(selection.tabId, 'Runtime.enable', {});
+    const result = await this.debuggerCommand(
+      selection.tabId,
+      'Runtime.evaluate',
+      {
+        expression,
+        returnByValue: true,
+        awaitPromise: true,
+      }
+    );
 
-    if (
-      result &&
-      typeof result === "object" &&
-      "exceptionDetails" in result
-    ) {
+    if (result && typeof result === 'object' && 'exceptionDetails' in result) {
       const output = {
         exception: (result as { exceptionDetails?: unknown }).exceptionDetails,
         warnings: selection.warnings,
@@ -314,19 +317,19 @@ export class InspectService {
     this.requireSession(input.sessionId);
     const selection = await this.resolveTab(input.targetHint);
 
-    await this.debuggerCommand(selection.tabId, "Performance.enable", {});
+    await this.debuggerCommand(selection.tabId, 'Performance.enable', {});
     const result = await this.debuggerCommand(
       selection.tabId,
-      "Performance.getMetrics",
+      'Performance.getMetrics',
       {}
     );
     const metrics = Array.isArray((result as { metrics?: unknown[] })?.metrics)
-      ? (result as { metrics: Array<{ name: string; value: number }> }).metrics.map(
-          (metric) => ({
-            name: metric.name,
-            value: metric.value,
-          })
-        )
+      ? (
+          result as { metrics: Array<{ name: string; value: number }> }
+        ).metrics.map((metric) => ({
+          name: metric.name,
+          value: metric.value,
+        }))
       : [];
 
     const output = { metrics, warnings: selection.warnings };
@@ -336,27 +339,28 @@ export class InspectService {
 
   async screenshot(input: {
     sessionId: string;
-    target: "viewport" | "full";
+    target: 'viewport' | 'full';
     targetHint?: TargetHint;
   }): Promise<ArtifactInfo> {
     this.requireSession(input.sessionId);
     const selection = await this.resolveTab(input.targetHint);
 
-    await this.debuggerCommand(selection.tabId, "Page.enable", {});
+    await this.debuggerCommand(selection.tabId, 'Page.enable', {});
 
     let captureParams: Record<string, unknown> = {
-      format: "png",
+      format: 'png',
       fromSurface: true,
     };
 
-    if (input.target === "full") {
+    if (input.target === 'full') {
       const layout = await this.debuggerCommand(
         selection.tabId,
-        "Page.getLayoutMetrics",
+        'Page.getLayoutMetrics',
         {}
       );
-      const contentSize = (layout as { contentSize?: { width: number; height: number } })
-        ?.contentSize;
+      const contentSize = (
+        layout as { contentSize?: { width: number; height: number } }
+      )?.contentSize;
       if (contentSize) {
         captureParams = {
           ...captureParams,
@@ -375,14 +379,14 @@ export class InspectService {
 
     const result = await this.debuggerCommand(
       selection.tabId,
-      "Page.captureScreenshot",
+      'Page.captureScreenshot',
       captureParams
     );
     const data = (result as { data?: string }).data;
     if (!data) {
       const error = new InspectError(
-        "INSPECT_UNAVAILABLE",
-        "Failed to capture screenshot.",
+        'INSPECT_UNAVAILABLE',
+        'Failed to capture screenshot.',
         { retryable: false }
       );
       this.recordError(error);
@@ -393,18 +397,18 @@ export class InspectService {
       const rootDir = await ensureArtifactRootDir(input.sessionId);
       const artifactId = randomUUID();
       const filePath = path.join(rootDir, `screenshot-${artifactId}.png`);
-      await writeFile(filePath, Buffer.from(data, "base64"));
+      await writeFile(filePath, Buffer.from(data, 'base64'));
       const output = {
         artifact_id: artifactId,
         path: filePath,
-        mime: "image/png",
+        mime: 'image/png',
       };
       this.markInspectConnected(input.sessionId);
       return output;
     } catch {
       const error = new InspectError(
-        "ARTIFACT_IO_ERROR",
-        "Failed to write screenshot file."
+        'ARTIFACT_IO_ERROR',
+        'Failed to write screenshot file.'
       );
       this.recordError(error);
       throw error;
@@ -425,8 +429,8 @@ export class InspectService {
   ): Promise<{ tabId: number; tab: DriveTabInfo; warnings?: string[] }> {
     if (!this.extensionBridge || !this.extensionBridge.isConnected()) {
       const error = new InspectError(
-        "EXTENSION_DISCONNECTED",
-        "Extension is not connected.",
+        'EXTENSION_DISCONNECTED',
+        'Extension is not connected.',
         { retryable: true }
       );
       this.recordError(error);
@@ -435,28 +439,36 @@ export class InspectService {
 
     const tabs = this.extensionBridge.getStatus().tabs ?? [];
     if (!Array.isArray(tabs) || tabs.length === 0) {
-      const error = new InspectError("TAB_NOT_FOUND", "No tabs available to inspect.");
+      const error = new InspectError(
+        'TAB_NOT_FOUND',
+        'No tabs available to inspect.'
+      );
       this.recordError(error);
       throw error;
     }
 
     const candidates = tabs.map((tab) => ({
       id: String(tab.tab_id),
-      url: tab.url ?? "",
+      url: tab.url ?? '',
       title: tab.title,
-      lastSeenAt: tab.last_active_at ? Date.parse(tab.last_active_at) : undefined,
+      lastSeenAt: tab.last_active_at
+        ? Date.parse(tab.last_active_at)
+        : undefined,
     }));
 
     const ranked = pickBestTarget(candidates, hint);
     if (!ranked) {
-      const error = new InspectError("TAB_NOT_FOUND", "No matching tab found.");
+      const error = new InspectError('TAB_NOT_FOUND', 'No matching tab found.');
       this.recordError(error);
       throw error;
     }
 
     const tabId = Number(ranked.candidate.id);
     if (!Number.isFinite(tabId)) {
-      const error = new InspectError("TAB_NOT_FOUND", "Resolved tab id is invalid.");
+      const error = new InspectError(
+        'TAB_NOT_FOUND',
+        'Resolved tab id is invalid.'
+      );
       this.recordError(error);
       throw error;
     }
@@ -464,9 +476,9 @@ export class InspectService {
     const tab = tabs.find((entry) => entry.tab_id === tabId) ?? tabs[0];
     const warnings: string[] = [];
     if (!hint) {
-      warnings.push("No target hint provided; using the most recent tab.");
+      warnings.push('No target hint provided; using the most recent tab.');
     } else if (ranked.score < 20) {
-      warnings.push("Weak target match; using best available tab.");
+      warnings.push('Weak target match; using best available tab.');
     }
 
     return {
@@ -477,35 +489,31 @@ export class InspectService {
   }
 
   private async enableConsole(tabId: number): Promise<void> {
-    await this.debuggerCommand(tabId, "Runtime.enable", {});
-    await this.debuggerCommand(tabId, "Log.enable", {});
+    await this.debuggerCommand(tabId, 'Runtime.enable', {});
+    await this.debuggerCommand(tabId, 'Log.enable', {});
   }
 
   private async enableNetwork(tabId: number): Promise<void> {
-    await this.debuggerCommand(tabId, "Network.enable", {});
+    await this.debuggerCommand(tabId, 'Network.enable', {});
   }
 
   private async enableAccessibility(tabId: number): Promise<void> {
-    await this.debuggerCommand(tabId, "Accessibility.enable", {});
+    await this.debuggerCommand(tabId, 'Accessibility.enable', {});
   }
 
   private async captureHtml(tabId: number): Promise<string> {
-    await this.debuggerCommand(tabId, "Runtime.enable", {});
-    const result = await this.debuggerCommand(tabId, "Runtime.evaluate", {
+    await this.debuggerCommand(tabId, 'Runtime.enable', {});
+    const result = await this.debuggerCommand(tabId, 'Runtime.evaluate', {
       expression:
         "document.documentElement ? document.documentElement.outerHTML : ''",
       returnByValue: true,
       awaitPromise: true,
     });
 
-    if (
-      result &&
-      typeof result === "object" &&
-      "exceptionDetails" in result
-    ) {
+    if (result && typeof result === 'object' && 'exceptionDetails' in result) {
       const error = new InspectError(
-        "EVALUATION_FAILED",
-        "Failed to evaluate HTML snapshot.",
+        'EVALUATION_FAILED',
+        'Failed to evaluate HTML snapshot.',
         { retryable: false }
       );
       this.recordError(error);
@@ -513,7 +521,7 @@ export class InspectService {
     }
 
     return String(
-      (result as { result?: { value?: unknown } })?.result?.value ?? ""
+      (result as { result?: { value?: unknown } })?.result?.value ?? ''
     );
   }
 
@@ -540,22 +548,22 @@ export class InspectService {
 
   private mapDebuggerError(error: DriveErrorInfo): InspectError {
     const allowed: InspectErrorCode[] = [
-      "INSPECT_UNAVAILABLE",
-      "EXTENSION_DISCONNECTED",
-      "DEBUGGER_IN_USE",
-      "ATTACH_DENIED",
-      "TAB_NOT_FOUND",
-      "NOT_SUPPORTED",
-      "TIMEOUT",
-      "EVALUATION_FAILED",
-      "ARTIFACT_IO_ERROR",
-      "INVALID_ARGUMENT",
-      "INTERNAL",
+      'INSPECT_UNAVAILABLE',
+      'EXTENSION_DISCONNECTED',
+      'DEBUGGER_IN_USE',
+      'ATTACH_DENIED',
+      'TAB_NOT_FOUND',
+      'NOT_SUPPORTED',
+      'TIMEOUT',
+      'EVALUATION_FAILED',
+      'ARTIFACT_IO_ERROR',
+      'INVALID_ARGUMENT',
+      'INTERNAL',
     ];
 
     const code = allowed.includes(error.code as InspectErrorCode)
       ? (error.code as InspectErrorCode)
-      : "INSPECT_UNAVAILABLE";
+      : 'INSPECT_UNAVAILABLE';
     return new InspectError(code, error.message, {
       retryable: error.retryable,
       details: error.details,
@@ -565,37 +573,41 @@ export class InspectService {
   private toConsoleEntry(event: DebuggerEventRecord): ConsoleEntry | null {
     const params = event.params ?? {};
     switch (event.method) {
-      case "Runtime.consoleAPICalled": {
+      case 'Runtime.consoleAPICalled': {
         const args = Array.isArray((params as { args?: unknown[] }).args)
           ? (params as { args: unknown[] }).args
           : [];
-        const text = args.map((arg) => this.stringifyRemoteObject(arg)).join(" ");
-        const level = String((params as { type?: string }).type ?? "log");
+        const text = args
+          .map((arg) => this.stringifyRemoteObject(arg))
+          .join(' ');
+        const level = String((params as { type?: string }).type ?? 'log');
         return {
           level,
           text,
           timestamp: event.timestamp,
         };
       }
-      case "Runtime.exceptionThrown": {
+      case 'Runtime.exceptionThrown': {
         const details = (params as { exceptionDetails?: { text?: string } })
           .exceptionDetails;
         return {
-          level: "error",
-          text: details?.text ?? "Uncaught exception",
+          level: 'error',
+          text: details?.text ?? 'Uncaught exception',
           timestamp: event.timestamp,
         };
       }
-      case "Log.entryAdded": {
-        const entry = (params as {
-          entry?: { level?: string; text?: string; timestamp?: number };
-        }).entry;
+      case 'Log.entryAdded': {
+        const entry = (
+          params as {
+            entry?: { level?: string; text?: string; timestamp?: number };
+          }
+        ).entry;
         if (!entry) {
           return null;
         }
         return {
-          level: entry.level ?? "log",
-          text: entry.text ?? "",
+          level: entry.level ?? 'log',
+          text: entry.text ?? '',
           timestamp: event.timestamp,
         };
       }
@@ -605,8 +617,8 @@ export class InspectService {
   }
 
   private stringifyRemoteObject(value: unknown): string {
-    if (!value || typeof value !== "object") {
-      return String(value ?? "");
+    if (!value || typeof value !== 'object') {
+      return String(value ?? '');
     }
     const obj = value as {
       value?: unknown;
@@ -619,7 +631,7 @@ export class InspectService {
     }
     if (obj.value !== undefined) {
       try {
-        return typeof obj.value === "string"
+        return typeof obj.value === 'string'
           ? obj.value
           : JSON.stringify(obj.value);
       } catch {
@@ -629,7 +641,7 @@ export class InspectService {
     if (obj.description) {
       return obj.description;
     }
-    return obj.type ?? "";
+    return obj.type ?? '';
   }
 
   private buildHar(events: DebuggerEventRecord[], title?: string): unknown {
@@ -650,14 +662,17 @@ export class InspectService {
 
     const requests = new Map<string, RequestRecord>();
 
-    const toTimestamp = (event: DebuggerEventRecord, fallback?: number): number => {
+    const toTimestamp = (
+      event: DebuggerEventRecord,
+      fallback?: number
+    ): number => {
       const raw = (event.params as { timestamp?: number; wallTime?: number })
         ?.wallTime;
-      if (typeof raw === "number") {
+      if (typeof raw === 'number') {
         return raw * 1000;
       }
       const ts = (event.params as { timestamp?: number })?.timestamp;
-      if (typeof ts === "number") {
+      if (typeof ts === 'number') {
         return ts * 1000;
       }
       const parsed = Date.parse(event.timestamp);
@@ -670,12 +685,22 @@ export class InspectService {
     for (const event of events) {
       const params = event.params ?? {};
       switch (event.method) {
-        case "Network.requestWillBeSent": {
-          const requestId = String((params as { requestId?: unknown }).requestId);
+        case 'Network.requestWillBeSent': {
+          const requestId = String(
+            (params as { requestId?: unknown }).requestId
+          );
           if (!requestId) {
             break;
           }
-          const request = (params as { request?: { url?: string; method?: string; headers?: Record<string, string> } }).request;
+          const request = (
+            params as {
+              request?: {
+                url?: string;
+                method?: string;
+                headers?: Record<string, string>;
+              };
+            }
+          ).request;
           const record: RequestRecord = {
             id: requestId,
             url: request?.url,
@@ -686,20 +711,24 @@ export class InspectService {
           requests.set(requestId, record);
           break;
         }
-        case "Network.responseReceived": {
-          const requestId = String((params as { requestId?: unknown }).requestId);
+        case 'Network.responseReceived': {
+          const requestId = String(
+            (params as { requestId?: unknown }).requestId
+          );
           if (!requestId) {
             break;
           }
-          const response = (params as {
-            response?: {
-              status?: number;
-              statusText?: string;
-              mimeType?: string;
-              headers?: Record<string, string>;
-              protocol?: string;
-            };
-          }).response;
+          const response = (
+            params as {
+              response?: {
+                status?: number;
+                statusText?: string;
+                mimeType?: string;
+                headers?: Record<string, string>;
+                protocol?: string;
+              };
+            }
+          ).response;
           const record = requests.get(requestId) ?? { id: requestId };
           record.status = response?.status;
           record.statusText = response?.statusText;
@@ -710,20 +739,25 @@ export class InspectService {
           requests.set(requestId, record);
           break;
         }
-        case "Network.loadingFinished": {
-          const requestId = String((params as { requestId?: unknown }).requestId);
+        case 'Network.loadingFinished': {
+          const requestId = String(
+            (params as { requestId?: unknown }).requestId
+          );
           if (!requestId) {
             break;
           }
           const record = requests.get(requestId) ?? { id: requestId };
-          record.encodedDataLength = (params as { encodedDataLength?: number })
-            .encodedDataLength;
+          record.encodedDataLength = (
+            params as { encodedDataLength?: number }
+          ).encodedDataLength;
           record.endTime = toTimestamp(event, record.startTime);
           requests.set(requestId, record);
           break;
         }
-        case "Network.loadingFailed": {
-          const requestId = String((params as { requestId?: unknown }).requestId);
+        case 'Network.loadingFailed': {
+          const requestId = String(
+            (params as { requestId?: unknown }).requestId
+          );
           if (!requestId) {
             break;
           }
@@ -741,7 +775,7 @@ export class InspectService {
       const started = record.startTime ?? Date.now();
       const ended = record.endTime ?? started;
       const time = Math.max(0, ended - started);
-      const url = record.url ?? "";
+      const url = record.url ?? '';
       const queryString: Array<{ name: string; value: string }> = [];
       try {
         const parsed = new URL(url);
@@ -753,13 +787,13 @@ export class InspectService {
       }
 
       return {
-        pageref: "page_0",
+        pageref: 'page_0',
         startedDateTime: new Date(started).toISOString(),
         time,
         request: {
-          method: record.method ?? "GET",
+          method: record.method ?? 'GET',
           url,
-          httpVersion: record.protocol ?? "HTTP/1.1",
+          httpVersion: record.protocol ?? 'HTTP/1.1',
           cookies: [],
           headers: [],
           queryString,
@@ -768,16 +802,16 @@ export class InspectService {
         },
         response: {
           status: record.status ?? 0,
-          statusText: record.statusText ?? "",
-          httpVersion: record.protocol ?? "HTTP/1.1",
+          statusText: record.statusText ?? '',
+          httpVersion: record.protocol ?? 'HTTP/1.1',
           cookies: [],
           headers: [],
-          redirectURL: "",
+          redirectURL: '',
           headersSize: -1,
           bodySize: record.encodedDataLength ?? 0,
           content: {
             size: record.encodedDataLength ?? 0,
-            mimeType: record.mimeType ?? "",
+            mimeType: record.mimeType ?? '',
           },
         },
         cache: {},
@@ -795,15 +829,15 @@ export class InspectService {
 
     return {
       log: {
-        version: "1.2",
+        version: '1.2',
         creator: {
-          name: "browser-vision",
-          version: "0.0.0",
+          name: 'browser-vision',
+          version: '0.0.0',
         },
         pages: [
           {
-            id: "page_0",
-            title: title ?? "page",
+            id: 'page_0',
+            title: title ?? 'page',
             startedDateTime,
             pageTimings: {
               onContentLoad: -1,
@@ -823,9 +857,9 @@ export class InspectService {
         session.state === SessionState.INIT ||
         session.state === SessionState.DRIVE_READY
       ) {
-        this.registry.apply(sessionId, "INSPECT_CONNECTED");
+        this.registry.apply(sessionId, 'INSPECT_CONNECTED');
       } else if (session.state === SessionState.DEGRADED_INSPECT) {
-        this.registry.apply(sessionId, "RECOVER_SUCCEEDED");
+        this.registry.apply(sessionId, 'RECOVER_SUCCEEDED');
       }
     } catch {
       // Ignore invalid transitions.
@@ -839,8 +873,8 @@ export class InspectService {
 
   private buildUnavailableError(): InspectError {
     return new InspectError(
-      "INSPECT_UNAVAILABLE",
-      "Inspect is not available until the debugger bridge is configured.",
+      'INSPECT_UNAVAILABLE',
+      'Inspect is not available until the debugger bridge is configured.',
       { retryable: false }
     );
   }
@@ -856,17 +890,21 @@ export class InspectService {
       return this.registry.require(sessionId);
     } catch (error) {
       if (error instanceof SessionError) {
-        const code = error.code === "SESSION_CLOSED" ? "SESSION_CLOSED" : "SESSION_NOT_FOUND";
+        const code =
+          error.code === 'SESSION_CLOSED'
+            ? 'SESSION_CLOSED'
+            : 'SESSION_NOT_FOUND';
         const wrapped = new InspectError(code, error.message);
         this.recordError(wrapped);
         throw wrapped;
       }
-      const wrapped = new InspectError("INTERNAL", "Failed to load session.");
+      const wrapped = new InspectError('INTERNAL', 'Failed to load session.');
       this.recordError(wrapped);
       throw wrapped;
     }
   }
 }
 
-export const createInspectService = (options: InspectServiceOptions): InspectService =>
-  new InspectService(options);
+export const createInspectService = (
+  options: InspectServiceOptions
+): InspectService => new InspectService(options);

@@ -1,8 +1,8 @@
-import { mkdir } from "node:fs/promises";
-import os from "node:os";
-import path from "node:path";
+import { mkdir } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 
-const ARTIFACTS_DIR_NAME = "browser-agent";
+const ARTIFACTS_DIR_NAME = 'browser-agent';
 
 const resolveTempRoot = (): string =>
   process.env.TMPDIR || process.env.TEMP || process.env.TMP || os.tmpdir();

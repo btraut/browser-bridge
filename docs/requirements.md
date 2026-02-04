@@ -13,6 +13,7 @@ Reliability is the #1 priority. Speed and elegance are secondary.
 The system is a hybrid, two-plane browser controller operating against the same Chrome instance and tab.
 
 Drive Plane (Human-Centric Control)
+
 - Implemented via a Chrome extension.
 - Responsibilities: clicking, typing, scrolling, navigating, tab management.
 - Uses Chrome extension APIs.
@@ -20,6 +21,7 @@ Drive Plane (Human-Centric Control)
 - Highly reliable.
 
 Inspect Plane (Diagnostic / Introspection)
+
 - Implemented via the Chrome extension debugger bridge (`chrome.debugger`).
 - Responsibilities: DOM snapshots (AX preferred), console logs, network HAR, performance metrics, JS evaluation.
 - Read-only by default.
@@ -29,12 +31,14 @@ Inspect Plane (Diagnostic / Introspection)
 Required components:
 
 1. Core Daemon (TypeScript, Node 20+)
+
 - Single source of truth.
 - Responsibilities: session lifecycle, extension connection management, debugger attach/detach management, drive/inspect routing, concurrency control, retry & recovery, artifact storage, diagnostics.
 - Exposes a local HTTP API consumed by MCP adapter and CLI.
 - No business logic in MCP or CLI.
 
 2. Chrome Extension (Drive Plane)
+
 - Connects to Core over localhost WebSocket.
 - Executes: click, type, scroll, navigate, tab list/activate/close.
 - Reports: active tabId, url, title, windowId, timestamps.
@@ -42,11 +46,13 @@ Required components:
 - Bind only to 127.0.0.1.
 
 3. MCP Adapter
+
 - Exposes structured MCP tool surface.
 - Thin wrapper over Core API.
 - No state, no logic.
 
 4. CLI
+
 - Mirrors MCP capabilities.
 - Always supports `--json`.
 - Starts Core daemon if not running.
@@ -55,17 +61,20 @@ Required components:
 **Key Design Decisions (Locked In)**
 
 Transport
+
 - Extension <-> Core: WebSocket over localhost.
 - No auth, no tokens (v1).
 - Core binds only to 127.0.0.1.
 
 Debugger Attach Strategy
+
 - Goal: install the extension, then everything just works.
 - Inspect attaches to existing tabs via `chrome.debugger`.
 - No user flags, no remote-debugging setup required.
 - Core does not launch or manage a separate Chrome profile.
 
 Tab <-> Target Mapping (V1)
+
 - Heuristic matching, not hard guarantees.
 - Extension reports `{ tabId, url, title, lastActiveAt }`.
 - Match by exact URL, title, and recency.
@@ -73,6 +82,7 @@ Tab <-> Target Mapping (V1)
 - If mismatch -> retry once, then proceed with warning.
 
 Concurrency Model
+
 - Only one drive operation at a time.
 - Inspect operations may run in parallel.
 - Some inspect calls may request quiescence.
@@ -80,6 +90,7 @@ Concurrency Model
 - Optional consistency modes for inspect ops: `best_effort` and `quiesce`.
 
 Wait Semantics
+
 - Conservative defaults.
 - `drive.navigate` waits for `domcontentloaded`.
 - `drive.click` has no implicit wait.
@@ -87,29 +98,35 @@ Wait Semantics
 - Do not hide waits inside actions.
 
 Locator Strategy
+
 - Locator union with deterministic fallback order.
 - Fallback order: `testid`, `css`, `role` (optional v1), `text` (contains).
 - V1 may skip role internally but must accept it in schema.
 
 DOM Representation
+
 - Primary: Accessibility Tree snapshot.
 - Fallback: HTML snapshot.
 
 Artifacts
+
 - Persist to temp workspace directory, e.g. `$TMPDIR/browser-agent/<session_id>/`.
 - Screenshots, HARs, traces saved to disk.
 - Return `{ artifact_id, path, mime }`.
 - CLI should allow opening the folder.
 
 Errors
+
 - All APIs return a standard envelope with stable error codes, retryable flag, and structured details.
 - Debugger-specific codes: `DEBUGGER_IN_USE`, `ATTACH_DENIED`, `TAB_NOT_FOUND`, `NOT_SUPPORTED`, `TIMEOUT`.
 
 Language Choice
+
 - TypeScript / Node.js for v1.
 - Reasons: extension is JS/TS, MCP ecosystem is Node-friendly, reliability depends on state machines not raw performance.
 
 Project Structure (Recommended)
+
 ```
 browser-agent/
   packages/
@@ -122,6 +139,7 @@ browser-agent/
 
 **Session State Machine (Required)**
 States
+
 ```
 enum SessionState {
   INIT,
@@ -136,35 +154,41 @@ enum SessionState {
 ```
 
 Transitions (Simplified)
+
 - INIT -> DRIVE_READY (extension connects)
 - INIT -> INSPECT_READY (debugger attaches)
 - DRIVE_READY + INSPECT_READY -> READY
 - READY -> DEGRADED_DRIVE (extension disconnect)
 - READY -> DEGRADED_INSPECT (debugger disconnect)
-- DEGRADED_* -> READY (recover succeeds)
+- DEGRADED\_\* -> READY (recover succeeds)
 - any -> BROKEN (recover fails)
 - any -> CLOSED (explicit close)
 
 Retry Rules
+
 - Drive op failure: if retryable -> `session.recover()` -> retry once.
 - Inspect op failure: retry once if debugger reconnect succeeds.
 - Never infinite retry.
 
 **MCP Tool Schema (Zod)**
 Common types
+
 ```ts
 const Locator = z.object({
   testid: z.string().optional(),
   css: z.string().optional(),
   text: z.string().optional(),
-  role: z.object({
-    name: z.string(),
-    value: z.string().optional(),
-  }).optional(),
+  role: z
+    .object({
+      name: z.string(),
+      value: z.string().optional(),
+    })
+    .optional(),
 });
 ```
 
-session.*
+session.\*
+
 ```ts
 session.create: {
   input: z.object({}),
@@ -187,7 +211,8 @@ session.close: {
 }
 ```
 
-drive.*
+drive.\*
+
 ```ts
 drive.navigate: {
   input: z.object({
@@ -235,7 +260,8 @@ drive.tab_activate
 drive.tab_close
 ```
 
-inspect.*
+inspect.\*
+
 ```ts
 inspect.dom_snapshot: {
   input: z.object({
@@ -252,7 +278,8 @@ inspect.evaluate
 inspect.performance_metrics
 ```
 
-artifacts.*
+artifacts.\*
+
 ```ts
 artifacts.screenshot: {
   input: z.object({
@@ -267,7 +294,8 @@ artifacts.screenshot: {
 }
 ```
 
-diagnostics.*
+diagnostics.\*
+
 ```ts
 diagnostics.doctor: {
   input: z.object({ session_id: z.string().optional() }),
@@ -276,6 +304,7 @@ diagnostics.doctor: {
 ```
 
 **Milestones (Parallelizable)**
+
 - Milestone A: Core skeleton (HTTP API, session state machine, no Chrome yet)
 - Milestone B: Extension (WS protocol, click/type/navigate, tab reporting)
 - Milestone C: Debugger-based inspect integration (attach/detach, inspect APIs)
@@ -284,6 +313,7 @@ diagnostics.doctor: {
 - Milestone F: Recovery & Reliability (reconnect logic, retries, DEGRADED states)
 
 **Final Instructions to the Coding Agent**
+
 - Do not invent new product goals.
 - Favor explicitness over magic.
 - Document every assumption.

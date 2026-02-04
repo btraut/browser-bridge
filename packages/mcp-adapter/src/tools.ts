@@ -39,14 +39,17 @@ import {
   SessionRecoverOutputSchema,
   SessionStatusInputSchema,
   SessionStatusOutputSchema,
-} from "@browser-vision/shared";
+} from '@browser-vision/shared';
 import type {
   AnySchema,
   ZodRawShapeCompat,
-} from "@modelcontextprotocol/sdk/server/zod-compat";
-import type { McpServer, ToolCallback } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { CallToolResult } from "@modelcontextprotocol/sdk/types";
-import { CoreClient } from "./core-client";
+} from '@modelcontextprotocol/sdk/server/zod-compat';
+import type {
+  McpServer,
+  ToolCallback,
+} from '@modelcontextprotocol/sdk/server/mcp.js';
+import type { CallToolResult } from '@modelcontextprotocol/sdk/types';
+import { CoreClient } from './core-client';
 
 type ToolResult = CallToolResult;
 
@@ -58,13 +61,13 @@ type ToolConfig = {
   corePath: string;
 };
 
-type ToolRegistrar = Pick<McpServer, "registerTool">;
+type ToolRegistrar = Pick<McpServer, 'registerTool'>;
 
 type EnvelopeInput = Parameters<typeof apiEnvelopeSchema>[0];
 
 const toToolResult = (payload: unknown): ToolResult => {
-  const content = [{ type: "text" as const, text: JSON.stringify(payload) }];
-  if (payload && typeof payload === "object") {
+  const content = [{ type: 'text' as const, text: JSON.stringify(payload) }];
+  if (payload && typeof payload === 'object') {
     return {
       content,
       structuredContent: payload as Record<string, unknown>,
@@ -76,8 +79,8 @@ const toToolResult = (payload: unknown): ToolResult => {
 const toInternalErrorEnvelope = (error: unknown) => ({
   ok: false as const,
   error: {
-    code: "INTERNAL" as const,
-    message: error instanceof Error ? error.message : "Unknown error.",
+    code: 'INTERNAL' as const,
+    message: error instanceof Error ? error.message : 'Unknown error.',
     retryable: false,
   },
 });
@@ -86,193 +89,193 @@ const envelope = (schema: EnvelopeInput) => apiEnvelopeSchema(schema);
 
 export const TOOL_DEFINITIONS: Array<{ name: string; config: ToolConfig }> = [
   {
-    name: "session.create",
+    name: 'session.create',
     config: {
-      title: "Session Create",
-      description: "Create a new browser session.",
+      title: 'Session Create',
+      description: 'Create a new browser session.',
       inputSchema: SessionCreateInputSchema,
       outputSchema: envelope(SessionCreateOutputSchema),
-      corePath: "/session/create",
+      corePath: '/session/create',
     },
   },
   {
-    name: "session.status",
+    name: 'session.status',
     config: {
-      title: "Session Status",
-      description: "Fetch session status.",
+      title: 'Session Status',
+      description: 'Fetch session status.',
       inputSchema: SessionStatusInputSchema,
       outputSchema: envelope(SessionStatusOutputSchema),
-      corePath: "/session/status",
+      corePath: '/session/status',
     },
   },
   {
-    name: "session.recover",
+    name: 'session.recover',
     config: {
-      title: "Session Recover",
-      description: "Recover a session after errors.",
+      title: 'Session Recover',
+      description: 'Recover a session after errors.',
       inputSchema: SessionRecoverInputSchema,
       outputSchema: envelope(SessionRecoverOutputSchema),
-      corePath: "/session/recover",
+      corePath: '/session/recover',
     },
   },
   {
-    name: "session.close",
+    name: 'session.close',
     config: {
-      title: "Session Close",
-      description: "Close a session.",
+      title: 'Session Close',
+      description: 'Close a session.',
       inputSchema: SessionCloseInputSchema,
       outputSchema: envelope(SessionCloseOutputSchema),
-      corePath: "/session/close",
+      corePath: '/session/close',
     },
   },
   {
-    name: "drive.navigate",
+    name: 'drive.navigate',
     config: {
-      title: "Drive Navigate",
-      description: "Navigate to a URL.",
+      title: 'Drive Navigate',
+      description: 'Navigate to a URL.',
       inputSchema: DriveNavigateInputSchema,
       outputSchema: envelope(DriveNavigateOutputSchema),
-      corePath: "/drive/navigate",
+      corePath: '/drive/navigate',
     },
   },
   {
-    name: "drive.click",
+    name: 'drive.click',
     config: {
-      title: "Drive Click",
-      description: "Click an element.",
+      title: 'Drive Click',
+      description: 'Click an element.',
       inputSchema: DriveClickInputSchema,
       outputSchema: envelope(DriveClickOutputSchema),
-      corePath: "/drive/click",
+      corePath: '/drive/click',
     },
   },
   {
-    name: "drive.type",
+    name: 'drive.type',
     config: {
-      title: "Drive Type",
-      description: "Type into an element.",
+      title: 'Drive Type',
+      description: 'Type into an element.',
       inputSchema: DriveTypeInputSchema,
       outputSchema: envelope(DriveTypeOutputSchema),
-      corePath: "/drive/type",
+      corePath: '/drive/type',
     },
   },
   {
-    name: "drive.scroll",
+    name: 'drive.scroll',
     config: {
-      title: "Drive Scroll",
-      description: "Scroll the active tab.",
+      title: 'Drive Scroll',
+      description: 'Scroll the active tab.',
       inputSchema: DriveScrollInputSchema,
       outputSchema: envelope(DriveScrollOutputSchema),
-      corePath: "/drive/scroll",
+      corePath: '/drive/scroll',
     },
   },
   {
-    name: "drive.wait_for",
+    name: 'drive.wait_for',
     config: {
-      title: "Drive Wait For",
-      description: "Wait for a drive condition.",
+      title: 'Drive Wait For',
+      description: 'Wait for a drive condition.',
       inputSchema: DriveWaitForInputSchema,
       outputSchema: envelope(DriveWaitForOutputSchema),
-      corePath: "/drive/wait_for",
+      corePath: '/drive/wait_for',
     },
   },
   {
-    name: "drive.tab_list",
+    name: 'drive.tab_list',
     config: {
-      title: "Drive Tab List",
-      description: "List browser tabs.",
+      title: 'Drive Tab List',
+      description: 'List browser tabs.',
       inputSchema: DriveTabListInputSchema,
       outputSchema: envelope(DriveTabListOutputSchema),
-      corePath: "/drive/tab_list",
+      corePath: '/drive/tab_list',
     },
   },
   {
-    name: "drive.tab_activate",
+    name: 'drive.tab_activate',
     config: {
-      title: "Drive Tab Activate",
-      description: "Activate a browser tab.",
+      title: 'Drive Tab Activate',
+      description: 'Activate a browser tab.',
       inputSchema: DriveTabActivateInputSchema,
       outputSchema: envelope(DriveTabActivateOutputSchema),
-      corePath: "/drive/tab_activate",
+      corePath: '/drive/tab_activate',
     },
   },
   {
-    name: "drive.tab_close",
+    name: 'drive.tab_close',
     config: {
-      title: "Drive Tab Close",
-      description: "Close a browser tab.",
+      title: 'Drive Tab Close',
+      description: 'Close a browser tab.',
       inputSchema: DriveTabCloseInputSchema,
       outputSchema: envelope(DriveTabCloseOutputSchema),
-      corePath: "/drive/tab_close",
+      corePath: '/drive/tab_close',
     },
   },
   {
-    name: "inspect.dom_snapshot",
+    name: 'inspect.dom_snapshot',
     config: {
-      title: "Inspect DOM Snapshot",
-      description: "Capture a DOM snapshot.",
+      title: 'Inspect DOM Snapshot',
+      description: 'Capture a DOM snapshot.',
       inputSchema: InspectDomSnapshotInputSchema,
       outputSchema: envelope(InspectDomSnapshotOutputSchema),
-      corePath: "/inspect/dom_snapshot",
+      corePath: '/inspect/dom_snapshot',
     },
   },
   {
-    name: "inspect.console_list",
+    name: 'inspect.console_list',
     config: {
-      title: "Inspect Console List",
-      description: "List console entries.",
+      title: 'Inspect Console List',
+      description: 'List console entries.',
       inputSchema: InspectConsoleListInputSchema,
       outputSchema: envelope(InspectConsoleListOutputSchema),
-      corePath: "/inspect/console_list",
+      corePath: '/inspect/console_list',
     },
   },
   {
-    name: "inspect.network_har",
+    name: 'inspect.network_har',
     config: {
-      title: "Inspect Network HAR",
-      description: "Capture network HAR data.",
+      title: 'Inspect Network HAR',
+      description: 'Capture network HAR data.',
       inputSchema: InspectNetworkHarInputSchema,
       outputSchema: envelope(InspectNetworkHarOutputSchema),
-      corePath: "/inspect/network_har",
+      corePath: '/inspect/network_har',
     },
   },
   {
-    name: "inspect.evaluate",
+    name: 'inspect.evaluate',
     config: {
-      title: "Inspect Evaluate",
-      description: "Evaluate an expression in the target.",
+      title: 'Inspect Evaluate',
+      description: 'Evaluate an expression in the target.',
       inputSchema: InspectEvaluateInputSchema,
       outputSchema: envelope(InspectEvaluateOutputSchema),
-      corePath: "/inspect/evaluate",
+      corePath: '/inspect/evaluate',
     },
   },
   {
-    name: "inspect.performance_metrics",
+    name: 'inspect.performance_metrics',
     config: {
-      title: "Inspect Performance Metrics",
-      description: "Collect performance metrics.",
+      title: 'Inspect Performance Metrics',
+      description: 'Collect performance metrics.',
       inputSchema: InspectPerformanceMetricsInputSchema,
       outputSchema: envelope(InspectPerformanceMetricsOutputSchema),
-      corePath: "/inspect/performance_metrics",
+      corePath: '/inspect/performance_metrics',
     },
   },
   {
-    name: "artifacts.screenshot",
+    name: 'artifacts.screenshot',
     config: {
-      title: "Artifacts Screenshot",
-      description: "Capture a screenshot artifact.",
+      title: 'Artifacts Screenshot',
+      description: 'Capture a screenshot artifact.',
       inputSchema: ArtifactsScreenshotInputSchema,
       outputSchema: envelope(ArtifactsScreenshotOutputSchema),
-      corePath: "/artifacts/screenshot",
+      corePath: '/artifacts/screenshot',
     },
   },
   {
-    name: "diagnostics.doctor",
+    name: 'diagnostics.doctor',
     config: {
-      title: "Diagnostics Doctor",
-      description: "Run diagnostics checks.",
+      title: 'Diagnostics Doctor',
+      description: 'Run diagnostics checks.',
       inputSchema: DiagnosticsDoctorInputSchema,
       outputSchema: envelope(DiagnosticsDoctorOutputSchema),
-      corePath: "/diagnostics/doctor",
+      corePath: '/diagnostics/doctor',
     },
   },
 ];

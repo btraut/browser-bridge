@@ -3,6 +3,7 @@
 This checklist validates the Drive + Inspect planes and artifact handling end-to-end.
 
 ## Prerequisites
+
 1. Install dependencies: `npm install`.
 2. Build the workspace: `npm run build`.
 3. Load the extension from `packages/extension` in `chrome://extensions`.
@@ -10,6 +11,7 @@ This checklist validates the Drive + Inspect planes and artifact handling end-to
 5. Ensure DevTools is closed on the target tab (the debugger cannot attach while DevTools is open).
 
 ## Checklist (Core + CLI)
+
 1. Start the Core daemon in a terminal (optional if you rely on CLI auto-start):
    `npm run start`
 2. Create a session:
@@ -31,12 +33,14 @@ This checklist validates the Drive + Inspect planes and artifact handling end-to
     `node packages/cli/dist/index.js open-artifacts --session-id <id>`
 
 ## MCP Adapter Sanity Check
+
 1. Start the MCP adapter (stdio transport):
    `node -e "require('@browser-vision/mcp-adapter').startMcpServer()"`
 2. Connect with your MCP client and run `tools/list` to confirm `session.*`, `drive.*`, `inspect.*`, `artifacts.*`, `diagnostics.*`.
 3. Run `session.create` to verify end-to-end Core routing.
 
 ## Expected Results
+
 - `drive tab-list` returns one or more tabs with URL/title metadata.
 - `inspect dom-snapshot` writes a snapshot JSON file.
 - `artifacts screenshot` returns an artifact path on disk.

@@ -1,39 +1,41 @@
-import js from "@eslint/js";
-import tsParser from "@typescript-eslint/parser";
-import tsPlugin from "@typescript-eslint/eslint-plugin";
-import globals from "globals";
+import js from '@eslint/js';
+import tsParser from '@typescript-eslint/parser';
+import tsPlugin from '@typescript-eslint/eslint-plugin';
+import globals from 'globals';
+import eslintConfigPrettier from 'eslint-config-prettier';
 
 export default [
   {
-    ignores: ["**/dist/**", "**/node_modules/**"]
+    ignores: ['**/dist/**', '**/node_modules/**'],
   },
   js.configs.recommended,
   {
-    files: ["**/*.ts"],
+    files: ['**/*.ts'],
     languageOptions: {
       parser: tsParser,
       parserOptions: {
-        sourceType: "module"
+        sourceType: 'module',
       },
       globals: {
-        ...globals.node
-      }
+        ...globals.node,
+      },
     },
     plugins: {
-      "@typescript-eslint": tsPlugin
+      '@typescript-eslint': tsPlugin,
     },
     rules: {
-      ...tsPlugin.configs.recommended.rules
-    }
+      ...tsPlugin.configs.recommended.rules,
+    },
   },
   {
-    files: ["packages/extension/**/*.ts"],
+    files: ['packages/extension/**/*.ts'],
     languageOptions: {
       globals: {
         ...globals.browser,
         ...globals.serviceworker,
-        ...globals.webextensions
-      }
-    }
-  }
+        ...globals.webextensions,
+      },
+    },
+  },
+  eslintConfigPrettier,
 ];

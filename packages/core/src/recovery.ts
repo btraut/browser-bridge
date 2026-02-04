@@ -1,4 +1,4 @@
-import { SessionState } from "./state";
+import { SessionState } from './state';
 
 export type RecoveryAttempt = {
   sessionId: string;

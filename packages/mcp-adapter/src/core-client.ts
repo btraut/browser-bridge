@@ -1,4 +1,4 @@
-import { ApiEnvelope } from "@browser-vision/shared";
+import { ApiEnvelope } from '@browser-vision/shared';
 
 type FetchLike = typeof fetch;
 
@@ -14,7 +14,7 @@ export type CoreClient = {
   post: <T>(path: string, body?: unknown) => Promise<ApiEnvelope<T>>;
 };
 
-const DEFAULT_HOST = "127.0.0.1";
+const DEFAULT_HOST = '127.0.0.1';
 const DEFAULT_PORT = 3210;
 const DEFAULT_TIMEOUT_MS = 4000;
 
@@ -37,7 +37,8 @@ const resolvePort = (port?: number | string): number => {
     return DEFAULT_PORT;
   }
 
-  const parsed = typeof candidate === "number" ? candidate : Number.parseInt(candidate, 10);
+  const parsed =
+    typeof candidate === 'number' ? candidate : Number.parseInt(candidate, 10);
   if (!Number.isFinite(parsed) || parsed <= 0) {
     throw new Error(`Invalid port: ${String(candidate)}`);
   }
@@ -45,9 +46,12 @@ const resolvePort = (port?: number | string): number => {
   return parsed;
 };
 
-const normalizePath = (path: string): string => (path.startsWith("/") ? path : `/${path}`);
+const normalizePath = (path: string): string =>
+  path.startsWith('/') ? path : `/${path}`;
 
-export const createCoreClient = (options: CoreClientOptions = {}): CoreClient => {
+export const createCoreClient = (
+  options: CoreClientOptions = {}
+): CoreClient => {
   const host = resolveHost(options.host);
   const port = resolvePort(options.port);
   const baseUrl = `http://${host}:${port}`;
@@ -59,9 +63,9 @@ export const createCoreClient = (options: CoreClientOptions = {}): CoreClient =>
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
     try {
       const response = await fetchImpl(`${baseUrl}${normalizePath(path)}`, {
-        method: "POST",
+        method: 'POST',
         headers: {
-          "content-type": "application/json",
+          'content-type': 'application/json',
         },
         body: body === undefined ? undefined : JSON.stringify(body),
         signal: controller.signal,
@@ -75,7 +79,8 @@ export const createCoreClient = (options: CoreClientOptions = {}): CoreClient =>
       try {
         return JSON.parse(raw) as T;
       } catch (error) {
-        const message = error instanceof Error ? error.message : "Unknown JSON parse error";
+        const message =
+          error instanceof Error ? error.message : 'Unknown JSON parse error';
         throw new Error(`Failed to parse Core response: ${message}`);
       }
     } finally {
@@ -83,7 +88,10 @@ export const createCoreClient = (options: CoreClientOptions = {}): CoreClient =>
     }
   };
 
-  const post = async <T>(path: string, body?: unknown): Promise<ApiEnvelope<T>> => {
+  const post = async <T>(
+    path: string,
+    body?: unknown
+  ): Promise<ApiEnvelope<T>> => {
     return requestJson<ApiEnvelope<T>>(path, body);
   };
 

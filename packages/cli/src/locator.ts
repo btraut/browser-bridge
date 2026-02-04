@@ -1,4 +1,4 @@
-import { CliError } from "./cli-output";
+import { CliError } from './cli-output';
 
 type LocatorRoleInput = {
   name: string;
@@ -20,7 +20,9 @@ type LocatorOptions = {
   locatorRoleValue?: string;
 };
 
-export const buildLocator = (options: LocatorOptions): LocatorInput | undefined => {
+export const buildLocator = (
+  options: LocatorOptions
+): LocatorInput | undefined => {
   const locator: LocatorInput = {};
 
   if (options.locatorTestid) {
@@ -37,10 +39,10 @@ export const buildLocator = (options: LocatorOptions): LocatorInput | undefined 
 
   if (options.locatorRoleValue && !options.locatorRole) {
     throw new CliError({
-      code: "INVALID_ARGUMENT",
-      message: "locator-role-value requires locator-role to be set.",
+      code: 'INVALID_ARGUMENT',
+      message: 'locator-role-value requires locator-role to be set.',
       retryable: false,
-      details: { field: "locator.role.value" },
+      details: { field: 'locator.role.value' },
     });
   }
 
@@ -62,10 +64,10 @@ export const requireLocator = (options: LocatorOptions): LocatorInput => {
   const locator = buildLocator(options);
   if (!locator) {
     throw new CliError({
-      code: "INVALID_ARGUMENT",
-      message: "Locator must include at least one selector.",
+      code: 'INVALID_ARGUMENT',
+      message: 'Locator must include at least one selector.',
       retryable: false,
-      details: { field: "locator" },
+      details: { field: 'locator' },
     });
   }
   return locator;
