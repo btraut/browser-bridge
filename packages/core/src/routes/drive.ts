@@ -2,6 +2,7 @@ import { DriveController } from '../drive';
 import type { DriveAction } from '../drive-protocol';
 import {
   DriveClickInputSchema,
+  DriveFillFormInputSchema,
   DriveNavigateInputSchema,
   DriveScrollInputSchema,
   DriveTabActivateInputSchema,
@@ -9,7 +10,6 @@ import {
   DriveTabListInputSchema,
   DriveTypeInputSchema,
   DriveWaitForInputSchema,
-} from '@browser-vision/shared';
 } from '@browser-vision/shared';
 import { ResponseLike, errorStatus, sendError, sendResult } from './shared';
 
@@ -138,6 +138,10 @@ export const registerDriveRoutes = (
   router.post(
     '/drive/type',
     makeHandler('drive.type', DriveTypeInputSchema, drive)
+  );
+  router.post(
+    '/drive/fill_form',
+    makeHandler('drive.fill_form', DriveFillFormInputSchema, drive)
   );
   router.post(
     '/drive/scroll',

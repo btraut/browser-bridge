@@ -156,6 +156,96 @@ const runDriveAction = async (
     return null;
   };
 
+  const coerceBoolean = (value: string | boolean): boolean => {
+    if (typeof value === "boolean") {
+      return value;
+    }
+    const normalized = value.trim().toLowerCase();
+    return ["true", "1", "yes", "y", "on", "checked"].includes(normalized);
+  };
+
+  const dispatchValueEvents = (element: HTMLElement): void => {
+    element.dispatchEvent(new Event("input", { bubbles: true }));
+    element.dispatchEvent(new Event("change", { bubbles: true }));
+  };
+
+  const selectOption = (
+    select: HTMLSelectElement,
+    value: string
+  ): boolean => {
+    const option = Array.from(select.options).find(
+      (entry) => entry.value === value || entry.text === value
+    );
+    if (!option) {
+      return false;
+    }
+    select.value = option.value;
+    dispatchValueEvents(select);
+    return true;
+  };
+
+  const setTextValue = (
+    element: HTMLElement,
+    value: string,
+    clear: boolean
+  ): boolean => {
+    const tag = element.tagName.toLowerCase();
+    if (tag === "input" || tag === "textarea") {
+      const input = element as HTMLInputElement | HTMLTextAreaElement;
+      if (clear) {
+        input.value = "";
+      }
+      input.value = `${input.value}${value}`;
+      dispatchValueEvents(input);
+      return true;
+    }
+    if (element.isContentEditable) {
+      if (clear) {
+        element.textContent = "";
+      }
+      element.textContent = `${element.textContent ?? ""}${value}`;
+      dispatchValueEvents(element);
+      return true;
+    }
+    return false;
+  };
+
+  const detectFieldType = (
+    element: Element
+  ): "text" | "select" | "checkbox" | "radio" | "contentEditable" => {
+    if (element instanceof HTMLSelectElement) {
+      return "select";
+    }
+    if (element instanceof HTMLInputElement) {
+      const type = element.type.toLowerCase();
+      if (type === "checkbox") {
+        return "checkbox";
+      }
+      if (type === "radio") {
+        return "radio";
+      }
+      return "text";
+    }
+    if (element instanceof HTMLTextAreaElement) {
+      return "text";
+    }
+    if (element instanceof HTMLElement && element.isContentEditable) {
+      return "contentEditable";
+    }
+    return "text";
+  };
+
+  const submitIfRequested = (element: Element): void => {
+    const form = element.closest("form");
+    if (form && form instanceof HTMLFormElement) {
+      form.requestSubmit();
+    } else if (element instanceof HTMLElement) {
+      element.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Enter", bubbles: true })
+      );
+    }
+  };
+
   const activeEditableElement = (): HTMLElement | null => {
     const active = document.activeElement;
     if (!active || !(active instanceof HTMLElement)) {
@@ -254,6 +344,89 @@ const runDriveAction = async (
         }
 
         return ok();
+      }
+      case 'drive.fill_form': {
+        const { fields } = parseParams();
+        if (!Array.isArray(fields) || fields.length === 0) {
+          return buildError(
+            'INVALID_ARGUMENT',
+            'fields must be a non-empty array.'
+          );
+        }
+        let filled = 0;
+        const errors: string[] = [];
+        fields.forEach((field, index) => {
+          if (!field || typeof field !== 'object') {
+            errors.push(`Field ${index} is not an object.`);
+            return;
+          }
+          const record = field as Record<string, unknown>;
+          const selector = record.selector;
+          const locator =
+            record.locator && typeof record.locator === 'object'
+              ? (record.locator as Record<string, unknown>)
+              : undefined;
+          let element: Element | null = null;
+          if (locator) {
+            element = resolveLocator(locator);
+          }
+          if (!element && typeof selector === 'string' && selector.length > 0) {
+            element = document.querySelector(selector);
+          }
+          if (!element) {
+            errors.push(`Field ${index} could not be resolved.`);
+            return;
+          }
+
+          const value = record.value;
+          if (typeof value !== 'string' && typeof value !== 'boolean') {
+            errors.push(`Field ${index} has invalid value.`);
+            return;
+          }
+
+          const type =
+            typeof record.type === 'string' && record.type.length > 0
+              ? record.type
+              : 'auto';
+          const resolvedType =
+            type === 'auto' ? detectFieldType(element) : type;
+          const submit = Boolean(record.submit);
+
+          let applied = false;
+          if (resolvedType === 'select') {
+            if (element instanceof HTMLSelectElement) {
+              applied = selectOption(element, String(value));
+            }
+          } else if (resolvedType === 'checkbox' || resolvedType === 'radio') {
+            if (element instanceof HTMLInputElement) {
+              const shouldCheck =
+                typeof value === 'boolean' ? value : coerceBoolean(value);
+              element.checked = shouldCheck;
+              dispatchValueEvents(element);
+              applied = true;
+            }
+          } else {
+            if (element instanceof HTMLElement) {
+              applied = setTextValue(element, String(value), true);
+            }
+          }
+
+          if (!applied) {
+            errors.push(`Field ${index} could not be filled.`);
+            return;
+          }
+
+          if (submit) {
+            submitIfRequested(element);
+          }
+          filled += 1;
+        });
+
+        return ok({
+          filled,
+          attempted: fields.length,
+          errors: errors.length > 0 ? errors : [],
+        });
       }
       case 'drive.scroll': {
         const { delta_x, delta_y, top, left, behavior } = parseParams();

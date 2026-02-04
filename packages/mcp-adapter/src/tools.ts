@@ -7,6 +7,8 @@ import {
   ErrorEnvelopeSchema,
   DriveClickInputSchema,
   DriveClickOutputSchema,
+  DriveFillFormInputSchema,
+  DriveFillFormOutputSchema,
   DriveNavigateInputSchema,
   DriveNavigateOutputSchema,
   DriveScrollInputSchema,
@@ -156,6 +158,16 @@ export const TOOL_DEFINITIONS: Array<{ name: string; config: ToolConfig }> = [
       inputSchema: DriveTypeInputSchema,
       outputSchema: envelope(DriveTypeOutputSchema),
       corePath: '/drive/type',
+    },
+  },
+  {
+    name: 'drive.fill_form',
+    config: {
+      title: 'Drive Fill Form',
+      description: 'Fill multiple form fields.',
+      inputSchema: DriveFillFormInputSchema,
+      outputSchema: envelope(DriveFillFormOutputSchema),
+      corePath: '/drive/fill_form',
     },
   },
   {

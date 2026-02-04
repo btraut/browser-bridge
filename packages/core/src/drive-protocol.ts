@@ -38,6 +38,19 @@ export type DriveTypeParams = {
   tab_id?: number;
 };
 
+export type DriveFillFormField = {
+  selector?: string;
+  locator?: DriveLocator;
+  value: string | boolean;
+  type?: "auto" | "text" | "select" | "checkbox" | "radio" | "contentEditable";
+  submit?: boolean;
+};
+
+export type DriveFillFormParams = {
+  fields: DriveFillFormField[];
+  tab_id?: number;
+};
+
 export type DriveScrollParams = {
   delta_x?: number;
   delta_y?: number;
@@ -77,6 +90,7 @@ export type DriveAction =
   | 'drive.navigate'
   | 'drive.click'
   | 'drive.type'
+  | 'drive.fill_form'
   | 'drive.scroll'
   | 'drive.wait_for'
   | 'drive.tab_list'

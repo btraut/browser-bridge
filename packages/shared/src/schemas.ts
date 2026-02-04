@@ -178,6 +178,32 @@ export const DriveTypeInputSchema = z.object({
 });
 export const DriveTypeOutputSchema = OpResultSchema;
 
+export const DriveFillFormFieldSchema = z
+  .object({
+    selector: z.string().min(1).optional(),
+    locator: LocatorSchema.optional(),
+    value: z.union([z.string(), z.boolean()]),
+    type: z
+      .enum(["auto", "text", "select", "checkbox", "radio", "contentEditable"])
+      .default("auto"),
+    submit: z.boolean().default(false),
+  })
+  .refine((value) => Boolean(value.selector || value.locator), {
+    message: "fill_form field requires selector or locator.",
+    path: ["selector"],
+  });
+
+export const DriveFillFormInputSchema = z.object({
+  session_id: z.string().min(1),
+  fields: z.array(DriveFillFormFieldSchema).min(1),
+  tab_id: z.number().finite().optional(),
+});
+export const DriveFillFormOutputSchema = z.object({
+  filled: z.number().finite(),
+  attempted: z.number().finite(),
+  errors: z.array(z.string()).optional(),
+});
+
 export const DriveScrollInputSchema = z
   .object({
     session_id: z.string().min(1),

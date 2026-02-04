@@ -5,6 +5,7 @@ import {
   DiagnosticsDoctorInputSchema,
   DiagnosticReportSchema,
   DriveClickInputSchema,
+  DriveFillFormInputSchema,
   DriveNavigateInputSchema,
   DriveScrollInputSchema,
   DriveTypeInputSchema,
@@ -78,6 +79,17 @@ describe('shared schemas', () => {
       delta_y: 120,
     });
     expect(parsed.delta_y).toBe(120);
+  });
+
+  it('parses fill form input', () => {
+    const parsed = DriveFillFormInputSchema.parse({
+      session_id: 'session-1',
+      fields: [
+        { selector: '#email', value: 'test@example.com' },
+        { selector: '#terms', value: true, type: 'checkbox' },
+      ],
+    });
+    expect(parsed.fields).toHaveLength(2);
   });
 
   it('requires a scroll delta or position', () => {

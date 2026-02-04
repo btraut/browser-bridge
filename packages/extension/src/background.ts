@@ -642,6 +642,7 @@ class DriveSocket {
         }
         case 'drive.click':
         case 'drive.type':
+        case 'drive.fill_form':
         case 'drive.scroll':
         case 'drive.wait_for': {
           const params = (message.params ?? {}) as Record<string, unknown>;

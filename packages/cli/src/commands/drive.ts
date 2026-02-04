@@ -1,6 +1,7 @@
 import { Command } from 'commander';
 import {
   DriveClickInputSchema,
+  DriveFillFormInputSchema,
   DriveNavigateInputSchema,
   DriveScrollInputSchema,
   DriveTabActivateInputSchema,
@@ -19,6 +20,14 @@ const parseNumber = (value: unknown): number | undefined => {
   }
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : Number.NaN;
+};
+
+const parseJson = (value: string, label: string): unknown => {
+  try {
+    return JSON.parse(value);
+  } catch (error) {
+    throw new Error(`${label} must be valid JSON.`);
+  }
 };
 
 export const registerDriveCommands = (program: Command): void => {
@@ -98,6 +107,24 @@ export const registerDriveCommands = (program: Command): void => {
           submit: Boolean(options.submit),
         });
         return client.post('/drive/type', payload);
+      });
+    });
+
+  drive
+    .command('fill-form')
+    .description('Fill multiple form fields')
+    .requiredOption('--session-id <id>', 'Session identifier')
+    .requiredOption('--fields <json>', 'JSON array of fields to fill')
+    .option('--tab-id <id>', 'Tab identifier')
+    .action(async (options, command) => {
+      await runCommand(command, (client) => {
+        const fields = parseJson(options.fields, 'fields');
+        const payload = parseInput(DriveFillFormInputSchema, {
+          session_id: options.sessionId,
+          fields,
+          tab_id: parseNumber(options.tabId),
+        });
+        return client.post('/drive/fill_form', payload);
       });
     });
 
