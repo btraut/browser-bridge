@@ -1,6 +1,7 @@
 import { InspectError, InspectService, createInspectService } from '../inspect';
 import type { ExtensionBridge } from '../extension-bridge';
 import type { SessionRegistry } from '../session';
+import { ArtifactsScreenshotInputSchema } from '@browser-vision/shared';
 import {
   ResponseLike,
   deriveHintFromTabs,
@@ -84,26 +85,22 @@ export const registerArtifactsRoutes = (
       return;
     }
 
-    const sessionId = req.body.session_id;
-    if (typeof sessionId !== 'string' || sessionId.length === 0) {
-      sendArtifactsError(res, 'INVALID_ARGUMENT', 'session_id is required.', {
-        field: 'session_id',
-      });
-      return;
-    }
-
-    const target = req.body.target;
-    if (target !== undefined && target !== 'viewport' && target !== 'full') {
+    const parsed = ArtifactsScreenshotInputSchema.safeParse(req.body);
+    if (!parsed.success) {
+      const issue = parsed.error.issues[0];
       sendArtifactsError(
         res,
         'INVALID_ARGUMENT',
-        'target must be viewport or full.',
-        {
-          field: 'target',
-        }
+        issue?.message ?? 'Invalid screenshot request.',
+        issue?.path.length
+          ? { field: issue.path.map((part) => part.toString()).join('.') }
+          : undefined
       );
       return;
     }
+
+    const input = parsed.data;
+    const target = input.fullPage ? 'full' : input.target;
 
     try {
       if (!inspect) {
@@ -119,8 +116,10 @@ export const registerArtifactsRoutes = (
         options.extensionBridge?.getStatus().tabs ?? []
       );
       const result = await inspect.screenshot({
-        sessionId,
-        target: (target as 'viewport' | 'full') ?? 'viewport',
+        sessionId: input.session_id,
+        target,
+        format: input.format,
+        quality: input.quality,
         targetHint: hint,
       });
       sendResult(res, result);

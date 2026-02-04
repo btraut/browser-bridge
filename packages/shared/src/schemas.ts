@@ -323,6 +323,9 @@ export const InspectPerformanceMetricsOutputSchema = PerformanceMetricsSchema;
 export const ArtifactsScreenshotInputSchema = z.object({
   session_id: z.string().min(1),
   target: z.enum(['viewport', 'full']).default('viewport'),
+  fullPage: z.boolean().default(false),
+  format: z.enum(['png', 'jpeg', 'webp']).default('png'),
+  quality: z.number().min(0).max(100).optional(),
 });
 export const ArtifactsScreenshotOutputSchema = ArtifactInfoSchema;
 

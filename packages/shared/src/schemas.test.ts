@@ -125,6 +125,20 @@ describe('shared schemas', () => {
       session_id: 'session-1',
     });
     expect(parsed.target).toBe('viewport');
+    expect(parsed.fullPage).toBe(false);
+    expect(parsed.format).toBe('png');
+  });
+
+  it('accepts full page screenshot options', () => {
+    const parsed = ArtifactsScreenshotInputSchema.parse({
+      session_id: 'session-1',
+      fullPage: true,
+      format: 'jpeg',
+      quality: 80,
+    });
+    expect(parsed.fullPage).toBe(true);
+    expect(parsed.format).toBe('jpeg');
+    expect(parsed.quality).toBe(80);
   });
 
   it('parses diagnostics doctor with optional session', () => {

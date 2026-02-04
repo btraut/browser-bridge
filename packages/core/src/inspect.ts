@@ -340,6 +340,8 @@ export class InspectService {
   async screenshot(input: {
     sessionId: string;
     target: 'viewport' | 'full';
+    format?: 'png' | 'jpeg' | 'webp';
+    quality?: number;
     targetHint?: TargetHint;
   }): Promise<ArtifactInfo> {
     this.requireSession(input.sessionId);
@@ -347,10 +349,14 @@ export class InspectService {
 
     await this.debuggerCommand(selection.tabId, 'Page.enable', {});
 
+    const format = input.format ?? 'png';
     let captureParams: Record<string, unknown> = {
-      format: 'png',
+      format,
       fromSurface: true,
     };
+    if (format !== 'png' && typeof input.quality === 'number') {
+      captureParams = { ...captureParams, quality: input.quality };
+    }
 
     if (input.target === 'full') {
       const layout = await this.debuggerCommand(
@@ -396,12 +402,14 @@ export class InspectService {
     try {
       const rootDir = await ensureArtifactRootDir(input.sessionId);
       const artifactId = randomUUID();
-      const filePath = path.join(rootDir, `screenshot-${artifactId}.png`);
+      const extension = format === 'jpeg' ? 'jpg' : format;
+      const filePath = path.join(rootDir, `screenshot-${artifactId}.${extension}`);
       await writeFile(filePath, Buffer.from(data, 'base64'));
+      const mime = format === 'jpeg' ? 'image/jpeg' : `image/${format}`;
       const output = {
         artifact_id: artifactId,
         path: filePath,
-        mime: 'image/png',
+        mime,
       };
       this.markInspectConnected(input.sessionId);
       return output;
