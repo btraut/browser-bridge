@@ -147,12 +147,20 @@ export class ExtensionBridge {
     }
 
     const id = randomUUID();
-    const request: ExtensionRequest = {
-      id,
-      action,
-      status: 'request',
-      params,
-    };
+    const request: ExtensionRequest =
+      typeof action === 'string' && action.startsWith('debugger.')
+        ? {
+            id,
+            action: action as DebuggerRequestAction,
+            status: 'request',
+            params,
+          }
+        : {
+            id,
+            action: action as DriveAction,
+            status: 'request',
+            params,
+          };
 
     const response = await new Promise<ExtensionResponse>((resolve, reject) => {
       const timeout = setTimeout(() => {
