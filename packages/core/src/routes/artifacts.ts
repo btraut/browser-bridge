@@ -93,7 +93,9 @@ export const registerArtifactsRoutes = (
         'INVALID_ARGUMENT',
         issue?.message ?? 'Invalid screenshot request.',
         issue?.path.length
-          ? { field: issue.path.map((part) => part.toString()).join('.') }
+          ? {
+              field: issue.path.map((part) => String(part)).join('.'),
+            }
           : undefined
       );
       return;
