@@ -1727,7 +1727,7 @@ export class InspectService {
       log: {
         version: '1.2',
         creator: {
-          name: 'browser-vision',
+          name: 'browser-bridge',
           version: '0.0.0',
         },
         pages: [

@@ -1,5 +1,5 @@
 {
-  "name": "@browser-vision/shared",
+  "name": "@btraut/browser-bridge-shared",
   "version": "0.1.0",
   "license": "MIT",
   "private": true,

@@ -19,7 +19,7 @@ import {
   DriveTabListInputSchema,
   DriveTypeInputSchema,
   DriveWaitForInputSchema,
-} from '@browser-vision/shared';
+} from '@btraut/browser-bridge-shared';
 import { parseInput } from '../cli-output';
 import { runCommand } from '../cli-runtime';
 import { buildLocator, requireLocator } from '../locator';

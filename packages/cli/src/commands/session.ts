@@ -4,7 +4,7 @@ import {
   SessionCreateInputSchema,
   SessionRecoverInputSchema,
   SessionStatusInputSchema,
-} from '@browser-vision/shared';
+} from '@btraut/browser-bridge-shared';
 import { parseInput } from '../cli-output';
 import { runCommand } from '../cli-runtime';
 

@@ -1,4 +1,8 @@
-import { ErrorEnvelope, ErrorInfo, ApiEnvelope } from '@browser-vision/shared';
+import {
+  ErrorEnvelope,
+  ErrorInfo,
+  ApiEnvelope,
+} from '@btraut/browser-bridge-shared';
 import { ZodError, z } from 'zod';
 
 type OutputOptions = {

@@ -1,5 +1,5 @@
 import { Command } from 'commander';
-import { ArtifactsScreenshotInputSchema } from '@browser-vision/shared';
+import { ArtifactsScreenshotInputSchema } from '@btraut/browser-bridge-shared';
 import { parseInput } from '../cli-output';
 import { runCommand } from '../cli-runtime';
 

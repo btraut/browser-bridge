@@ -1,5 +1,6 @@
-import { ApiEnvelope } from '@browser-vision/shared';
+import { ApiEnvelope } from '@btraut/browser-bridge-shared';
 import { spawn } from 'node:child_process';
+import { resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 
 type FetchLike = typeof fetch;
@@ -28,7 +29,10 @@ const HEALTH_RETRY_MS = 250;
 const HEALTH_ATTEMPTS = 20;
 
 const resolveHost = (host?: string): string => {
-  const candidate = host?.trim() || process.env.BROWSER_VISION_CORE_HOST;
+  const candidate =
+    host?.trim() ||
+    process.env.BROWSER_BRIDGE_CORE_HOST ||
+    process.env.BROWSER_VISION_CORE_HOST;
   if (candidate && candidate.length > 0) {
     return candidate;
   }
@@ -38,9 +42,11 @@ const resolveHost = (host?: string): string => {
 const resolvePort = (port?: number | string): number => {
   const candidate =
     port ??
-    (process.env.BROWSER_VISION_CORE_PORT
-      ? Number.parseInt(process.env.BROWSER_VISION_CORE_PORT, 10)
-      : undefined);
+    (process.env.BROWSER_BRIDGE_CORE_PORT
+      ? Number.parseInt(process.env.BROWSER_BRIDGE_CORE_PORT, 10)
+      : process.env.BROWSER_VISION_CORE_PORT
+        ? Number.parseInt(process.env.BROWSER_VISION_CORE_PORT, 10)
+        : undefined);
 
   if (candidate === undefined || candidate === null) {
     return DEFAULT_PORT;
@@ -128,7 +134,10 @@ export const createCoreClient = (
   };
 
   const spawnDaemon = (): void => {
-    const script = `const { startCoreServer } = require('@browser-vision/core');\nstartCoreServer({ host: ${JSON.stringify(
+    const coreEntry = resolve(__dirname, 'api.js');
+    const script = `const { startCoreServer } = require(${JSON.stringify(
+      coreEntry
+    )});\nstartCoreServer({ host: ${JSON.stringify(
       host
     )}, port: ${port} })\n  .catch((err) => { console.error(err); process.exit(1); });`;
 
@@ -137,6 +146,8 @@ export const createCoreClient = (
       stdio: 'ignore',
       env: {
         ...process.env,
+        BROWSER_BRIDGE_CORE_HOST: host,
+        BROWSER_BRIDGE_CORE_PORT: String(port),
         BROWSER_VISION_CORE_HOST: host,
         BROWSER_VISION_CORE_PORT: String(port),
       },

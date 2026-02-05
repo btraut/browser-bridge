@@ -12,7 +12,7 @@ import {
   InspectNetworkHarInputSchema,
   InspectPageStateInputSchema,
   InspectPerformanceMetricsInputSchema,
-} from '@browser-vision/shared';
+} from '@btraut/browser-bridge-shared';
 import {
   ResponseLike,
   deriveHintFromTabs,
