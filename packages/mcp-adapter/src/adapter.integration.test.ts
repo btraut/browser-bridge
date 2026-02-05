@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { createCoreClient } from './core-client';
 import { MCP_TOOL_FIXTURES } from './tool-fixtures';
-import { registerBrowserVisionTools } from './tools';
+import { registerBrowserBridgeTools } from './tools';
 
 describe('mcp-adapter integration', () => {
   it('routes tool calls through the core client', async () => {
@@ -64,7 +64,7 @@ describe('mcp-adapter integration', () => {
         },
       };
 
-      registerBrowserVisionTools(toolServer, client);
+      registerBrowserBridgeTools(toolServer, client);
 
       for (const fixture of MCP_TOOL_FIXTURES) {
         const handler = handlers.get(fixture.name);

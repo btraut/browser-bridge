@@ -1,7 +1,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { CoreClient, CoreClientOptions, createCoreClient } from './core-client';
-import { registerBrowserVisionTools } from './tools';
+import { registerBrowserBridgeTools } from './tools';
 
 export type McpAdapterOptions = CoreClientOptions & {
   name?: string;
@@ -30,7 +30,7 @@ export const createMcpServer = (
   });
   const client = options.coreClient ?? createCoreClient(options);
 
-  registerBrowserVisionTools(server, client);
+  registerBrowserBridgeTools(server, client);
 
   return { server, client };
 };

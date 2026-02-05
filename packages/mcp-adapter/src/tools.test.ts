@@ -4,7 +4,7 @@ import type { CoreClient } from './core-client';
 import { MCP_TOOL_FIXTURES } from './tool-fixtures';
 import {
   createToolHandler,
-  registerBrowserVisionTools,
+  registerBrowserBridgeTools,
   TOOL_DEFINITIONS,
 } from './tools';
 
@@ -103,7 +103,7 @@ describe('mcp-adapter tools', () => {
       },
     };
 
-    registerBrowserVisionTools(server, client);
+    registerBrowserBridgeTools(server, client);
 
     const expectedNames = TOOL_DEFINITIONS.map((tool) => tool.name);
     expect([...handlers.keys()]).toEqual(expectedNames);

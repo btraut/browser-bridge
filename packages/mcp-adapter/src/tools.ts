@@ -503,7 +503,7 @@ export const createToolHandler = (
   }) as ToolCallback<AnySchema>;
 };
 
-export const registerBrowserVisionTools = (
+export const registerBrowserBridgeTools = (
   server: ToolRegistrar,
   client: CoreClient
 ): void => {
