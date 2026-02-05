@@ -126,6 +126,7 @@ export const registerDriveCommands = (program: Command): void => {
     .command('click')
     .description('Click an element')
     .requiredOption('--session-id <id>', 'Session identifier')
+    .option('--tab-id <id>', 'Tab identifier')
     .option('--locator-ref <ref>', 'Locator ref (e.g., @e1)')
     .option('--locator-testid <id>', 'Locator test id')
     .option('--locator-css <selector>', 'Locator CSS selector')
@@ -146,6 +147,7 @@ export const registerDriveCommands = (program: Command): void => {
         const payload = parseInput(DriveClickInputSchema, {
           session_id: options.sessionId,
           locator,
+          tab_id: parseNumber(options.tabId),
           click_count: parseNumber(options.clickCount),
         });
         return client.post('/drive/click', payload);
@@ -156,6 +158,7 @@ export const registerDriveCommands = (program: Command): void => {
     .command('hover')
     .description('Hover over an element')
     .requiredOption('--session-id <id>', 'Session identifier')
+    .option('--tab-id <id>', 'Tab identifier')
     .option('--locator-ref <ref>', 'Locator ref (e.g., @e1)')
     .option('--locator-testid <id>', 'Locator test id')
     .option('--locator-css <selector>', 'Locator CSS selector')
@@ -177,6 +180,7 @@ export const registerDriveCommands = (program: Command): void => {
           session_id: options.sessionId,
           locator,
           delay_ms: parseNumber(options.delayMs),
+          tab_id: parseNumber(options.tabId),
         });
         return client.post('/drive/hover', payload);
       });
@@ -186,6 +190,7 @@ export const registerDriveCommands = (program: Command): void => {
     .command('select')
     .description('Select an option in a dropdown')
     .requiredOption('--session-id <id>', 'Session identifier')
+    .option('--tab-id <id>', 'Tab identifier')
     .option('--locator-ref <ref>', 'Locator ref (e.g., @e1)')
     .option('--locator-testid <id>', 'Locator test id')
     .option('--locator-css <selector>', 'Locator CSS selector')
@@ -211,6 +216,7 @@ export const registerDriveCommands = (program: Command): void => {
           value: options.value,
           text: options.text,
           index: parseNumber(options.index),
+          tab_id: parseNumber(options.tabId),
         });
         return client.post('/drive/select', payload);
       });
@@ -221,6 +227,7 @@ export const registerDriveCommands = (program: Command): void => {
     .description('Type into a field')
     .requiredOption('--session-id <id>', 'Session identifier')
     .requiredOption('--text <text>', 'Text to enter')
+    .option('--tab-id <id>', 'Tab identifier')
     .option('--locator-ref <ref>', 'Locator ref (e.g., @e1)')
     .option('--locator-testid <id>', 'Locator test id')
     .option('--locator-css <selector>', 'Locator CSS selector')
@@ -243,6 +250,7 @@ export const registerDriveCommands = (program: Command): void => {
           session_id: options.sessionId,
           locator,
           text: options.text,
+          tab_id: parseNumber(options.tabId),
           clear: Boolean(options.clear),
           submit: Boolean(options.submit),
         });
@@ -416,6 +424,7 @@ export const registerDriveCommands = (program: Command): void => {
     .command('wait-for')
     .description('Wait for a condition')
     .requiredOption('--session-id <id>', 'Session identifier')
+    .option('--tab-id <id>', 'Tab identifier')
     .requiredOption(
       '--kind <kind>',
       'Condition kind (locator_visible, text_present, url_matches)'
@@ -431,6 +440,7 @@ export const registerDriveCommands = (program: Command): void => {
             value: options.value,
           },
           timeout_ms: parseNumber(options.timeoutMs),
+          tab_id: parseNumber(options.tabId),
         });
         return client.post('/drive/wait_for', payload);
       });

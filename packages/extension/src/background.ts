@@ -31,6 +31,7 @@ type DebuggerSession = {
   attachPromise?: Promise<void>;
   idleTimer?: number;
   lastActivityAt: string;
+  initialized?: boolean;
 };
 
 const DEFAULT_CORE_PORT = 3210;
@@ -1080,6 +1081,12 @@ class DriveSocket {
       await session.attachPromise;
       session.attached = true;
       session.attachPromise = undefined;
+      const initError = await this.initializeDebuggerDomains(tabId);
+      if (initError) {
+        await this.detachDebugger(tabId);
+        return initError;
+      }
+      session.initialized = true;
       this.touchDebuggerSession(tabId);
       return null;
     } catch (error) {
@@ -1088,6 +1095,38 @@ class DriveSocket {
       );
       this.clearDebuggerSession(tabId);
       return info;
+    }
+  }
+
+  private async initializeDebuggerDomains(
+    tabId: number
+  ): Promise<DriveErrorInfo | null> {
+    // Some CDP features (notably JS dialog handling + console/network events)
+    // require domains to be enabled first. This must happen before a dialog
+    // opens, otherwise Page.handleJavaScriptDialog can return "No dialog is showing".
+    const methods: Array<[string, Record<string, unknown> | undefined]> = [
+      ['Page.enable', undefined],
+      ['Runtime.enable', undefined],
+      ['Log.enable', undefined],
+      ['Network.enable', undefined],
+    ];
+
+    try {
+      for (const [method, params] of methods) {
+        await this.sendDebuggerCommand(
+          tabId,
+          method,
+          params,
+          DEFAULT_DEBUGGER_COMMAND_TIMEOUT_MS
+        );
+      }
+      return null;
+    } catch (error) {
+      return mapDebuggerErrorMessage(
+        error instanceof Error
+          ? error.message
+          : 'Debugger initialization failed.'
+      );
     }
   }
 
