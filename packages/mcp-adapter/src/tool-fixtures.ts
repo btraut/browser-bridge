@@ -85,6 +85,50 @@ export const MCP_TOOL_FIXTURES: ToolFixture[] = [
     },
   },
   {
+    name: "drive.go_back",
+    corePath: "/drive/go_back",
+    input: { session_id: "session-1" },
+    successEnvelope: {
+      ok: true,
+      result: {
+        ok: true,
+      },
+    },
+  },
+  {
+    name: "drive.go_forward",
+    corePath: "/drive/go_forward",
+    input: { session_id: "session-1" },
+    successEnvelope: {
+      ok: true,
+      result: {
+        ok: true,
+      },
+    },
+  },
+  {
+    name: "drive.back",
+    corePath: "/drive/back",
+    input: { session_id: "session-1" },
+    successEnvelope: {
+      ok: true,
+      result: {
+        ok: true,
+      },
+    },
+  },
+  {
+    name: "drive.forward",
+    corePath: "/drive/forward",
+    input: { session_id: "session-1" },
+    successEnvelope: {
+      ok: true,
+      result: {
+        ok: true,
+      },
+    },
+  },
+  {
     name: "drive.click",
     corePath: "/drive/click",
     input: {
@@ -99,11 +143,123 @@ export const MCP_TOOL_FIXTURES: ToolFixture[] = [
     },
   },
   {
+    name: "drive.hover",
+    corePath: "/drive/hover",
+    input: {
+      session_id: "session-1",
+      locator: { css: "button" },
+    },
+    successEnvelope: {
+      ok: true,
+      result: {
+        format: "html",
+        snapshot: "<button>Example</button>",
+      },
+    },
+  },
+  {
+    name: "drive.select",
+    corePath: "/drive/select",
+    input: {
+      session_id: "session-1",
+      locator: { css: "select" },
+      value: "option-1",
+    },
+    successEnvelope: {
+      ok: true,
+      result: {
+        ok: true,
+      },
+    },
+  },
+  {
     name: "drive.type",
     corePath: "/drive/type",
     input: {
       session_id: "session-1",
       text: "hello",
+    },
+    successEnvelope: {
+      ok: true,
+      result: {
+        ok: true,
+      },
+    },
+  },
+  {
+    name: "drive.fill_form",
+    corePath: "/drive/fill_form",
+    input: {
+      session_id: "session-1",
+      fields: [
+        {
+          selector: "input[name=email]",
+          value: "test@example.com",
+        },
+      ],
+    },
+    successEnvelope: {
+      ok: true,
+      result: {
+        filled: 1,
+        attempted: 1,
+      },
+    },
+  },
+  {
+    name: "drive.drag",
+    corePath: "/drive/drag",
+    input: {
+      session_id: "session-1",
+      from: { css: "#source" },
+      to: { css: "#target" },
+      steps: 10,
+    },
+    successEnvelope: {
+      ok: true,
+      result: {
+        ok: true,
+      },
+    },
+  },
+  {
+    name: "drive.handle_dialog",
+    corePath: "/drive/handle_dialog",
+    input: {
+      session_id: "session-1",
+      action: "accept",
+    },
+    successEnvelope: {
+      ok: true,
+      result: {
+        ok: true,
+      },
+    },
+  },
+  {
+    name: "drive.key",
+    corePath: "/drive/key",
+    input: {
+      session_id: "session-1",
+      key: "Enter",
+      modifiers: ["ctrl"],
+    },
+    successEnvelope: {
+      ok: true,
+      result: {
+        ok: true,
+      },
+    },
+  },
+  {
+    name: "drive.key_press",
+    corePath: "/drive/key_press",
+    input: {
+      session_id: "session-1",
+      key: "Enter",
+      modifiers: {
+        ctrl: true,
+      },
     },
     successEnvelope: {
       ok: true,
@@ -203,6 +359,47 @@ export const MCP_TOOL_FIXTURES: ToolFixture[] = [
       result: {
         format: "ax",
         snapshot: {},
+      },
+    },
+  },
+  {
+    name: "inspect.dom_diff",
+    corePath: "/inspect/dom_diff",
+    input: { session_id: "session-1" },
+    successEnvelope: {
+      ok: true,
+      result: {
+        added: ["div#new"],
+        removed: [],
+        changed: ["span.title"],
+        summary: "Added 1, removed 0, changed 1.",
+      },
+    },
+  },
+  {
+    name: "inspect.extract_content",
+    corePath: "/inspect/extract_content",
+    input: { session_id: "session-1", format: "markdown" },
+    successEnvelope: {
+      ok: true,
+      result: {
+        content: "# Example",
+        title: "Example",
+        excerpt: "Example excerpt.",
+      },
+    },
+  },
+  {
+    name: "inspect.page_state",
+    corePath: "/inspect/page_state",
+    input: { session_id: "session-1" },
+    successEnvelope: {
+      ok: true,
+      result: {
+        forms: [],
+        localStorage: [],
+        sessionStorage: [],
+        cookies: [],
       },
     },
   },

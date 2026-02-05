@@ -2,6 +2,7 @@ import type {
   DebuggerCommandParams,
   DebuggerEvent,
   DebuggerRequest,
+  DriveRequest,
   DriveErrorInfo,
   DriveEvent,
   DriveHelloParams,
