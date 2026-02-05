@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildDiagnosticReport } from './diagnostics';
-import { DiagnosticReportSchema } from '../../shared/src/schemas';
+import { DiagnosticReportSchema } from '@btraut/browser-bridge-shared';
 import { SessionState } from './state';
 import { getArtifactRootDir } from './artifacts';
 
