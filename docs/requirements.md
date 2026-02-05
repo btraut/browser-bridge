@@ -1,5 +1,18 @@
 # Hybrid Browser Control MCP (Drive + Inspect) Requirements
 
+> **WARNING: THIS DOCUMENT IS OUT OF DATE**
+>
+> This requirements document was written during initial planning and has drifted from the actual implementation. Do not rely on it as an accurate description of the current system. Refer to the source code for ground truth.
+>
+> Key areas that may be inaccurate:
+> - Architecture details and component responsibilities
+> - API surface and endpoint specifications
+> - Concurrency model and state machine behavior
+>
+> TODO: Reconcile this document with the implementation or archive it.
+
+---
+
 **Context and Goal**
 Build a local, developer-focused browser control system used by coding agents (via MCP and CLI) for a development feedback loop. The system must control a real Chrome browser to navigate, click, type, log in, and submit forms, and it must also inspect DOM state, console errors, network requests, and performance to verify changes.
 
