@@ -166,6 +166,17 @@ const INTERACTIVE_AX_ROLES = new Set([
   "option",
 ]);
 const DECORATIVE_AX_ROLES = new Set(["generic", "none", "presentation"]);
+const LABEL_AX_ROLES = new Set([
+  "textbox",
+  "combobox",
+  "listbox",
+  "checkbox",
+  "radio",
+  "switch",
+  "searchbox",
+  "spinbutton",
+  "slider",
+]);
 
 export class InspectService {
   private readonly registry: SessionRegistry;
@@ -424,6 +435,85 @@ export class InspectService {
       removed,
       changed,
       summary: `Added ${added.length}, removed ${removed.length}, changed ${changed.length}.`,
+    };
+  }
+
+  async find(input: {
+    sessionId: string;
+    kind: "role" | "text" | "label";
+    role?: string;
+    name?: string;
+    text?: string;
+    label?: string;
+    targetHint?: TargetHint;
+  }): Promise<{ matches: Array<{ ref: string; role?: string; name?: string }>; warnings?: string[] }> {
+    const snapshot = await this.domSnapshot({
+      sessionId: input.sessionId,
+      format: "ax",
+      consistency: "best_effort",
+      targetHint: input.targetHint,
+    });
+    const warnings = [...(snapshot.warnings ?? [])];
+    if (snapshot.format !== "ax") {
+      warnings.push("AX snapshot unavailable; cannot resolve refs.");
+      return {
+        matches: [],
+        ...(warnings.length > 0 ? { warnings } : {}),
+      };
+    }
+
+    const nodes = this.getAxNodes(snapshot.snapshot);
+    const matches: Array<{ ref: string; role?: string; name?: string }> = [];
+
+    const nameQuery =
+      typeof input.name === "string" ? this.normalizeQuery(input.name) : "";
+    const textQuery =
+      typeof input.text === "string" ? this.normalizeQuery(input.text) : "";
+    const labelQuery =
+      typeof input.label === "string" ? this.normalizeQuery(input.label) : "";
+    const roleQuery =
+      typeof input.role === "string" ? this.normalizeQuery(input.role) : "";
+
+    for (const node of nodes) {
+      if (!node || typeof node !== "object") {
+        continue;
+      }
+      if (typeof node.ref !== "string" || node.ref.length === 0) {
+        continue;
+      }
+      const role = this.getAxRole(node);
+      const name = this.getAxName(node);
+
+      if (input.kind === "role") {
+        if (!role || role !== roleQuery) {
+          continue;
+        }
+        if (nameQuery && !this.matchesTextValue(name, nameQuery)) {
+          continue;
+        }
+      } else if (input.kind === "text") {
+        if (!textQuery || !this.matchesAxText(node, textQuery)) {
+          continue;
+        }
+      } else if (input.kind === "label") {
+        if (!labelQuery || !LABEL_AX_ROLES.has(role)) {
+          continue;
+        }
+        if (!this.matchesTextValue(name, labelQuery)) {
+          continue;
+        }
+      }
+
+      matches.push({
+        ref: node.ref,
+        ...(role ? { role } : {}),
+        ...(name ? { name } : {}),
+      });
+    }
+
+    return {
+      matches,
+      ...(warnings.length > 0 ? { warnings } : {}),
     };
   }
 
@@ -1055,6 +1145,41 @@ export class InspectService {
       return true;
     }
     return false;
+  }
+
+  private normalizeQuery(value: string): string {
+    return value.trim().toLowerCase();
+  }
+
+  private matchesTextValue(value: string, query: string): boolean {
+    if (!query) {
+      return false;
+    }
+    return value.toLowerCase().includes(query);
+  }
+
+  private matchesAxText(node: AxNodeRecord, query: string): boolean {
+    if (!query) {
+      return false;
+    }
+    const candidates = [this.getAxName(node)];
+    if (Array.isArray(node.properties)) {
+      for (const prop of node.properties) {
+        if (!prop || typeof prop !== "object") {
+          continue;
+        }
+        const value = (prop as { value?: { value?: unknown } }).value?.value;
+        if (value === undefined || value === null) {
+          continue;
+        }
+        if (typeof value === "string") {
+          candidates.push(value);
+        } else if (typeof value === "number" || typeof value === "boolean") {
+          candidates.push(String(value));
+        }
+      }
+    }
+    return candidates.some((text) => this.matchesTextValue(text, query));
   }
 
   private collectHtmlEntries(html: string): Map<string, string> {

@@ -26,6 +26,7 @@ import {
   InspectDomDiffOutputSchema,
   InspectExtractContentInputSchema,
   InspectEvaluateInputSchema,
+  InspectFindInputSchema,
   InspectPageStateInputSchema,
   LocatorSchema,
   OpResultSchema,
@@ -217,6 +218,17 @@ describe('shared schemas', () => {
       selector: '#main-content',
     });
     expect(parsed.selector).toBe('#main-content');
+  });
+
+  it('parses inspect find role input', () => {
+    const parsed = InspectFindInputSchema.parse({
+      session_id: 'session-1',
+      kind: 'role',
+      role: 'button',
+      name: 'Submit',
+    });
+    expect(parsed.kind).toBe('role');
+    expect(parsed.role).toBe('button');
   });
 
   it('parses dom diff schemas', () => {

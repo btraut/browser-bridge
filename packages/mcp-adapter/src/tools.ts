@@ -53,6 +53,8 @@ import {
   InspectDomSnapshotOutputSchema,
   InspectEvaluateInputSchema,
   InspectEvaluateOutputSchema,
+  InspectFindInputSchema,
+  InspectFindOutputSchema,
   InspectPageStateInputSchema,
   InspectPageStateOutputSchema,
   InspectNetworkHarInputSchema,
@@ -364,6 +366,16 @@ export const TOOL_DEFINITIONS: Array<{ name: string; config: ToolConfig }> = [
       inputSchema: InspectDomDiffInputSchema,
       outputSchema: envelope(InspectDomDiffOutputSchema),
       corePath: '/inspect/dom_diff',
+    },
+  },
+  {
+    name: 'inspect.find',
+    config: {
+      title: 'Inspect Find',
+      description: 'Find elements in the accessibility tree and return refs.',
+      inputSchema: InspectFindInputSchema,
+      outputSchema: envelope(InspectFindOutputSchema),
+      corePath: '/inspect/find',
     },
   },
   {

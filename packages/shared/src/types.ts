@@ -69,6 +69,9 @@ import {
   InspectExtractContentOutputSchema,
   InspectEvaluateInputSchema,
   InspectEvaluateOutputSchema,
+  InspectFindInputSchema,
+  InspectFindMatchSchema,
+  InspectFindOutputSchema,
   InspectPageStateInputSchema,
   InspectPageStateOutputSchema,
   InspectNetworkHarInputSchema,
@@ -180,6 +183,9 @@ export type InspectDomSnapshotOutput = z.infer<
 >;
 export type InspectDomDiffInput = z.infer<typeof InspectDomDiffInputSchema>;
 export type InspectDomDiffOutput = z.infer<typeof InspectDomDiffOutputSchema>;
+export type InspectFindInput = z.infer<typeof InspectFindInputSchema>;
+export type InspectFindMatch = z.infer<typeof InspectFindMatchSchema>;
+export type InspectFindOutput = z.infer<typeof InspectFindOutputSchema>;
 export type InspectExtractContentFormat = z.infer<typeof InspectExtractContentFormatSchema>;
 export type InspectExtractContentInput = z.infer<typeof InspectExtractContentInputSchema>;
 export type InspectExtractContentOutput = z.infer<typeof InspectExtractContentOutputSchema>;

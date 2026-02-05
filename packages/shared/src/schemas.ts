@@ -415,6 +415,42 @@ export const DomDiffResultSchema = z.object({
 export const InspectDomDiffInputSchema = SessionIdSchema;
 export const InspectDomDiffOutputSchema = DomDiffResultSchema;
 
+export const InspectFindRoleInputSchema = SessionIdSchema.extend({
+  kind: z.literal("role"),
+  role: z.string().min(1),
+  name: z.string().min(1).optional(),
+  target: TargetHintSchema.optional(),
+});
+
+export const InspectFindTextInputSchema = SessionIdSchema.extend({
+  kind: z.literal("text"),
+  text: z.string().min(1),
+  target: TargetHintSchema.optional(),
+});
+
+export const InspectFindLabelInputSchema = SessionIdSchema.extend({
+  kind: z.literal("label"),
+  label: z.string().min(1),
+  target: TargetHintSchema.optional(),
+});
+
+export const InspectFindInputSchema = z.discriminatedUnion("kind", [
+  InspectFindRoleInputSchema,
+  InspectFindTextInputSchema,
+  InspectFindLabelInputSchema,
+]);
+
+export const InspectFindMatchSchema = z.object({
+  ref: z.string(),
+  role: z.string().optional(),
+  name: z.string().optional(),
+});
+
+export const InspectFindOutputSchema = z.object({
+  matches: z.array(InspectFindMatchSchema),
+  warnings: z.array(z.string()).optional(),
+});
+
 export const InspectPageStateInputSchema = SessionIdSchema.extend({
   target: TargetHintSchema.optional(),
 });

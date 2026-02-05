@@ -377,6 +377,22 @@ export const MCP_TOOL_FIXTURES: ToolFixture[] = [
     },
   },
   {
+    name: "inspect.find",
+    corePath: "/inspect/find",
+    input: {
+      session_id: "session-1",
+      kind: "role",
+      role: "button",
+      name: "Submit",
+    },
+    successEnvelope: {
+      ok: true,
+      result: {
+        matches: [{ ref: "@e1", role: "button", name: "Submit" }],
+      },
+    },
+  },
+  {
     name: "inspect.extract_content",
     corePath: "/inspect/extract_content",
     input: { session_id: "session-1", format: "markdown" },
