@@ -151,6 +151,20 @@ const DEFAULT_MAX_SNAPSHOT_HISTORY = 100;
 const SNAPSHOT_REF_ATTRIBUTE = "data-bv-ref";
 const MAX_REF_ASSIGNMENTS = 500;
 const MAX_REF_WARNINGS = 5;
+const INTERACTIVE_AX_ROLES = new Set([
+  "button",
+  "link",
+  "textbox",
+  "combobox",
+  "listbox",
+  "checkbox",
+  "radio",
+  "switch",
+  "searchbox",
+  "spinbutton",
+  "slider",
+  "option",
+]);
 
 export class InspectService {
   private readonly registry: SessionRegistry;
@@ -226,6 +240,7 @@ export class InspectService {
     sessionId: string;
     format: "ax" | "html";
     consistency: "best_effort" | "quiesce";
+    interactive?: boolean;
     targetHint?: TargetHint;
   }): Promise<DomSnapshotResult> {
     this.requireSession(input.sessionId);
@@ -234,10 +249,14 @@ export class InspectService {
     const work = async (): Promise<DomSnapshotResult> => {
       if (input.format === "html") {
         const html = await this.captureHtml(selection.tabId);
+        const warnings = [...(selection.warnings ?? [])];
+        if (input.interactive) {
+          warnings.push("Interactive filter is only supported for AX snapshots.");
+        }
         return {
           format: "html",
           snapshot: html,
-          warnings: selection.warnings,
+          ...(warnings.length > 0 ? { warnings } : {}),
         };
       }
 
@@ -248,7 +267,10 @@ export class InspectService {
           "Accessibility.getFullAXTree",
           {}
         );
-        const refMap = this.assignRefsToAxSnapshot(result);
+        const snapshot = input.interactive
+          ? this.applyAxSnapshotFilters(result, { interactiveOnly: true })
+          : result;
+        const refMap = this.assignRefsToAxSnapshot(snapshot);
         const refWarnings = await this.applySnapshotRefs(
           selection.tabId,
           refMap
@@ -259,7 +281,7 @@ export class InspectService {
         ];
         return {
           format: "ax",
-          snapshot: result,
+          snapshot,
           ...(warnings.length > 0 ? { warnings } : {}),
         };
       } catch (error) {
@@ -276,6 +298,9 @@ export class InspectService {
           const warnings = [
             ...(selection.warnings ?? []),
             "AX snapshot failed; returned HTML instead.",
+            ...(input.interactive
+              ? ["Interactive filter is only supported for AX snapshots."]
+              : []),
           ];
           return {
             format: "html",
@@ -789,6 +814,68 @@ export class InspectService {
       ? snapshot
       : (snapshot as { nodes?: unknown[] })?.nodes;
     return Array.isArray(nodes) ? (nodes as AxNodeRecord[]) : [];
+  }
+
+  private applyAxSnapshotFilters(
+    snapshot: unknown,
+    options: { interactiveOnly?: boolean }
+  ): unknown {
+    let filtered = snapshot;
+    if (options.interactiveOnly) {
+      filtered = this.filterAxSnapshot(filtered, (node) =>
+        this.isInteractiveAxNode(node)
+      );
+    }
+    return filtered;
+  }
+
+  private filterAxSnapshot(
+    snapshot: unknown,
+    predicate: (node: AxNodeRecord) => boolean
+  ): unknown {
+    const nodes = this.getAxNodes(snapshot);
+    if (nodes.length === 0) {
+      return snapshot;
+    }
+    const keepIds = new Set<string>();
+    const filtered = nodes.filter((node) => {
+      if (!node || typeof node !== "object") {
+        return false;
+      }
+      const keep = predicate(node);
+      if (keep && typeof node.nodeId === "string") {
+        keepIds.add(node.nodeId);
+      }
+      return keep;
+    });
+    for (const node of filtered) {
+      if (Array.isArray(node.childIds)) {
+        node.childIds = node.childIds.filter((id) => keepIds.has(id));
+      }
+    }
+    return this.replaceAxNodes(snapshot, filtered);
+  }
+
+  private replaceAxNodes(
+    snapshot: unknown,
+    nodes: AxNodeRecord[]
+  ): unknown {
+    if (Array.isArray(snapshot)) {
+      return nodes;
+    }
+    if (snapshot && typeof snapshot === "object") {
+      (snapshot as { nodes?: unknown[] }).nodes = nodes;
+    }
+    return snapshot;
+  }
+
+  private isInteractiveAxNode(node: AxNodeRecord): boolean {
+    const role =
+      typeof node.role === "string" ? node.role : node.role?.value ?? "";
+    if (!role) {
+      return false;
+    }
+    return INTERACTIVE_AX_ROLES.has(role.toLowerCase());
   }
 
   private collectHtmlEntries(html: string): Map<string, string> {

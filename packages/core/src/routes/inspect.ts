@@ -186,6 +186,7 @@ export const registerInspectRoutes = (
         sessionId: body.session_id,
         format: body.format,
         consistency: body.consistency,
+        interactive: body.interactive,
         targetHint: resolveTargetHint(body.target, options),
       });
     })

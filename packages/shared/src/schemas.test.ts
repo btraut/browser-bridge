@@ -207,6 +207,7 @@ describe('shared schemas', () => {
     });
     expect(parsed.format).toBe('ax');
     expect(parsed.consistency).toBe('best_effort');
+    expect(parsed.interactive).toBe(false);
   });
 
   it('parses dom diff schemas', () => {

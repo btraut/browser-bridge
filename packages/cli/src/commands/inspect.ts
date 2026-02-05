@@ -21,12 +21,14 @@ export const registerInspectCommands = (program: Command): void => {
     .requiredOption('--session-id <id>', 'Session identifier')
     .option('--format <format>', 'Snapshot format (ax, html)')
     .option('--consistency <mode>', 'Consistency mode (best_effort, quiesce)')
+    .option('-i, --interactive', 'Only include interactive elements')
     .action(async (options, command) => {
       await runCommand(command, (client) => {
         const payload = parseInput(InspectDomSnapshotInputSchema, {
           session_id: options.sessionId,
           format: options.format,
           consistency: options.consistency,
+          interactive: options.interactive,
         });
         return client.post('/inspect/dom_snapshot', payload);
       });
