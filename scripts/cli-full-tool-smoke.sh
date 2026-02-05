@@ -9,6 +9,12 @@ cli_bin=${BV_SMOKE_CLI_BIN:-"$repo_root/packages/cli/dist/index.js"}
 cli_cmd=(node "$cli_bin")
 
 smoke_url=${BV_SMOKE_URL:-"file://$repo_root/docs/fixtures/smoke-page.html"}
+smoke_timeout_ms=${BV_SMOKE_TIMEOUT_MS:-15000}
+
+# The CLI defaults to a small HTTP timeout which is fine for most operations,
+# but dialog flows and debugger attach can take longer on real machines.
+export BROWSER_BRIDGE_CORE_TIMEOUT_MS=${BROWSER_BRIDGE_CORE_TIMEOUT_MS:-$smoke_timeout_ms}
+export BROWSER_VISION_CORE_TIMEOUT_MS=${BROWSER_VISION_CORE_TIMEOUT_MS:-$smoke_timeout_ms}
 
 extract_session_id() {
   node -e "const fs=require('fs');const data=JSON.parse(fs.readFileSync(0,'utf8'));console.log(data.result.session_id);"

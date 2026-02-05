@@ -61,6 +61,27 @@ const resolvePort = (port?: number | string): number => {
   return parsed;
 };
 
+const resolveTimeoutMs = (timeoutMs?: number): number => {
+  const candidate =
+    timeoutMs ??
+    (process.env.BROWSER_BRIDGE_CORE_TIMEOUT_MS
+      ? Number.parseInt(process.env.BROWSER_BRIDGE_CORE_TIMEOUT_MS, 10)
+      : process.env.BROWSER_VISION_CORE_TIMEOUT_MS
+        ? Number.parseInt(process.env.BROWSER_VISION_CORE_TIMEOUT_MS, 10)
+        : undefined);
+
+  if (candidate === undefined || candidate === null) {
+    return DEFAULT_TIMEOUT_MS;
+  }
+
+  const parsed = typeof candidate === 'number' ? candidate : Number(candidate);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    throw new Error(`Invalid timeoutMs: ${String(candidate)}`);
+  }
+
+  return Math.floor(parsed);
+};
+
 const normalizePath = (path: string): string =>
   path.startsWith('/') ? path : `/${path}`;
 
@@ -70,7 +91,7 @@ export const createCoreClient = (
   const host = resolveHost(options.host);
   const port = resolvePort(options.port);
   const baseUrl = `http://${host}:${port}`;
-  const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  const timeoutMs = resolveTimeoutMs(options.timeoutMs);
   const fetchImpl = options.fetchImpl ?? fetch;
   const spawnImpl = options.spawnImpl ?? spawn;
   const ensureDaemon = options.ensureDaemon ?? true;
