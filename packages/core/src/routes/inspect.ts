@@ -54,9 +54,7 @@ type ValidationError = {
 };
 
 type SchemaLike<T> = {
-  safeParse: (
-    body: unknown
-  ) =>
+  safeParse: (body: unknown) =>
     | { success: true; data: T }
     | {
         success: false;
@@ -140,10 +138,11 @@ const resolveTargetHint = (
   return deriveHintFromTabs(tabs);
 };
 
-const makeHandler = <TBody extends { session_id: string }, TResult>(
-  schema: SchemaLike<TBody>,
-  handler: (body: TBody) => Promise<TResult>
-) =>
+const makeHandler =
+  <TBody extends { session_id: string }, TResult>(
+    schema: SchemaLike<TBody>,
+    handler: (body: TBody) => Promise<TResult>
+  ) =>
   async (req: RequestLike, res: ResponseLike): Promise<void> => {
     const parsed = parseBody(schema, req.body ?? {});
     if (parsed.error) {
@@ -162,7 +161,13 @@ const makeHandler = <TBody extends { session_id: string }, TResult>(
       sendResult(res, result);
     } catch (err) {
       if (err instanceof InspectError) {
-        sendInspectError(res, err.code, err.message, err.retryable, err.details);
+        sendInspectError(
+          res,
+          err.code,
+          err.message,
+          err.retryable,
+          err.details
+        );
         return;
       }
       sendInspectError(res, 'INTERNAL', 'Unexpected inspect error.', false);

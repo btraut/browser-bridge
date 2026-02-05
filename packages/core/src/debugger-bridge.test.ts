@@ -1,15 +1,15 @@
-import { describe, expect, it, vi } from "vitest";
-import { DebuggerBridge } from "./debugger-bridge";
-import type { ExtensionBridge } from "./extension-bridge";
-import type { DebuggerEvent } from "./drive-protocol";
+import { describe, expect, it, vi } from 'vitest';
+import { DebuggerBridge } from './debugger-bridge';
+import type { ExtensionBridge } from './extension-bridge';
+import type { DebuggerEvent } from './drive-protocol';
 
-describe("DebuggerBridge", () => {
-  it("attaches and records console events", async () => {
+describe('DebuggerBridge', () => {
+  it('attaches and records console events', async () => {
     let listener: ((event: DebuggerEvent) => void) | undefined;
     const requestDebugger = vi.fn().mockResolvedValue({
-      id: "req-1",
-      action: "debugger.attach",
-      status: "ack",
+      id: 'req-1',
+      action: 'debugger.attach',
+      status: 'ack',
       result: { ok: true },
     });
     const bridge = {
@@ -33,41 +33,41 @@ describe("DebuggerBridge", () => {
       expect(debuggerBridge.hasAttachments()).toBe(true);
 
       listener?.({
-        id: "evt-1",
-        action: "debugger.event",
-        status: "event",
+        id: 'evt-1',
+        action: 'debugger.event',
+        status: 'event',
         params: {
           tab_id: 1,
-          method: "Runtime.consoleAPICalled",
+          method: 'Runtime.consoleAPICalled',
           params: {},
-          timestamp: "2025-01-01T00:00:00Z",
+          timestamp: '2025-01-01T00:00:00Z',
         },
       });
 
       const events = debuggerBridge.getConsoleEvents(1);
       expect(events).toHaveLength(1);
-      expect(events[0].method).toBe("Runtime.consoleAPICalled");
+      expect(events[0].method).toBe('Runtime.consoleAPICalled');
     } finally {
       debuggerBridge.shutdown();
     }
   });
 
-  it("keeps attachments when detach fails", async () => {
+  it('keeps attachments when detach fails', async () => {
     const requestDebugger = vi
       .fn()
       .mockResolvedValueOnce({
-        id: "req-1",
-        action: "debugger.attach",
-        status: "ack",
+        id: 'req-1',
+        action: 'debugger.attach',
+        status: 'ack',
         result: { ok: true },
       })
       .mockResolvedValueOnce({
-        id: "req-2",
-        action: "debugger.detach",
-        status: "error",
+        id: 'req-2',
+        action: 'debugger.detach',
+        status: 'error',
         error: {
-          code: "INSPECT_UNAVAILABLE",
-          message: "Detach failed.",
+          code: 'INSPECT_UNAVAILABLE',
+          message: 'Detach failed.',
           retryable: false,
         },
       });

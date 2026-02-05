@@ -60,7 +60,7 @@ export const transitionSession = (
       if (event === 'INSPECT_CONNECTED') {
         return SessionState.READY;
       }
-      if (event === "DRIVE_DISCONNECTED") {
+      if (event === 'DRIVE_DISCONNECTED') {
         return SessionState.INIT;
       }
       break;

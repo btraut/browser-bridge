@@ -5,6 +5,7 @@
 > This requirements document was written during initial planning and has drifted from the actual implementation. Do not rely on it as an accurate description of the current system. Refer to the source code for ground truth.
 >
 > Key areas that may be inaccurate:
+>
 > - Architecture details and component responsibilities
 > - API surface and endpoint specifications
 > - Concurrency model and state machine behavior

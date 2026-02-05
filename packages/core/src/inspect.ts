@@ -1,33 +1,33 @@
-import { randomUUID } from "crypto";
-import { writeFile } from "node:fs/promises";
-import path from "node:path";
-import { Readability } from "@mozilla/readability";
-import { JSDOM } from "jsdom";
-import TurndownService from "turndown";
-import { ensureArtifactRootDir } from "./artifacts";
-import { driveMutex } from "./drive";
-import type { DebuggerBridge, DebuggerEventRecord } from "./debugger-bridge";
-import type { DriveErrorInfo, DriveTabInfo } from "./drive-protocol";
-import { PAGE_STATE_SCRIPT } from "./page-state-script";
-import { SessionError, SessionRegistry, SessionRecord } from "./session";
-import { SessionState } from "./state";
-import { pickBestTarget } from "./target-matching";
-import type { TargetHint } from "./target-matching";
+import { randomUUID } from 'crypto';
+import { writeFile } from 'node:fs/promises';
+import path from 'node:path';
+import { Readability } from '@mozilla/readability';
+import { JSDOM } from 'jsdom';
+import TurndownService from 'turndown';
+import { ensureArtifactRootDir } from './artifacts';
+import { driveMutex } from './drive';
+import type { DebuggerBridge, DebuggerEventRecord } from './debugger-bridge';
+import type { DriveErrorInfo, DriveTabInfo } from './drive-protocol';
+import { PAGE_STATE_SCRIPT } from './page-state-script';
+import { SessionError, SessionRegistry, SessionRecord } from './session';
+import { SessionState } from './state';
+import { pickBestTarget } from './target-matching';
+import type { TargetHint } from './target-matching';
 
 export type InspectErrorCode =
-  | "INVALID_ARGUMENT"
-  | "SESSION_NOT_FOUND"
-  | "SESSION_CLOSED"
-  | "INSPECT_UNAVAILABLE"
-  | "EXTENSION_DISCONNECTED"
-  | "DEBUGGER_IN_USE"
-  | "ATTACH_DENIED"
-  | "TAB_NOT_FOUND"
-  | "NOT_SUPPORTED"
-  | "TIMEOUT"
-  | "EVALUATION_FAILED"
-  | "ARTIFACT_IO_ERROR"
-  | "INTERNAL";
+  | 'INVALID_ARGUMENT'
+  | 'SESSION_NOT_FOUND'
+  | 'SESSION_CLOSED'
+  | 'INSPECT_UNAVAILABLE'
+  | 'EXTENSION_DISCONNECTED'
+  | 'DEBUGGER_IN_USE'
+  | 'ATTACH_DENIED'
+  | 'TAB_NOT_FOUND'
+  | 'NOT_SUPPORTED'
+  | 'TIMEOUT'
+  | 'EVALUATION_FAILED'
+  | 'ARTIFACT_IO_ERROR'
+  | 'INTERNAL';
 
 export class InspectError extends Error {
   public readonly code: InspectErrorCode;
@@ -40,7 +40,7 @@ export class InspectError extends Error {
     options: { retryable?: boolean; details?: Record<string, unknown> } = {}
   ) {
     super(message);
-    this.name = "InspectError";
+    this.name = 'InspectError';
     this.code = code;
     this.retryable = options.retryable ?? false;
     this.details = options.details;
@@ -48,7 +48,7 @@ export class InspectError extends Error {
 }
 
 export type DomSnapshotResult = {
-  format: "ax" | "html";
+  format: 'ax' | 'html';
   snapshot: unknown;
   warnings?: string[];
 };
@@ -66,7 +66,7 @@ type AxNodeRecord = {
 
 type SnapshotRecord = {
   sessionId: string;
-  format: "ax" | "html";
+  format: 'ax' | 'html';
   entries: Map<string, string>;
   capturedAt: string;
 };
@@ -148,34 +148,34 @@ export type InspectServiceOptions = {
 
 const DEFAULT_MAX_SNAPSHOTS_PER_SESSION = 20;
 const DEFAULT_MAX_SNAPSHOT_HISTORY = 100;
-const SNAPSHOT_REF_ATTRIBUTE = "data-bv-ref";
+const SNAPSHOT_REF_ATTRIBUTE = 'data-bv-ref';
 const MAX_REF_ASSIGNMENTS = 500;
 const MAX_REF_WARNINGS = 5;
 const INTERACTIVE_AX_ROLES = new Set([
-  "button",
-  "link",
-  "textbox",
-  "combobox",
-  "listbox",
-  "checkbox",
-  "radio",
-  "switch",
-  "searchbox",
-  "spinbutton",
-  "slider",
-  "option",
+  'button',
+  'link',
+  'textbox',
+  'combobox',
+  'listbox',
+  'checkbox',
+  'radio',
+  'switch',
+  'searchbox',
+  'spinbutton',
+  'slider',
+  'option',
 ]);
-const DECORATIVE_AX_ROLES = new Set(["generic", "none", "presentation"]);
+const DECORATIVE_AX_ROLES = new Set(['generic', 'none', 'presentation']);
 const LABEL_AX_ROLES = new Set([
-  "textbox",
-  "combobox",
-  "listbox",
-  "checkbox",
-  "radio",
-  "switch",
-  "searchbox",
-  "spinbutton",
-  "slider",
+  'textbox',
+  'combobox',
+  'listbox',
+  'checkbox',
+  'radio',
+  'switch',
+  'searchbox',
+  'spinbutton',
+  'slider',
 ]);
 
 export class InspectService {
@@ -205,22 +205,26 @@ export class InspectService {
     return this.debugger?.hasAttachments() ?? false;
   }
 
-  getLastError():
-    | { error: InspectError; at: string }
-    | undefined {
+  getLastError(): { error: InspectError; at: string } | undefined {
     if (!this.lastError || !this.lastErrorAt) {
       const debuggerError = this.debugger?.getLastError();
       if (!debuggerError) {
         return undefined;
       }
       return {
-        error: new InspectError("INSPECT_UNAVAILABLE", debuggerError.error.message, {
-          retryable: debuggerError.error.retryable,
-          details: {
-            code: debuggerError.error.code,
-            ...(debuggerError.error.details ? debuggerError.error.details : {}),
-          },
-        }),
+        error: new InspectError(
+          'INSPECT_UNAVAILABLE',
+          debuggerError.error.message,
+          {
+            retryable: debuggerError.error.retryable,
+            details: {
+              code: debuggerError.error.code,
+              ...(debuggerError.error.details
+                ? debuggerError.error.details
+                : {}),
+            },
+          }
+        ),
         at: debuggerError.at,
       };
     }
@@ -250,8 +254,8 @@ export class InspectService {
 
   async domSnapshot(input: {
     sessionId: string;
-    format: "ax" | "html";
-    consistency: "best_effort" | "quiesce";
+    format: 'ax' | 'html';
+    consistency: 'best_effort' | 'quiesce';
     interactive?: boolean;
     compact?: boolean;
     selector?: string;
@@ -261,20 +265,22 @@ export class InspectService {
     const selection = await this.resolveTab(input.targetHint);
 
     const work = async (): Promise<DomSnapshotResult> => {
-      if (input.format === "html") {
+      if (input.format === 'html') {
         const html = await this.captureHtml(selection.tabId, input.selector);
         const warnings = [...(selection.warnings ?? [])];
         if (input.interactive) {
-          warnings.push("Interactive filter is only supported for AX snapshots.");
+          warnings.push(
+            'Interactive filter is only supported for AX snapshots.'
+          );
         }
         if (input.compact) {
-          warnings.push("Compact filter is only supported for AX snapshots.");
+          warnings.push('Compact filter is only supported for AX snapshots.');
         }
-        if (input.selector && html === "") {
+        if (input.selector && html === '') {
           warnings.push(`Selector not found: ${input.selector}`);
         }
         return {
-          format: "html",
+          format: 'html',
           snapshot: html,
           ...(warnings.length > 0 ? { warnings } : {}),
         };
@@ -298,7 +304,7 @@ export class InspectService {
                 new Map()
               );
             } catch {
-              refWarnings = ["Failed to clear prior snapshot refs."];
+              refWarnings = ['Failed to clear prior snapshot refs.'];
             }
             const warnings = [
               ...(selection.warnings ?? []),
@@ -306,20 +312,20 @@ export class InspectService {
               ...refWarnings,
             ];
             return {
-              format: "ax",
+              format: 'ax',
               snapshot: { nodes: [] },
               ...(warnings.length > 0 ? { warnings } : {}),
             };
           }
           result = await this.debuggerCommand(
             selection.tabId,
-            "Accessibility.getPartialAXTree",
+            'Accessibility.getPartialAXTree',
             { nodeId: resolved.nodeId }
           );
         } else {
           result = await this.debuggerCommand(
             selection.tabId,
-            "Accessibility.getFullAXTree",
+            'Accessibility.getFullAXTree',
             {}
           );
         }
@@ -341,16 +347,16 @@ export class InspectService {
           ...(refWarnings ?? []),
         ];
         return {
-          format: "ax",
+          format: 'ax',
           snapshot,
           ...(warnings.length > 0 ? { warnings } : {}),
         };
       } catch (error) {
         if (error instanceof InspectError) {
           const fallbackCodes: InspectErrorCode[] = [
-            "NOT_SUPPORTED",
-            "INSPECT_UNAVAILABLE",
-            "EVALUATION_FAILED",
+            'NOT_SUPPORTED',
+            'INSPECT_UNAVAILABLE',
+            'EVALUATION_FAILED',
           ];
           if (!fallbackCodes.includes(error.code)) {
             throw error;
@@ -358,19 +364,19 @@ export class InspectService {
           const html = await this.captureHtml(selection.tabId, input.selector);
           const warnings = [
             ...(selection.warnings ?? []),
-            "AX snapshot failed; returned HTML instead.",
+            'AX snapshot failed; returned HTML instead.',
             ...(input.interactive
-              ? ["Interactive filter is only supported for AX snapshots."]
+              ? ['Interactive filter is only supported for AX snapshots.']
               : []),
             ...(input.compact
-              ? ["Compact filter is only supported for AX snapshots."]
+              ? ['Compact filter is only supported for AX snapshots.']
               : []),
-            ...(input.selector && html === ""
+            ...(input.selector && html === ''
               ? [`Selector not found: ${input.selector}`]
               : []),
           ];
           return {
-            format: "html",
+            format: 'html',
             snapshot: html,
             warnings,
           };
@@ -379,7 +385,7 @@ export class InspectService {
       }
     };
 
-    if (input.consistency === "quiesce") {
+    if (input.consistency === 'quiesce') {
       const result = await driveMutex.runExclusive(work);
       this.recordSnapshot(input.sessionId, result);
       this.markInspectConnected(input.sessionId);
@@ -407,7 +413,7 @@ export class InspectService {
         added: [],
         removed: [],
         changed: [],
-        summary: "Not enough snapshots to diff.",
+        summary: 'Not enough snapshots to diff.',
       };
     }
     const previous = snapshots[snapshots.length - 2];
@@ -440,22 +446,25 @@ export class InspectService {
 
   async find(input: {
     sessionId: string;
-    kind: "role" | "text" | "label";
+    kind: 'role' | 'text' | 'label';
     role?: string;
     name?: string;
     text?: string;
     label?: string;
     targetHint?: TargetHint;
-  }): Promise<{ matches: Array<{ ref: string; role?: string; name?: string }>; warnings?: string[] }> {
+  }): Promise<{
+    matches: Array<{ ref: string; role?: string; name?: string }>;
+    warnings?: string[];
+  }> {
     const snapshot = await this.domSnapshot({
       sessionId: input.sessionId,
-      format: "ax",
-      consistency: "best_effort",
+      format: 'ax',
+      consistency: 'best_effort',
       targetHint: input.targetHint,
     });
     const warnings = [...(snapshot.warnings ?? [])];
-    if (snapshot.format !== "ax") {
-      warnings.push("AX snapshot unavailable; cannot resolve refs.");
+    if (snapshot.format !== 'ax') {
+      warnings.push('AX snapshot unavailable; cannot resolve refs.');
       return {
         matches: [],
         ...(warnings.length > 0 ? { warnings } : {}),
@@ -466,36 +475,36 @@ export class InspectService {
     const matches: Array<{ ref: string; role?: string; name?: string }> = [];
 
     const nameQuery =
-      typeof input.name === "string" ? this.normalizeQuery(input.name) : "";
+      typeof input.name === 'string' ? this.normalizeQuery(input.name) : '';
     const textQuery =
-      typeof input.text === "string" ? this.normalizeQuery(input.text) : "";
+      typeof input.text === 'string' ? this.normalizeQuery(input.text) : '';
     const labelQuery =
-      typeof input.label === "string" ? this.normalizeQuery(input.label) : "";
+      typeof input.label === 'string' ? this.normalizeQuery(input.label) : '';
     const roleQuery =
-      typeof input.role === "string" ? this.normalizeQuery(input.role) : "";
+      typeof input.role === 'string' ? this.normalizeQuery(input.role) : '';
 
     for (const node of nodes) {
-      if (!node || typeof node !== "object") {
+      if (!node || typeof node !== 'object') {
         continue;
       }
-      if (typeof node.ref !== "string" || node.ref.length === 0) {
+      if (typeof node.ref !== 'string' || node.ref.length === 0) {
         continue;
       }
       const role = this.getAxRole(node);
       const name = this.getAxName(node);
 
-      if (input.kind === "role") {
+      if (input.kind === 'role') {
         if (!role || role !== roleQuery) {
           continue;
         }
         if (nameQuery && !this.matchesTextValue(name, nameQuery)) {
           continue;
         }
-      } else if (input.kind === "text") {
+      } else if (input.kind === 'text') {
         if (!textQuery || !this.matchesAxText(node, textQuery)) {
           continue;
         }
-      } else if (input.kind === "label") {
+      } else if (input.kind === 'label') {
         if (!labelQuery || !LABEL_AX_ROLES.has(role)) {
           continue;
         }
@@ -553,18 +562,18 @@ export class InspectService {
       const rootDir = await ensureArtifactRootDir(input.sessionId);
       const artifactId = randomUUID();
       const filePath = path.join(rootDir, `har-${artifactId}.json`);
-      await writeFile(filePath, JSON.stringify(har, null, 2), "utf-8");
+      await writeFile(filePath, JSON.stringify(har, null, 2), 'utf-8');
       const result = {
         artifact_id: artifactId,
         path: filePath,
-        mime: "application/json",
+        mime: 'application/json',
       };
       this.markInspectConnected(input.sessionId);
       return result;
     } catch {
       const error = new InspectError(
-        "ARTIFACT_IO_ERROR",
-        "Failed to write HAR file."
+        'ARTIFACT_IO_ERROR',
+        'Failed to write HAR file.'
       );
       this.recordError(error);
       throw error;
@@ -578,20 +587,20 @@ export class InspectService {
   }): Promise<EvaluateResult> {
     this.requireSession(input.sessionId);
     const selection = await this.resolveTab(input.targetHint);
-    const expression = input.expression ?? "undefined";
+    const expression = input.expression ?? 'undefined';
 
-    await this.debuggerCommand(selection.tabId, "Runtime.enable", {});
-    const result = await this.debuggerCommand(selection.tabId, "Runtime.evaluate", {
-      expression,
-      returnByValue: true,
-      awaitPromise: true,
-    });
+    await this.debuggerCommand(selection.tabId, 'Runtime.enable', {});
+    const result = await this.debuggerCommand(
+      selection.tabId,
+      'Runtime.evaluate',
+      {
+        expression,
+        returnByValue: true,
+        awaitPromise: true,
+      }
+    );
 
-    if (
-      result &&
-      typeof result === "object" &&
-      "exceptionDetails" in result
-    ) {
+    if (result && typeof result === 'object' && 'exceptionDetails' in result) {
       const output = {
         exception: (result as { exceptionDetails?: unknown }).exceptionDetails,
         warnings: selection.warnings,
@@ -610,7 +619,7 @@ export class InspectService {
 
   async extractContent(input: {
     sessionId: string;
-    format: "markdown" | "text" | "article_json";
+    format: 'markdown' | 'text' | 'article_json';
     includeMetadata?: boolean;
     targetHint?: TargetHint;
   }): Promise<ExtractContentResult> {
@@ -618,16 +627,16 @@ export class InspectService {
     const selection = await this.resolveTab(input.targetHint);
 
     const html = await this.captureHtml(selection.tabId);
-    const url = selection.tab.url ?? "about:blank";
-    let article: ReturnType<Readability["parse"]> | null = null;
+    const url = selection.tab.url ?? 'about:blank';
+    let article: ReturnType<Readability['parse']> | null = null;
     try {
       const dom = new JSDOM(html, { url });
       const reader = new Readability(dom.window.document);
       article = reader.parse();
     } catch {
       const err = new InspectError(
-        "EVALUATION_FAILED",
-        "Failed to parse page content.",
+        'EVALUATION_FAILED',
+        'Failed to parse page content.',
         { retryable: false }
       );
       this.recordError(err);
@@ -636,22 +645,22 @@ export class InspectService {
 
     if (!article) {
       const err = new InspectError(
-        "NOT_SUPPORTED",
-        "Readability could not extract content.",
+        'NOT_SUPPORTED',
+        'Readability could not extract content.',
         { retryable: false }
       );
       this.recordError(err);
       throw err;
     }
 
-    let content = "";
-    if (input.format === "article_json") {
+    let content = '';
+    if (input.format === 'article_json') {
       content = JSON.stringify(article, null, 2);
-    } else if (input.format === "text") {
-      content = article.textContent ?? "";
+    } else if (input.format === 'text') {
+      content = article.textContent ?? '';
     } else {
       const turndown = new TurndownService();
-      content = turndown.turndown(article.content ?? "");
+      content = turndown.turndown(article.content ?? '');
     }
 
     const warnings = selection.warnings ?? [];
@@ -680,19 +689,23 @@ export class InspectService {
     this.requireSession(input.sessionId);
     const selection = await this.resolveTab(input.targetHint);
 
-    await this.debuggerCommand(selection.tabId, "Runtime.enable", {});
+    await this.debuggerCommand(selection.tabId, 'Runtime.enable', {});
     const expression = PAGE_STATE_SCRIPT;
 
-    const result = await this.debuggerCommand(selection.tabId, "Runtime.evaluate", {
-      expression,
-      returnByValue: true,
-      awaitPromise: true,
-    });
+    const result = await this.debuggerCommand(
+      selection.tabId,
+      'Runtime.evaluate',
+      {
+        expression,
+        returnByValue: true,
+        awaitPromise: true,
+      }
+    );
 
-    if (result && typeof result === "object" && "exceptionDetails" in result) {
+    if (result && typeof result === 'object' && 'exceptionDetails' in result) {
       const error = new InspectError(
-        "EVALUATION_FAILED",
-        "Failed to capture page state.",
+        'EVALUATION_FAILED',
+        'Failed to capture page state.',
         { retryable: false }
       );
       this.recordError(error);
@@ -700,7 +713,10 @@ export class InspectService {
     }
 
     const value = (result as { result?: { value?: unknown } })?.result?.value;
-    const raw = value && typeof value === "object" ? (value as Partial<PageStateResult>) : {};
+    const raw =
+      value && typeof value === 'object'
+        ? (value as Partial<PageStateResult>)
+        : {};
     const warnings = [
       ...(Array.isArray(raw.warnings) ? raw.warnings : []),
       ...(selection.warnings ?? []),
@@ -713,7 +729,9 @@ export class InspectService {
       sessionStorage: Array.isArray(raw.sessionStorage)
         ? (raw.sessionStorage as StorageEntry[])
         : [],
-      cookies: Array.isArray(raw.cookies) ? (raw.cookies as StorageEntry[]) : [],
+      cookies: Array.isArray(raw.cookies)
+        ? (raw.cookies as StorageEntry[])
+        : [],
       ...(warnings.length > 0 ? { warnings } : {}),
     };
 
@@ -728,19 +746,19 @@ export class InspectService {
     this.requireSession(input.sessionId);
     const selection = await this.resolveTab(input.targetHint);
 
-    await this.debuggerCommand(selection.tabId, "Performance.enable", {});
+    await this.debuggerCommand(selection.tabId, 'Performance.enable', {});
     const result = await this.debuggerCommand(
       selection.tabId,
-      "Performance.getMetrics",
+      'Performance.getMetrics',
       {}
     );
     const metrics = Array.isArray((result as { metrics?: unknown[] })?.metrics)
-      ? (result as { metrics: Array<{ name: string; value: number }> }).metrics.map(
-          (metric) => ({
-            name: metric.name,
-            value: metric.value,
-          })
-        )
+      ? (
+          result as { metrics: Array<{ name: string; value: number }> }
+        ).metrics.map((metric) => ({
+          name: metric.name,
+          value: metric.value,
+        }))
       : [];
 
     const output = { metrics, warnings: selection.warnings };
@@ -750,33 +768,34 @@ export class InspectService {
 
   async screenshot(input: {
     sessionId: string;
-    target: "viewport" | "full";
-    format?: "png" | "jpeg" | "webp";
+    target: 'viewport' | 'full';
+    format?: 'png' | 'jpeg' | 'webp';
     quality?: number;
     targetHint?: TargetHint;
   }): Promise<ArtifactInfo> {
     this.requireSession(input.sessionId);
     const selection = await this.resolveTab(input.targetHint);
 
-    await this.debuggerCommand(selection.tabId, "Page.enable", {});
+    await this.debuggerCommand(selection.tabId, 'Page.enable', {});
 
-    const format = input.format ?? "png";
+    const format = input.format ?? 'png';
     let captureParams: Record<string, unknown> = {
       format,
       fromSurface: true,
     };
-    if (format !== "png" && typeof input.quality === "number") {
+    if (format !== 'png' && typeof input.quality === 'number') {
       captureParams = { ...captureParams, quality: input.quality };
     }
 
-    if (input.target === "full") {
+    if (input.target === 'full') {
       const layout = await this.debuggerCommand(
         selection.tabId,
-        "Page.getLayoutMetrics",
+        'Page.getLayoutMetrics',
         {}
       );
-      const contentSize = (layout as { contentSize?: { width: number; height: number } })
-        ?.contentSize;
+      const contentSize = (
+        layout as { contentSize?: { width: number; height: number } }
+      )?.contentSize;
       if (contentSize) {
         captureParams = {
           ...captureParams,
@@ -795,14 +814,14 @@ export class InspectService {
 
     const result = await this.debuggerCommand(
       selection.tabId,
-      "Page.captureScreenshot",
+      'Page.captureScreenshot',
       captureParams
     );
     const data = (result as { data?: string }).data;
     if (!data) {
       const error = new InspectError(
-        "INSPECT_UNAVAILABLE",
-        "Failed to capture screenshot.",
+        'INSPECT_UNAVAILABLE',
+        'Failed to capture screenshot.',
         { retryable: false }
       );
       this.recordError(error);
@@ -812,10 +831,13 @@ export class InspectService {
     try {
       const rootDir = await ensureArtifactRootDir(input.sessionId);
       const artifactId = randomUUID();
-      const extension = format === "jpeg" ? "jpg" : format;
-      const filePath = path.join(rootDir, `screenshot-${artifactId}.${extension}`);
-      await writeFile(filePath, Buffer.from(data, "base64"));
-      const mime = format === "jpeg" ? "image/jpeg" : `image/${format}`;
+      const extension = format === 'jpeg' ? 'jpg' : format;
+      const filePath = path.join(
+        rootDir,
+        `screenshot-${artifactId}.${extension}`
+      );
+      await writeFile(filePath, Buffer.from(data, 'base64'));
+      const mime = format === 'jpeg' ? 'image/jpeg' : `image/${format}`;
       const output = {
         artifact_id: artifactId,
         path: filePath,
@@ -825,8 +847,8 @@ export class InspectService {
       return output;
     } catch {
       const error = new InspectError(
-        "ARTIFACT_IO_ERROR",
-        "Failed to write screenshot file."
+        'ARTIFACT_IO_ERROR',
+        'Failed to write screenshot file.'
       );
       this.recordError(error);
       throw error;
@@ -847,8 +869,8 @@ export class InspectService {
   ): Promise<{ tabId: number; tab: DriveTabInfo; warnings?: string[] }> {
     if (!this.extensionBridge || !this.extensionBridge.isConnected()) {
       const error = new InspectError(
-        "EXTENSION_DISCONNECTED",
-        "Extension is not connected.",
+        'EXTENSION_DISCONNECTED',
+        'Extension is not connected.',
         { retryable: true }
       );
       this.recordError(error);
@@ -857,28 +879,36 @@ export class InspectService {
 
     const tabs = this.extensionBridge.getStatus().tabs ?? [];
     if (!Array.isArray(tabs) || tabs.length === 0) {
-      const error = new InspectError("TAB_NOT_FOUND", "No tabs available to inspect.");
+      const error = new InspectError(
+        'TAB_NOT_FOUND',
+        'No tabs available to inspect.'
+      );
       this.recordError(error);
       throw error;
     }
 
     const candidates = tabs.map((tab) => ({
       id: String(tab.tab_id),
-      url: tab.url ?? "",
+      url: tab.url ?? '',
       title: tab.title,
-      lastSeenAt: tab.last_active_at ? Date.parse(tab.last_active_at) : undefined,
+      lastSeenAt: tab.last_active_at
+        ? Date.parse(tab.last_active_at)
+        : undefined,
     }));
 
     const ranked = pickBestTarget(candidates, hint);
     if (!ranked) {
-      const error = new InspectError("TAB_NOT_FOUND", "No matching tab found.");
+      const error = new InspectError('TAB_NOT_FOUND', 'No matching tab found.');
       this.recordError(error);
       throw error;
     }
 
     const tabId = Number(ranked.candidate.id);
     if (!Number.isFinite(tabId)) {
-      const error = new InspectError("TAB_NOT_FOUND", "Resolved tab id is invalid.");
+      const error = new InspectError(
+        'TAB_NOT_FOUND',
+        'Resolved tab id is invalid.'
+      );
       this.recordError(error);
       throw error;
     }
@@ -886,9 +916,9 @@ export class InspectService {
     const tab = tabs.find((entry) => entry.tab_id === tabId) ?? tabs[0];
     const warnings: string[] = [];
     if (!hint) {
-      warnings.push("No target hint provided; using the most recent tab.");
+      warnings.push('No target hint provided; using the most recent tab.');
     } else if (ranked.score < 20) {
-      warnings.push("Weak target match; using best available tab.");
+      warnings.push('Weak target match; using best available tab.');
     }
 
     return {
@@ -899,16 +929,16 @@ export class InspectService {
   }
 
   private async enableConsole(tabId: number): Promise<void> {
-    await this.debuggerCommand(tabId, "Runtime.enable", {});
-    await this.debuggerCommand(tabId, "Log.enable", {});
+    await this.debuggerCommand(tabId, 'Runtime.enable', {});
+    await this.debuggerCommand(tabId, 'Log.enable', {});
   }
 
   private async enableNetwork(tabId: number): Promise<void> {
-    await this.debuggerCommand(tabId, "Network.enable", {});
+    await this.debuggerCommand(tabId, 'Network.enable', {});
   }
 
   private async enableAccessibility(tabId: number): Promise<void> {
-    await this.debuggerCommand(tabId, "Accessibility.enable", {});
+    await this.debuggerCommand(tabId, 'Accessibility.enable', {});
   }
 
   private recordSnapshot(sessionId: string, snapshot: DomSnapshotResult): void {
@@ -946,10 +976,10 @@ export class InspectService {
   private collectSnapshotEntries(
     snapshot: DomSnapshotResult
   ): Map<string, string> | null {
-    if (snapshot.format === "html" && typeof snapshot.snapshot === "string") {
+    if (snapshot.format === 'html' && typeof snapshot.snapshot === 'string') {
       return this.collectHtmlEntries(snapshot.snapshot);
     }
-    if (snapshot.format === "ax") {
+    if (snapshot.format === 'ax') {
       return this.collectAxEntries(snapshot.snapshot);
     }
     return null;
@@ -988,11 +1018,11 @@ export class InspectService {
     }
     const keepIds = new Set<string>();
     const filtered = nodes.filter((node) => {
-      if (!node || typeof node !== "object") {
+      if (!node || typeof node !== 'object') {
         return false;
       }
       const keep = predicate(node);
-      if (keep && typeof node.nodeId === "string") {
+      if (keep && typeof node.nodeId === 'string') {
         keepIds.add(node.nodeId);
       }
       return keep;
@@ -1005,14 +1035,11 @@ export class InspectService {
     return this.replaceAxNodes(snapshot, filtered);
   }
 
-  private replaceAxNodes(
-    snapshot: unknown,
-    nodes: AxNodeRecord[]
-  ): unknown {
+  private replaceAxNodes(snapshot: unknown, nodes: AxNodeRecord[]): unknown {
     if (Array.isArray(snapshot)) {
       return nodes;
     }
-    if (snapshot && typeof snapshot === "object") {
+    if (snapshot && typeof snapshot === 'object') {
       (snapshot as { nodes?: unknown[] }).nodes = nodes;
     }
     return snapshot;
@@ -1030,14 +1057,18 @@ export class InspectService {
     }
     const nodeById = new Map<string, AxNodeRecord>();
     nodes.forEach((node) => {
-      if (node && typeof node.nodeId === "string") {
+      if (node && typeof node.nodeId === 'string') {
         nodeById.set(node.nodeId, node);
       }
     });
 
     const keepIds = new Set<string>();
     for (const node of nodes) {
-      if (!node || typeof node !== "object" || typeof node.nodeId !== "string") {
+      if (
+        !node ||
+        typeof node !== 'object' ||
+        typeof node.nodeId !== 'string'
+      ) {
         continue;
       }
       if (this.shouldKeepCompactNode(node)) {
@@ -1047,13 +1078,11 @@ export class InspectService {
 
     const filtered = nodes.filter(
       (node) =>
-        node &&
-        typeof node.nodeId === "string" &&
-        keepIds.has(node.nodeId)
+        node && typeof node.nodeId === 'string' && keepIds.has(node.nodeId)
     );
 
     for (const node of filtered) {
-      if (!Array.isArray(node.childIds) || typeof node.nodeId !== "string") {
+      if (!Array.isArray(node.childIds) || typeof node.nodeId !== 'string') {
         continue;
       }
       const nextChildIds: string[] = [];
@@ -1108,7 +1137,8 @@ export class InspectService {
     if (hasName || hasValue) {
       return true;
     }
-    const hasChildren = Array.isArray(node.childIds) && node.childIds.length > 0;
+    const hasChildren =
+      Array.isArray(node.childIds) && node.childIds.length > 0;
     if (!role || DECORATIVE_AX_ROLES.has(role)) {
       return false;
     }
@@ -1117,14 +1147,14 @@ export class InspectService {
 
   private getAxRole(node: AxNodeRecord): string {
     const role =
-      typeof node.role === "string" ? node.role : node.role?.value ?? "";
-    return typeof role === "string" ? role.toLowerCase() : "";
+      typeof node.role === 'string' ? node.role : (node.role?.value ?? '');
+    return typeof role === 'string' ? role.toLowerCase() : '';
   }
 
   private getAxName(node: AxNodeRecord): string {
     const name =
-      typeof node.name === "string" ? node.name : node.name?.value ?? "";
-    return typeof name === "string" ? name : "";
+      typeof node.name === 'string' ? node.name : (node.name?.value ?? '');
+    return typeof name === 'string' ? name : '';
   }
 
   private hasAxValue(node: AxNodeRecord): boolean {
@@ -1132,14 +1162,14 @@ export class InspectService {
       return false;
     }
     for (const prop of node.properties) {
-      if (!prop || typeof prop !== "object") {
+      if (!prop || typeof prop !== 'object') {
         continue;
       }
       const value = (prop as { value?: { value?: unknown } }).value?.value;
       if (value === undefined || value === null) {
         continue;
       }
-      if (typeof value === "string" && value.trim().length === 0) {
+      if (typeof value === 'string' && value.trim().length === 0) {
         continue;
       }
       return true;
@@ -1165,16 +1195,16 @@ export class InspectService {
     const candidates = [this.getAxName(node)];
     if (Array.isArray(node.properties)) {
       for (const prop of node.properties) {
-        if (!prop || typeof prop !== "object") {
+        if (!prop || typeof prop !== 'object') {
           continue;
         }
         const value = (prop as { value?: { value?: unknown } }).value?.value;
         if (value === undefined || value === null) {
           continue;
         }
-        if (typeof value === "string") {
+        if (typeof value === 'string') {
           candidates.push(value);
-        } else if (typeof value === "number" || typeof value === "boolean") {
+        } else if (typeof value === 'number' || typeof value === 'boolean') {
           candidates.push(String(value));
         }
       }
@@ -1189,7 +1219,7 @@ export class InspectService {
     let index = 0;
     while ((match = tagPattern.exec(html)) && entries.size < 1000) {
       const tag = match[1].toLowerCase();
-      const attrs = match[2] ?? "";
+      const attrs = match[2] ?? '';
       const idMatch = /\bid=["']([^"']+)["']/.exec(attrs);
       const classMatch = /\bclass=["']([^"']+)["']/.exec(attrs);
       const id = idMatch?.[1];
@@ -1215,7 +1245,7 @@ export class InspectService {
       return entries;
     }
     nodes.forEach((node, index) => {
-      if (!node || typeof node !== "object") {
+      if (!node || typeof node !== 'object') {
         return;
       }
       const record = node as {
@@ -1225,11 +1255,13 @@ export class InspectService {
         name?: { value?: string } | string;
       };
       const role =
-        typeof record.role === "string"
+        typeof record.role === 'string'
           ? record.role
-          : record.role?.value ?? "node";
+          : (record.role?.value ?? 'node');
       const name =
-        typeof record.name === "string" ? record.name : record.name?.value ?? "";
+        typeof record.name === 'string'
+          ? record.name
+          : (record.name?.value ?? '');
       const nodeId =
         record.nodeId ??
         (record.backendDOMNodeId !== undefined
@@ -1246,14 +1278,14 @@ export class InspectService {
     const refs = new Map<number, string>();
     let index = 1;
     for (const node of nodes) {
-      if (!node || typeof node !== "object") {
+      if (!node || typeof node !== 'object') {
         continue;
       }
       if (node.ignored) {
         continue;
       }
       const backendId = node.backendDOMNodeId;
-      if (typeof backendId !== "number") {
+      if (typeof backendId !== 'number') {
         continue;
       }
       const ref = `@e${index}`;
@@ -1269,13 +1301,13 @@ export class InspectService {
     refs: Map<number, string>
   ): Promise<string[]> {
     const warnings: string[] = [];
-    await this.debuggerCommand(tabId, "DOM.enable", {});
-    await this.debuggerCommand(tabId, "Runtime.enable", {});
+    await this.debuggerCommand(tabId, 'DOM.enable', {});
+    await this.debuggerCommand(tabId, 'Runtime.enable', {});
 
     try {
       await this.clearSnapshotRefs(tabId);
     } catch {
-      warnings.push("Failed to clear prior snapshot refs.");
+      warnings.push('Failed to clear prior snapshot refs.');
     }
 
     if (refs.size === 0) {
@@ -1291,18 +1323,23 @@ export class InspectService {
         break;
       }
       try {
-        const described = await this.debuggerCommand(tabId, "DOM.describeNode", {
-          backendNodeId,
-        });
-        const node = (described as { node?: { nodeId?: number; nodeType?: number } })
-          .node;
-        if (!node || node.nodeType !== 1 || typeof node.nodeId !== "number") {
+        const described = await this.debuggerCommand(
+          tabId,
+          'DOM.describeNode',
+          {
+            backendNodeId,
+          }
+        );
+        const node = (
+          described as { node?: { nodeId?: number; nodeType?: number } }
+        ).node;
+        if (!node || node.nodeType !== 1 || typeof node.nodeId !== 'number') {
           if (warnings.length < MAX_REF_WARNINGS) {
             warnings.push(`Ref ${ref} could not be applied to a DOM element.`);
           }
           continue;
         }
-        await this.debuggerCommand(tabId, "DOM.setAttributeValue", {
+        await this.debuggerCommand(tabId, 'DOM.setAttributeValue', {
           nodeId: node.nodeId,
           name: SNAPSHOT_REF_ATTRIBUTE,
           value: ref,
@@ -1318,7 +1355,7 @@ export class InspectService {
   }
 
   private async clearSnapshotRefs(tabId: number): Promise<void> {
-    await this.debuggerCommand(tabId, "Runtime.evaluate", {
+    await this.debuggerCommand(tabId, 'Runtime.evaluate', {
       expression: `document.querySelectorAll('[${SNAPSHOT_REF_ATTRIBUTE}]').forEach((el) => el.removeAttribute('${SNAPSHOT_REF_ATTRIBUTE}'))`,
       returnByValue: true,
       awaitPromise: true,
@@ -1329,16 +1366,17 @@ export class InspectService {
     tabId: number,
     selector: string
   ): Promise<{ nodeId?: number; warnings?: string[] }> {
-    await this.debuggerCommand(tabId, "DOM.enable", {});
-    const document = await this.debuggerCommand(tabId, "DOM.getDocument", {
+    await this.debuggerCommand(tabId, 'DOM.enable', {});
+    const document = await this.debuggerCommand(tabId, 'DOM.getDocument', {
       depth: 1,
     });
-    const rootNodeId = (document as { root?: { nodeId?: number } }).root?.nodeId;
-    if (typeof rootNodeId !== "number") {
-      return { warnings: ["Failed to resolve DOM root for selector."] };
+    const rootNodeId = (document as { root?: { nodeId?: number } }).root
+      ?.nodeId;
+    if (typeof rootNodeId !== 'number') {
+      return { warnings: ['Failed to resolve DOM root for selector.'] };
     }
     try {
-      const result = await this.debuggerCommand(tabId, "DOM.querySelector", {
+      const result = await this.debuggerCommand(tabId, 'DOM.querySelector', {
         nodeId: rootNodeId,
         selector,
       });
@@ -1351,31 +1389,27 @@ export class InspectService {
       if (error instanceof InspectError) {
         return { warnings: [error.message] };
       }
-      return { warnings: ["Selector query failed."] };
+      return { warnings: ['Selector query failed.'] };
     }
   }
 
   private async captureHtml(tabId: number, selector?: string): Promise<string> {
-    await this.debuggerCommand(tabId, "Runtime.enable", {});
+    await this.debuggerCommand(tabId, 'Runtime.enable', {});
     const expression = selector
       ? `(() => { try { const el = document.querySelector(${JSON.stringify(
           selector
         )}); return el ? el.outerHTML : ""; } catch { return ""; } })()`
       : "document.documentElement ? document.documentElement.outerHTML : ''";
-    const result = await this.debuggerCommand(tabId, "Runtime.evaluate", {
+    const result = await this.debuggerCommand(tabId, 'Runtime.evaluate', {
       expression,
       returnByValue: true,
       awaitPromise: true,
     });
 
-    if (
-      result &&
-      typeof result === "object" &&
-      "exceptionDetails" in result
-    ) {
+    if (result && typeof result === 'object' && 'exceptionDetails' in result) {
       const error = new InspectError(
-        "EVALUATION_FAILED",
-        "Failed to evaluate HTML snapshot.",
+        'EVALUATION_FAILED',
+        'Failed to evaluate HTML snapshot.',
         { retryable: false }
       );
       this.recordError(error);
@@ -1383,7 +1417,7 @@ export class InspectService {
     }
 
     return String(
-      (result as { result?: { value?: unknown } })?.result?.value ?? ""
+      (result as { result?: { value?: unknown } })?.result?.value ?? ''
     );
   }
 
@@ -1410,22 +1444,22 @@ export class InspectService {
 
   private mapDebuggerError(error: DriveErrorInfo): InspectError {
     const allowed: InspectErrorCode[] = [
-      "INSPECT_UNAVAILABLE",
-      "EXTENSION_DISCONNECTED",
-      "DEBUGGER_IN_USE",
-      "ATTACH_DENIED",
-      "TAB_NOT_FOUND",
-      "NOT_SUPPORTED",
-      "TIMEOUT",
-      "EVALUATION_FAILED",
-      "ARTIFACT_IO_ERROR",
-      "INVALID_ARGUMENT",
-      "INTERNAL",
+      'INSPECT_UNAVAILABLE',
+      'EXTENSION_DISCONNECTED',
+      'DEBUGGER_IN_USE',
+      'ATTACH_DENIED',
+      'TAB_NOT_FOUND',
+      'NOT_SUPPORTED',
+      'TIMEOUT',
+      'EVALUATION_FAILED',
+      'ARTIFACT_IO_ERROR',
+      'INVALID_ARGUMENT',
+      'INTERNAL',
     ];
 
     const code = allowed.includes(error.code as InspectErrorCode)
       ? (error.code as InspectErrorCode)
-      : "INSPECT_UNAVAILABLE";
+      : 'INSPECT_UNAVAILABLE';
     return new InspectError(code, error.message, {
       retryable: error.retryable,
       details: error.details,
@@ -1435,37 +1469,41 @@ export class InspectService {
   private toConsoleEntry(event: DebuggerEventRecord): ConsoleEntry | null {
     const params = event.params ?? {};
     switch (event.method) {
-      case "Runtime.consoleAPICalled": {
+      case 'Runtime.consoleAPICalled': {
         const args = Array.isArray((params as { args?: unknown[] }).args)
           ? (params as { args: unknown[] }).args
           : [];
-        const text = args.map((arg) => this.stringifyRemoteObject(arg)).join(" ");
-        const level = String((params as { type?: string }).type ?? "log");
+        const text = args
+          .map((arg) => this.stringifyRemoteObject(arg))
+          .join(' ');
+        const level = String((params as { type?: string }).type ?? 'log');
         return {
           level,
           text,
           timestamp: event.timestamp,
         };
       }
-      case "Runtime.exceptionThrown": {
+      case 'Runtime.exceptionThrown': {
         const details = (params as { exceptionDetails?: { text?: string } })
           .exceptionDetails;
         return {
-          level: "error",
-          text: details?.text ?? "Uncaught exception",
+          level: 'error',
+          text: details?.text ?? 'Uncaught exception',
           timestamp: event.timestamp,
         };
       }
-      case "Log.entryAdded": {
-        const entry = (params as {
-          entry?: { level?: string; text?: string; timestamp?: number };
-        }).entry;
+      case 'Log.entryAdded': {
+        const entry = (
+          params as {
+            entry?: { level?: string; text?: string; timestamp?: number };
+          }
+        ).entry;
         if (!entry) {
           return null;
         }
         return {
-          level: entry.level ?? "log",
-          text: entry.text ?? "",
+          level: entry.level ?? 'log',
+          text: entry.text ?? '',
           timestamp: event.timestamp,
         };
       }
@@ -1475,8 +1513,8 @@ export class InspectService {
   }
 
   private stringifyRemoteObject(value: unknown): string {
-    if (!value || typeof value !== "object") {
-      return String(value ?? "");
+    if (!value || typeof value !== 'object') {
+      return String(value ?? '');
     }
     const obj = value as {
       value?: unknown;
@@ -1489,7 +1527,7 @@ export class InspectService {
     }
     if (obj.value !== undefined) {
       try {
-        return typeof obj.value === "string"
+        return typeof obj.value === 'string'
           ? obj.value
           : JSON.stringify(obj.value);
       } catch {
@@ -1499,7 +1537,7 @@ export class InspectService {
     if (obj.description) {
       return obj.description;
     }
-    return obj.type ?? "";
+    return obj.type ?? '';
   }
 
   private buildHar(events: DebuggerEventRecord[], title?: string): unknown {
@@ -1520,14 +1558,17 @@ export class InspectService {
 
     const requests = new Map<string, RequestRecord>();
 
-    const toTimestamp = (event: DebuggerEventRecord, fallback?: number): number => {
+    const toTimestamp = (
+      event: DebuggerEventRecord,
+      fallback?: number
+    ): number => {
       const raw = (event.params as { timestamp?: number; wallTime?: number })
         ?.wallTime;
-      if (typeof raw === "number") {
+      if (typeof raw === 'number') {
         return raw * 1000;
       }
       const ts = (event.params as { timestamp?: number })?.timestamp;
-      if (typeof ts === "number") {
+      if (typeof ts === 'number') {
         return ts * 1000;
       }
       const parsed = Date.parse(event.timestamp);
@@ -1540,12 +1581,22 @@ export class InspectService {
     for (const event of events) {
       const params = event.params ?? {};
       switch (event.method) {
-        case "Network.requestWillBeSent": {
-          const requestId = String((params as { requestId?: unknown }).requestId);
+        case 'Network.requestWillBeSent': {
+          const requestId = String(
+            (params as { requestId?: unknown }).requestId
+          );
           if (!requestId) {
             break;
           }
-          const request = (params as { request?: { url?: string; method?: string; headers?: Record<string, string> } }).request;
+          const request = (
+            params as {
+              request?: {
+                url?: string;
+                method?: string;
+                headers?: Record<string, string>;
+              };
+            }
+          ).request;
           const record: RequestRecord = {
             id: requestId,
             url: request?.url,
@@ -1556,20 +1607,24 @@ export class InspectService {
           requests.set(requestId, record);
           break;
         }
-        case "Network.responseReceived": {
-          const requestId = String((params as { requestId?: unknown }).requestId);
+        case 'Network.responseReceived': {
+          const requestId = String(
+            (params as { requestId?: unknown }).requestId
+          );
           if (!requestId) {
             break;
           }
-          const response = (params as {
-            response?: {
-              status?: number;
-              statusText?: string;
-              mimeType?: string;
-              headers?: Record<string, string>;
-              protocol?: string;
-            };
-          }).response;
+          const response = (
+            params as {
+              response?: {
+                status?: number;
+                statusText?: string;
+                mimeType?: string;
+                headers?: Record<string, string>;
+                protocol?: string;
+              };
+            }
+          ).response;
           const record = requests.get(requestId) ?? { id: requestId };
           record.status = response?.status;
           record.statusText = response?.statusText;
@@ -1580,20 +1635,25 @@ export class InspectService {
           requests.set(requestId, record);
           break;
         }
-        case "Network.loadingFinished": {
-          const requestId = String((params as { requestId?: unknown }).requestId);
+        case 'Network.loadingFinished': {
+          const requestId = String(
+            (params as { requestId?: unknown }).requestId
+          );
           if (!requestId) {
             break;
           }
           const record = requests.get(requestId) ?? { id: requestId };
-          record.encodedDataLength = (params as { encodedDataLength?: number })
-            .encodedDataLength;
+          record.encodedDataLength = (
+            params as { encodedDataLength?: number }
+          ).encodedDataLength;
           record.endTime = toTimestamp(event, record.startTime);
           requests.set(requestId, record);
           break;
         }
-        case "Network.loadingFailed": {
-          const requestId = String((params as { requestId?: unknown }).requestId);
+        case 'Network.loadingFailed': {
+          const requestId = String(
+            (params as { requestId?: unknown }).requestId
+          );
           if (!requestId) {
             break;
           }
@@ -1611,7 +1671,7 @@ export class InspectService {
       const started = record.startTime ?? Date.now();
       const ended = record.endTime ?? started;
       const time = Math.max(0, ended - started);
-      const url = record.url ?? "";
+      const url = record.url ?? '';
       const queryString: Array<{ name: string; value: string }> = [];
       try {
         const parsed = new URL(url);
@@ -1623,13 +1683,13 @@ export class InspectService {
       }
 
       return {
-        pageref: "page_0",
+        pageref: 'page_0',
         startedDateTime: new Date(started).toISOString(),
         time,
         request: {
-          method: record.method ?? "GET",
+          method: record.method ?? 'GET',
           url,
-          httpVersion: record.protocol ?? "HTTP/1.1",
+          httpVersion: record.protocol ?? 'HTTP/1.1',
           cookies: [],
           headers: [],
           queryString,
@@ -1638,16 +1698,16 @@ export class InspectService {
         },
         response: {
           status: record.status ?? 0,
-          statusText: record.statusText ?? "",
-          httpVersion: record.protocol ?? "HTTP/1.1",
+          statusText: record.statusText ?? '',
+          httpVersion: record.protocol ?? 'HTTP/1.1',
           cookies: [],
           headers: [],
-          redirectURL: "",
+          redirectURL: '',
           headersSize: -1,
           bodySize: record.encodedDataLength ?? 0,
           content: {
             size: record.encodedDataLength ?? 0,
-            mimeType: record.mimeType ?? "",
+            mimeType: record.mimeType ?? '',
           },
         },
         cache: {},
@@ -1665,15 +1725,15 @@ export class InspectService {
 
     return {
       log: {
-        version: "1.2",
+        version: '1.2',
         creator: {
-          name: "browser-vision",
-          version: "0.0.0",
+          name: 'browser-vision',
+          version: '0.0.0',
         },
         pages: [
           {
-            id: "page_0",
-            title: title ?? "page",
+            id: 'page_0',
+            title: title ?? 'page',
             startedDateTime,
             pageTimings: {
               onContentLoad: -1,
@@ -1693,9 +1753,9 @@ export class InspectService {
         session.state === SessionState.INIT ||
         session.state === SessionState.DRIVE_READY
       ) {
-        this.registry.apply(sessionId, "INSPECT_CONNECTED");
+        this.registry.apply(sessionId, 'INSPECT_CONNECTED');
       } else if (session.state === SessionState.DEGRADED_INSPECT) {
-        this.registry.apply(sessionId, "RECOVER_SUCCEEDED");
+        this.registry.apply(sessionId, 'RECOVER_SUCCEEDED');
       }
     } catch {
       // Ignore invalid transitions.
@@ -1709,8 +1769,8 @@ export class InspectService {
 
   private buildUnavailableError(): InspectError {
     return new InspectError(
-      "INSPECT_UNAVAILABLE",
-      "Inspect is not available until the debugger bridge is configured.",
+      'INSPECT_UNAVAILABLE',
+      'Inspect is not available until the debugger bridge is configured.',
       { retryable: false }
     );
   }
@@ -1726,17 +1786,21 @@ export class InspectService {
       return this.registry.require(sessionId);
     } catch (error) {
       if (error instanceof SessionError) {
-        const code = error.code === "SESSION_CLOSED" ? "SESSION_CLOSED" : "SESSION_NOT_FOUND";
+        const code =
+          error.code === 'SESSION_CLOSED'
+            ? 'SESSION_CLOSED'
+            : 'SESSION_NOT_FOUND';
         const wrapped = new InspectError(code, error.message);
         this.recordError(wrapped);
         throw wrapped;
       }
-      const wrapped = new InspectError("INTERNAL", "Failed to load session.");
+      const wrapped = new InspectError('INTERNAL', 'Failed to load session.');
       this.recordError(wrapped);
       throw wrapped;
     }
   }
 }
 
-export const createInspectService = (options: InspectServiceOptions): InspectService =>
-  new InspectService(options);
+export const createInspectService = (
+  options: InspectServiceOptions
+): InspectService => new InspectService(options);

@@ -16,7 +16,9 @@ export const LocatorSchema = z
   })
   .refine(
     (value) =>
-      Boolean(value.ref || value.testid || value.css || value.text || value.role),
+      Boolean(
+        value.ref || value.testid || value.css || value.text || value.role
+      ),
     {
       message: 'Locator must include at least one selector.',
     }
@@ -195,7 +197,7 @@ export const DriveHoverInputSchema = z.object({
   tab_id: z.number().finite().optional(),
 });
 export const DriveHoverOutputSchema = z.object({
-  format: z.literal("html"),
+  format: z.literal('html'),
   snapshot: z.string(),
 });
 
@@ -209,8 +211,8 @@ export const DriveSelectInputSchema = z
     tab_id: z.number().finite().optional(),
   })
   .refine((value) => value.value || value.text || value.index !== undefined, {
-    message: "Either value, text, or index must be provided.",
-    path: ["select"],
+    message: 'Either value, text, or index must be provided.',
+    path: ['select'],
   });
 export const DriveSelectOutputSchema = OpResultSchema;
 
@@ -230,13 +232,13 @@ export const DriveFillFormFieldSchema = z
     locator: LocatorSchema.optional(),
     value: z.union([z.string(), z.boolean()]),
     type: z
-      .enum(["auto", "text", "select", "checkbox", "radio", "contentEditable"])
-      .default("auto"),
+      .enum(['auto', 'text', 'select', 'checkbox', 'radio', 'contentEditable'])
+      .default('auto'),
     submit: z.boolean().default(false),
   })
   .refine((value) => Boolean(value.selector || value.locator), {
-    message: "fill_form field requires selector or locator.",
-    path: ["selector"],
+    message: 'fill_form field requires selector or locator.',
+    path: ['selector'],
   });
 
 export const DriveFillFormInputSchema = z.object({
@@ -261,7 +263,7 @@ export const DriveDragOutputSchema = OpResultSchema;
 
 export const DriveHandleDialogInputSchema = z.object({
   session_id: z.string().min(1),
-  action: z.enum(["accept", "dismiss"]),
+  action: z.enum(['accept', 'dismiss']),
   promptText: z.string().optional(),
   tab_id: z.number().finite().optional(),
 });
@@ -293,7 +295,7 @@ export const DriveKeyPressInputSchema = z.object({
 });
 export const DriveKeyPressOutputSchema = OpResultSchema;
 
-export const DriveKeyModifierSchema = z.enum(["ctrl", "alt", "shift", "meta"]);
+export const DriveKeyModifierSchema = z.enum(['ctrl', 'alt', 'shift', 'meta']);
 
 export const DriveKeyInputSchema = z.object({
   session_id: z.string().min(1),
@@ -427,25 +429,25 @@ export const InspectDomDiffInputSchema = SessionIdSchema;
 export const InspectDomDiffOutputSchema = DomDiffResultSchema;
 
 export const InspectFindRoleInputSchema = SessionIdSchema.extend({
-  kind: z.literal("role"),
+  kind: z.literal('role'),
   role: z.string().min(1),
   name: z.string().min(1).optional(),
   target: TargetHintSchema.optional(),
 });
 
 export const InspectFindTextInputSchema = SessionIdSchema.extend({
-  kind: z.literal("text"),
+  kind: z.literal('text'),
   text: z.string().min(1),
   target: TargetHintSchema.optional(),
 });
 
 export const InspectFindLabelInputSchema = SessionIdSchema.extend({
-  kind: z.literal("label"),
+  kind: z.literal('label'),
   label: z.string().min(1),
   target: TargetHintSchema.optional(),
 });
 
-export const InspectFindInputSchema = z.discriminatedUnion("kind", [
+export const InspectFindInputSchema = z.discriminatedUnion('kind', [
   InspectFindRoleInputSchema,
   InspectFindTextInputSchema,
   InspectFindLabelInputSchema,
@@ -468,13 +470,13 @@ export const InspectPageStateInputSchema = SessionIdSchema.extend({
 export const InspectPageStateOutputSchema = PageStateSchema;
 
 export const InspectExtractContentFormatSchema = z.enum([
-  "markdown",
-  "text",
-  "article_json",
+  'markdown',
+  'text',
+  'article_json',
 ]);
 
 export const InspectExtractContentInputSchema = SessionIdSchema.extend({
-  format: InspectExtractContentFormatSchema.default("markdown"),
+  format: InspectExtractContentFormatSchema.default('markdown'),
   include_metadata: z.boolean().default(true),
   target: TargetHintSchema.optional(),
 });

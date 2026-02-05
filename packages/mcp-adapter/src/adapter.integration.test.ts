@@ -1,13 +1,13 @@
-import { createServer } from "node:http";
-import type { AddressInfo } from "node:net";
-import { describe, expect, it } from "vitest";
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { createCoreClient } from "./core-client";
-import { MCP_TOOL_FIXTURES } from "./tool-fixtures";
-import { registerBrowserVisionTools } from "./tools";
+import { createServer } from 'node:http';
+import type { AddressInfo } from 'node:net';
+import { describe, expect, it } from 'vitest';
+import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { createCoreClient } from './core-client';
+import { MCP_TOOL_FIXTURES } from './tool-fixtures';
+import { registerBrowserVisionTools } from './tools';
 
-describe("mcp-adapter integration", () => {
-  it("routes tool calls through the core client", async () => {
+describe('mcp-adapter integration', () => {
+  it('routes tool calls through the core client', async () => {
     const fixturesByPath = new Map(
       MCP_TOOL_FIXTURES.map((fixture) => [fixture.corePath, fixture])
     );
@@ -15,21 +15,21 @@ describe("mcp-adapter integration", () => {
 
     const server = createServer((req, res) => {
       const chunks: Buffer[] = [];
-      req.on("data", (chunk) => chunks.push(chunk));
-      req.on("end", () => {
-        const raw = Buffer.concat(chunks).toString("utf8");
+      req.on('data', (chunk) => chunks.push(chunk));
+      req.on('end', () => {
+        const raw = Buffer.concat(chunks).toString('utf8');
         const body = raw.length > 0 ? JSON.parse(raw) : undefined;
-        const url = new URL(req.url ?? "/", `http://${req.headers.host}`);
+        const url = new URL(req.url ?? '/', `http://${req.headers.host}`);
         const fixture = fixturesByPath.get(url.pathname);
 
         if (!fixture) {
           res.statusCode = 404;
-          res.setHeader("content-type", "application/json");
+          res.setHeader('content-type', 'application/json');
           res.end(
             JSON.stringify({
               ok: false,
               error: {
-                code: "NOT_FOUND",
+                code: 'NOT_FOUND',
                 message: `No fixture for ${url.pathname}`,
                 retryable: false,
               },
@@ -40,7 +40,7 @@ describe("mcp-adapter integration", () => {
 
         requests.set(url.pathname, body);
         res.statusCode = 200;
-        res.setHeader("content-type", "application/json");
+        res.setHeader('content-type', 'application/json');
         res.end(JSON.stringify(fixture.successEnvelope));
       });
     });
@@ -49,14 +49,17 @@ describe("mcp-adapter integration", () => {
     const port = (server.address() as AddressInfo).port;
 
     try {
-      const client = createCoreClient({ host: "127.0.0.1", port });
+      const client = createCoreClient({ host: '127.0.0.1', port });
       const handlers = new Map<
         string,
         (args: unknown, extra?: unknown) => Promise<unknown>
       >();
-      const toolServer: Pick<McpServer, "registerTool"> = {
+      const toolServer: Pick<McpServer, 'registerTool'> = {
         registerTool: (name, _config, handler) => {
-          handlers.set(name, handler as (args: unknown, extra?: unknown) => Promise<unknown>);
+          handlers.set(
+            name,
+            handler as (args: unknown, extra?: unknown) => Promise<unknown>
+          );
           return {} as never;
         },
       };

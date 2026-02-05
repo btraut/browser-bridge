@@ -58,13 +58,13 @@ export const runDriveAction = async (
     let current: HTMLElement | null = element;
     while (current) {
       const style = window.getComputedStyle(current);
-      if (style.display === "none") {
+      if (style.display === 'none') {
         return false;
       }
-      if (style.visibility === "hidden" || style.visibility === "collapse") {
+      if (style.visibility === 'hidden' || style.visibility === 'collapse') {
         return false;
       }
-      const opacity = Number.parseFloat(style.opacity ?? "1");
+      const opacity = Number.parseFloat(style.opacity ?? '1');
       if (Number.isFinite(opacity) && opacity <= 0) {
         return false;
       }
@@ -84,7 +84,7 @@ export const runDriveAction = async (
       return {
         ok: false,
         error: buildError(
-          "INVALID_ARGUMENT",
+          'INVALID_ARGUMENT',
           `url_matches pattern exceeds ${maxLength} characters.`
         ),
       };
@@ -96,8 +96,8 @@ export const runDriveAction = async (
       return {
         ok: false,
         error: buildError(
-          "INVALID_ARGUMENT",
-          "url_matches pattern rejected due to unsafe regex complexity."
+          'INVALID_ARGUMENT',
+          'url_matches pattern rejected due to unsafe regex complexity.'
         ),
       };
     }
@@ -192,22 +192,19 @@ export const runDriveAction = async (
   };
 
   const coerceBoolean = (value: string | boolean): boolean => {
-    if (typeof value === "boolean") {
+    if (typeof value === 'boolean') {
       return value;
     }
     const normalized = value.trim().toLowerCase();
-    return ["true", "1", "yes", "y", "on", "checked"].includes(normalized);
+    return ['true', '1', 'yes', 'y', 'on', 'checked'].includes(normalized);
   };
 
   const dispatchValueEvents = (element: HTMLElement): void => {
-    element.dispatchEvent(new Event("input", { bubbles: true }));
-    element.dispatchEvent(new Event("change", { bubbles: true }));
+    element.dispatchEvent(new Event('input', { bubbles: true }));
+    element.dispatchEvent(new Event('change', { bubbles: true }));
   };
 
-  const selectOption = (
-    select: HTMLSelectElement,
-    value: string
-  ): boolean => {
+  const selectOption = (select: HTMLSelectElement, value: string): boolean => {
     const option = Array.from(select.options).find(
       (entry) => entry.value === value || entry.text === value
     );
@@ -240,10 +237,10 @@ export const runDriveAction = async (
     clear: boolean
   ): boolean => {
     const tag = element.tagName.toLowerCase();
-    if (tag === "input" || tag === "textarea") {
+    if (tag === 'input' || tag === 'textarea') {
       const input = element as HTMLInputElement | HTMLTextAreaElement;
       if (clear) {
-        input.value = "";
+        input.value = '';
       }
       input.value = `${input.value}${value}`;
       dispatchValueEvents(input);
@@ -251,9 +248,9 @@ export const runDriveAction = async (
     }
     if (element.isContentEditable) {
       if (clear) {
-        element.textContent = "";
+        element.textContent = '';
       }
-      element.textContent = `${element.textContent ?? ""}${value}`;
+      element.textContent = `${element.textContent ?? ''}${value}`;
       dispatchValueEvents(element);
       return true;
     }
@@ -262,36 +259,36 @@ export const runDriveAction = async (
 
   const detectFieldType = (
     element: Element
-  ): "text" | "select" | "checkbox" | "radio" | "contentEditable" => {
+  ): 'text' | 'select' | 'checkbox' | 'radio' | 'contentEditable' => {
     if (element instanceof HTMLSelectElement) {
-      return "select";
+      return 'select';
     }
     if (element instanceof HTMLInputElement) {
       const type = element.type.toLowerCase();
-      if (type === "checkbox") {
-        return "checkbox";
+      if (type === 'checkbox') {
+        return 'checkbox';
       }
-      if (type === "radio") {
-        return "radio";
+      if (type === 'radio') {
+        return 'radio';
       }
-      return "text";
+      return 'text';
     }
     if (element instanceof HTMLTextAreaElement) {
-      return "text";
+      return 'text';
     }
     if (element instanceof HTMLElement && element.isContentEditable) {
-      return "contentEditable";
+      return 'contentEditable';
     }
-    return "text";
+    return 'text';
   };
 
   const submitIfRequested = (element: Element): void => {
-    const form = element.closest("form");
+    const form = element.closest('form');
     if (form && form instanceof HTMLFormElement) {
       form.requestSubmit();
     } else if (element instanceof HTMLElement) {
       element.dispatchEvent(
-        new KeyboardEvent("keydown", { key: "Enter", bubbles: true })
+        new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })
       );
     }
   };
@@ -334,28 +331,30 @@ export const runDriveAction = async (
         })
       );
     } catch {
-      element.dispatchEvent(new Event(type, { bubbles: true, cancelable: true }));
+      element.dispatchEvent(
+        new Event(type, { bubbles: true, cancelable: true })
+      );
     }
   };
 
   const keyToCode = (key: string): string => {
     const map: Record<string, string> = {
-      Enter: "Enter",
-      Tab: "Tab",
-      Escape: "Escape",
-      Esc: "Escape",
-      Backspace: "Backspace",
-      Delete: "Delete",
-      ArrowUp: "ArrowUp",
-      ArrowDown: "ArrowDown",
-      ArrowLeft: "ArrowLeft",
-      ArrowRight: "ArrowRight",
-      Home: "Home",
-      End: "End",
-      PageUp: "PageUp",
-      PageDown: "PageDown",
-      " ": "Space",
-      Space: "Space",
+      Enter: 'Enter',
+      Tab: 'Tab',
+      Escape: 'Escape',
+      Esc: 'Escape',
+      Backspace: 'Backspace',
+      Delete: 'Delete',
+      ArrowUp: 'ArrowUp',
+      ArrowDown: 'ArrowDown',
+      ArrowLeft: 'ArrowLeft',
+      ArrowRight: 'ArrowRight',
+      Home: 'Home',
+      End: 'End',
+      PageUp: 'PageUp',
+      PageDown: 'PageDown',
+      ' ': 'Space',
+      Space: 'Space',
     };
     if (map[key]) {
       return map[key];
@@ -377,23 +376,23 @@ export const runDriveAction = async (
     const state = { ctrl: false, alt: false, shift: false, meta: false };
     if (Array.isArray(modifiers)) {
       modifiers.forEach((modifier) => {
-        if (typeof modifier !== "string") {
+        if (typeof modifier !== 'string') {
           return;
         }
         const normalized = modifier.toLowerCase();
-        if (normalized === "ctrl") {
+        if (normalized === 'ctrl') {
           state.ctrl = true;
-        } else if (normalized === "alt") {
+        } else if (normalized === 'alt') {
           state.alt = true;
-        } else if (normalized === "shift") {
+        } else if (normalized === 'shift') {
           state.shift = true;
-        } else if (normalized === "meta") {
+        } else if (normalized === 'meta') {
           state.meta = true;
         }
       });
       return state;
     }
-    if (modifiers && typeof modifiers === "object") {
+    if (modifiers && typeof modifiers === 'object') {
       const record = modifiers as Record<string, unknown>;
       state.ctrl = Boolean(record.ctrl);
       state.alt = Boolean(record.alt);
@@ -817,7 +816,7 @@ export const runDriveAction = async (
             : 30000;
         const start = Date.now();
         const urlMatcher =
-          kind === "url_matches" ? buildUrlMatcher(value) : null;
+          kind === 'url_matches' ? buildUrlMatcher(value) : null;
         if (urlMatcher && !urlMatcher.ok) {
           return urlMatcher.error;
         }
@@ -866,38 +865,43 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
 if (typeof chrome !== 'undefined' && chrome.runtime?.onMessage) {
-  chrome.runtime.onMessage.addListener((
-    message: Record<string, unknown>,
-    _sender: unknown,
-    sendResponse: (response: ContentResult) => void
-  ) => {
-    if (!isRecord(message) || typeof message.action !== 'string') {
-      sendResponse({
-        ok: false,
-        error: {
-          code: 'INVALID_ARGUMENT',
-          message: 'Invalid content script request.',
-          retryable: false,
-        },
-      });
-      return;
-    }
-
-    void runDriveAction(message.action, message.params as Record<string, unknown>)
-      .then(sendResponse)
-      .catch((error) => {
-        const messageText =
-          error instanceof Error ? error.message : 'Unknown error';
+  chrome.runtime.onMessage.addListener(
+    (
+      message: Record<string, unknown>,
+      _sender: unknown,
+      sendResponse: (response: ContentResult) => void
+    ) => {
+      if (!isRecord(message) || typeof message.action !== 'string') {
         sendResponse({
           ok: false,
           error: {
-            code: 'EVALUATION_FAILED',
-            message: messageText,
+            code: 'INVALID_ARGUMENT',
+            message: 'Invalid content script request.',
             retryable: false,
           },
         });
-      });
+        return;
+      }
 
-    return true;
-  });
+      void runDriveAction(
+        message.action,
+        message.params as Record<string, unknown>
+      )
+        .then(sendResponse)
+        .catch((error) => {
+          const messageText =
+            error instanceof Error ? error.message : 'Unknown error';
+          sendResponse({
+            ok: false,
+            error: {
+              code: 'EVALUATION_FAILED',
+              message: messageText,
+              retryable: false,
+            },
+          });
+        });
+
+      return true;
+    }
+  );
 }

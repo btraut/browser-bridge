@@ -4,6 +4,7 @@ This smoke flow validates the MCP adapter against a running Core + Chrome extens
 It is **not** part of CI because it requires a live browser environment.
 
 ## Prerequisites
+
 1. Install dependencies: `npm install`.
 2. Build the workspace: `npm run build`.
 3. Load the extension from `packages/extension` in `chrome://extensions`.
@@ -11,6 +12,7 @@ It is **not** part of CI because it requires a live browser environment.
 5. Ensure DevTools is closed on the target tab (the debugger cannot attach while DevTools is open).
 
 ## Run
+
 1. Start the Core daemon:
    `npm run start`
 2. Start the MCP adapter (stdio transport):
@@ -25,6 +27,7 @@ It is **not** part of CI because it requires a live browser environment.
    - `diagnostics.doctor`
 
 ## Expected Results
+
 - Each call returns a valid MCP success envelope.
 - `drive.tab_list` returns one or more tabs.
 - `inspect.dom_snapshot` returns a snapshot payload.
@@ -32,5 +35,6 @@ It is **not** part of CI because it requires a live browser environment.
 - `diagnostics.doctor` reports extension + debugger status.
 
 ## Notes
+
 - If Core runs on a non-default host/port, set `BROWSER_VISION_CORE_HOST` and
   `BROWSER_VISION_CORE_PORT` before starting the adapter.

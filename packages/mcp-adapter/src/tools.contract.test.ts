@@ -1,31 +1,31 @@
-import { describe, expect, it } from "vitest";
-import { z } from "zod";
-import { MCP_TOOL_COVERAGE_MATRIX, MCP_TOOL_FIXTURES } from "./tool-fixtures";
-import { TOOL_DEFINITIONS } from "./tools";
+import { describe, expect, it } from 'vitest';
+import { z } from 'zod';
+import { MCP_TOOL_COVERAGE_MATRIX, MCP_TOOL_FIXTURES } from './tool-fixtures';
+import { TOOL_DEFINITIONS } from './tools';
 
 type SchemaLike = {
   safeParse?: (value: unknown) => { success: boolean; error?: unknown };
 };
 
 const parseWithSchema = (schema: unknown, value: unknown) => {
-  if (schema && typeof (schema as SchemaLike).safeParse === "function") {
+  if (schema && typeof (schema as SchemaLike).safeParse === 'function') {
     return (schema as SchemaLike).safeParse?.(value);
   }
 
-  if (schema && typeof schema === "object") {
+  if (schema && typeof schema === 'object') {
     return z.object(schema as z.ZodRawShape).safeParse(value);
   }
 
   return { success: false } as const;
 };
 
-describe("mcp-adapter tool definitions (contract)", () => {
-  it("uses unique tool names", () => {
+describe('mcp-adapter tool definitions (contract)', () => {
+  it('uses unique tool names', () => {
     const names = TOOL_DEFINITIONS.map((tool) => tool.name);
     expect(new Set(names).size).toBe(names.length);
   });
 
-  it("has fixture + coverage entries for every tool", () => {
+  it('has fixture + coverage entries for every tool', () => {
     const fixtureNames = MCP_TOOL_FIXTURES.map((fixture) => fixture.name);
     const coverageNames = MCP_TOOL_COVERAGE_MATRIX.map((row) => row.name);
 
@@ -34,7 +34,7 @@ describe("mcp-adapter tool definitions (contract)", () => {
     expect(coverageNames).toEqual(toolNames);
   });
 
-  it("keeps fixtures aligned with tool schemas", () => {
+  it('keeps fixtures aligned with tool schemas', () => {
     const fixturesByName = new Map(
       MCP_TOOL_FIXTURES.map((fixture) => [fixture.name, fixture])
     );
@@ -50,7 +50,10 @@ describe("mcp-adapter tool definitions (contract)", () => {
       expect(tool.config.description.length).toBeGreaterThan(0);
       expect(fixture.corePath).toBe(tool.config.corePath);
 
-      const inputResult = parseWithSchema(tool.config.inputSchema, fixture.input);
+      const inputResult = parseWithSchema(
+        tool.config.inputSchema,
+        fixture.input
+      );
       expect(inputResult?.success).toBe(true);
 
       const outputResult = parseWithSchema(
@@ -61,7 +64,7 @@ describe("mcp-adapter tool definitions (contract)", () => {
     }
   });
 
-  it("tracks expected coverage levels", () => {
+  it('tracks expected coverage levels', () => {
     const coverageByName = new Map(
       MCP_TOOL_COVERAGE_MATRIX.map((row) => [row.name, row])
     );
@@ -73,11 +76,11 @@ describe("mcp-adapter tool definitions (contract)", () => {
         continue;
       }
 
-      expect(coverage.fixture).toBe("covered");
-      expect(coverage.contract).toBe("covered");
-      expect(coverage.wiring).toBe("covered");
-      expect(coverage.integration).toBe("covered");
-      expect(coverage.e2e).toBe("optional");
+      expect(coverage.fixture).toBe('covered');
+      expect(coverage.contract).toBe('covered');
+      expect(coverage.wiring).toBe('covered');
+      expect(coverage.integration).toBe('covered');
+      expect(coverage.e2e).toBe('optional');
     }
   });
 });

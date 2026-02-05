@@ -90,25 +90,25 @@ describe('shared schemas', () => {
     ).toBe(9);
     expect(
       DriveGoBackInputSchema.parse({
-        session_id: "session-1",
+        session_id: 'session-1',
         tab_id: 4,
       }).tab_id
     ).toBe(4);
     expect(
       DriveGoForwardInputSchema.parse({
-        session_id: "session-1",
+        session_id: 'session-1',
         tab_id: 8,
       }).tab_id
     ).toBe(8);
     expect(
       DriveBackInputSchema.parse({
-        session_id: "session-1",
+        session_id: 'session-1',
         tab_id: 6,
       }).tab_id
     ).toBe(6);
     expect(
       DriveForwardInputSchema.parse({
-        session_id: "session-1",
+        session_id: 'session-1',
         tab_id: 7,
       }).tab_id
     ).toBe(7);
@@ -246,6 +246,9 @@ describe('shared schemas', () => {
       name: 'Submit',
     });
     expect(parsed.kind).toBe('role');
+    if (parsed.kind !== 'role') {
+      throw new Error('Expected role kind');
+    }
     expect(parsed.role).toBe('button');
   });
 
