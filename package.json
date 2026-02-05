@@ -11,7 +11,7 @@
     "build": "tsc -b",
     "lint": "eslint . --max-warnings=0",
     "lint:fix": "eslint . --max-warnings=0 --fix",
-    "typecheck": "tsc -b --pretty false",
+    "typecheck": "tsc -b --pretty false --force",
     "format": "prettier --cache --write .",
     "format:check": "prettier --cache --check .",
     "test": "vitest run"
