@@ -243,6 +243,7 @@ export class InspectService {
     consistency: "best_effort" | "quiesce";
     interactive?: boolean;
     compact?: boolean;
+    selector?: string;
     targetHint?: TargetHint;
   }): Promise<DomSnapshotResult> {
     this.requireSession(input.sessionId);
@@ -250,13 +251,16 @@ export class InspectService {
 
     const work = async (): Promise<DomSnapshotResult> => {
       if (input.format === "html") {
-        const html = await this.captureHtml(selection.tabId);
+        const html = await this.captureHtml(selection.tabId, input.selector);
         const warnings = [...(selection.warnings ?? [])];
         if (input.interactive) {
           warnings.push("Interactive filter is only supported for AX snapshots.");
         }
         if (input.compact) {
           warnings.push("Compact filter is only supported for AX snapshots.");
+        }
+        if (input.selector && html === "") {
+          warnings.push(`Selector not found: ${input.selector}`);
         }
         return {
           format: "html",
@@ -267,11 +271,47 @@ export class InspectService {
 
       try {
         await this.enableAccessibility(selection.tabId);
-        const result = await this.debuggerCommand(
-          selection.tabId,
-          "Accessibility.getFullAXTree",
-          {}
-        );
+        const selectorWarnings: string[] = [];
+        let result: unknown;
+        if (input.selector) {
+          const resolved = await this.resolveNodeIdForSelector(
+            selection.tabId,
+            input.selector
+          );
+          selectorWarnings.push(...(resolved.warnings ?? []));
+          if (!resolved.nodeId) {
+            let refWarnings: string[] = [];
+            try {
+              refWarnings = await this.applySnapshotRefs(
+                selection.tabId,
+                new Map()
+              );
+            } catch {
+              refWarnings = ["Failed to clear prior snapshot refs."];
+            }
+            const warnings = [
+              ...(selection.warnings ?? []),
+              ...selectorWarnings,
+              ...refWarnings,
+            ];
+            return {
+              format: "ax",
+              snapshot: { nodes: [] },
+              ...(warnings.length > 0 ? { warnings } : {}),
+            };
+          }
+          result = await this.debuggerCommand(
+            selection.tabId,
+            "Accessibility.getPartialAXTree",
+            { nodeId: resolved.nodeId }
+          );
+        } else {
+          result = await this.debuggerCommand(
+            selection.tabId,
+            "Accessibility.getFullAXTree",
+            {}
+          );
+        }
         const snapshot =
           input.interactive || input.compact
             ? this.applyAxSnapshotFilters(result, {
@@ -286,6 +326,7 @@ export class InspectService {
         );
         const warnings = [
           ...(selection.warnings ?? []),
+          ...selectorWarnings,
           ...(refWarnings ?? []),
         ];
         return {
@@ -303,7 +344,7 @@ export class InspectService {
           if (!fallbackCodes.includes(error.code)) {
             throw error;
           }
-          const html = await this.captureHtml(selection.tabId);
+          const html = await this.captureHtml(selection.tabId, input.selector);
           const warnings = [
             ...(selection.warnings ?? []),
             "AX snapshot failed; returned HTML instead.",
@@ -312,6 +353,9 @@ export class InspectService {
               : []),
             ...(input.compact
               ? ["Compact filter is only supported for AX snapshots."]
+              : []),
+            ...(input.selector && html === ""
+              ? [`Selector not found: ${input.selector}`]
               : []),
           ];
           return {
@@ -1100,10 +1144,6 @@ export class InspectService {
     refs: Map<number, string>
   ): Promise<string[]> {
     const warnings: string[] = [];
-    if (refs.size === 0) {
-      return warnings;
-    }
-
     await this.debuggerCommand(tabId, "DOM.enable", {});
     await this.debuggerCommand(tabId, "Runtime.enable", {});
 
@@ -1111,6 +1151,10 @@ export class InspectService {
       await this.clearSnapshotRefs(tabId);
     } catch {
       warnings.push("Failed to clear prior snapshot refs.");
+    }
+
+    if (refs.size === 0) {
+      return warnings;
     }
 
     let applied = 0;
@@ -1156,11 +1200,45 @@ export class InspectService {
     });
   }
 
-  private async captureHtml(tabId: number): Promise<string> {
+  private async resolveNodeIdForSelector(
+    tabId: number,
+    selector: string
+  ): Promise<{ nodeId?: number; warnings?: string[] }> {
+    await this.debuggerCommand(tabId, "DOM.enable", {});
+    const document = await this.debuggerCommand(tabId, "DOM.getDocument", {
+      depth: 1,
+    });
+    const rootNodeId = (document as { root?: { nodeId?: number } }).root?.nodeId;
+    if (typeof rootNodeId !== "number") {
+      return { warnings: ["Failed to resolve DOM root for selector."] };
+    }
+    try {
+      const result = await this.debuggerCommand(tabId, "DOM.querySelector", {
+        nodeId: rootNodeId,
+        selector,
+      });
+      const nodeId = (result as { nodeId?: number }).nodeId;
+      if (!nodeId) {
+        return { warnings: [`Selector not found: ${selector}`] };
+      }
+      return { nodeId };
+    } catch (error) {
+      if (error instanceof InspectError) {
+        return { warnings: [error.message] };
+      }
+      return { warnings: ["Selector query failed."] };
+    }
+  }
+
+  private async captureHtml(tabId: number, selector?: string): Promise<string> {
     await this.debuggerCommand(tabId, "Runtime.enable", {});
+    const expression = selector
+      ? `(() => { try { const el = document.querySelector(${JSON.stringify(
+          selector
+        )}); return el ? el.outerHTML : ""; } catch { return ""; } })()`
+      : "document.documentElement ? document.documentElement.outerHTML : ''";
     const result = await this.debuggerCommand(tabId, "Runtime.evaluate", {
-      expression:
-        "document.documentElement ? document.documentElement.outerHTML : ''",
+      expression,
       returnByValue: true,
       awaitPromise: true,
     });

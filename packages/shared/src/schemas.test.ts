@@ -211,6 +211,14 @@ describe('shared schemas', () => {
     expect(parsed.compact).toBe(false);
   });
 
+  it('parses dom snapshot selector', () => {
+    const parsed = InspectDomSnapshotInputSchema.parse({
+      session_id: 'session-1',
+      selector: '#main-content',
+    });
+    expect(parsed.selector).toBe('#main-content');
+  });
+
   it('parses dom diff schemas', () => {
     const input = InspectDomDiffInputSchema.parse({ session_id: 'session-1' });
     expect(input.session_id).toBe('session-1');

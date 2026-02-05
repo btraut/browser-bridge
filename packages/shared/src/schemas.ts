@@ -400,6 +400,7 @@ export const InspectDomSnapshotInputSchema = z.object({
   consistency: InspectConsistencySchema.default('best_effort'),
   interactive: z.boolean().default(false),
   compact: z.boolean().default(false),
+  selector: z.string().min(1).optional(),
   target: TargetHintSchema.optional(),
 });
 export const InspectDomSnapshotOutputSchema = DomSnapshotSchema;
