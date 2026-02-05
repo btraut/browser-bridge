@@ -493,12 +493,45 @@ export const InspectExtractContentOutputSchema = z.object({
 export const InspectConsoleListInputSchema = SessionIdSchema.extend({
   target: TargetHintSchema.optional(),
 });
-// Console output shape is not specified yet; allow passthrough fields.
+// Console output may expand over time; include a stable core + allow passthrough.
+export const ConsoleSourceLocationSchema = z
+  .object({
+    url: z.string().optional(),
+    // 1-based line/column for human readability.
+    line: z.number().int().positive().optional(),
+    column: z.number().int().positive().optional(),
+  })
+  .passthrough();
+
+export const ConsoleStackFrameSchema = z
+  .object({
+    functionName: z.string().optional(),
+    url: z.string().optional(),
+    // 1-based line/column for human readability.
+    line: z.number().int().positive().optional(),
+    column: z.number().int().positive().optional(),
+  })
+  .passthrough();
+
+export const ConsoleRemoteObjectSchema = z
+  .object({
+    type: z.string().optional(),
+    subtype: z.string().optional(),
+    description: z.string().optional(),
+    value: z.unknown().optional(),
+    unserializableValue: z.string().optional(),
+  })
+  .passthrough();
+
 export const ConsoleEntrySchema = z
   .object({
     level: z.string().optional(),
     text: z.string().optional(),
     timestamp: z.string().datetime().optional(),
+    source: ConsoleSourceLocationSchema.optional(),
+    stack: z.array(ConsoleStackFrameSchema).optional(),
+    exception: ConsoleRemoteObjectSchema.optional(),
+    args: z.array(ConsoleRemoteObjectSchema).optional(),
   })
   .passthrough();
 export const ConsoleListSchema = z
