@@ -2,7 +2,7 @@ import { Command } from 'commander';
 import {
   DialogAcceptInputSchema,
   DialogDismissInputSchema,
-} from '@browser-vision/shared';
+} from '@btraut/browser-bridge-shared';
 import { parseInput } from '../cli-output';
 import { runCommand } from '../cli-runtime';
 

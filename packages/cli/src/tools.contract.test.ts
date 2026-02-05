@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MCP_TOOL_DEFINITIONS } from '@browser-vision/shared';
+import { MCP_TOOL_DEFINITIONS } from '@btraut/browser-bridge-shared';
 import { CLI_TOOL_COVERAGE_MATRIX, CLI_TOOL_FIXTURES } from './tool-fixtures';
 
 describe('cli tool fixtures (contract)', () => {

@@ -1,11 +1,11 @@
 import { Command } from 'commander';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { registerOpenArtifactsCommand } from './open-artifacts';
-import { ensureArtifactRootDir } from '@browser-vision/core';
+import { ensureArtifactRootDir } from '@btraut/browser-bridge-core';
 import { openPath } from '../open-path';
 import { runLocal } from '../cli-runtime';
 
-vi.mock('@browser-vision/core', () => ({
+vi.mock('@btraut/browser-bridge-core', () => ({
   ensureArtifactRootDir: vi.fn(),
 }));
 

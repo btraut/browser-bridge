@@ -1,91 +1,108 @@
 # Browser Bridge
 
-Hybrid Browser Control MCP (Drive + Inspect) for a local developer feedback loop. The system controls a real Chrome instance for reliable drive actions and provides read-only inspection via the extension debugger bridge.
+Local Chrome control for coding agents. Browser Bridge provides a CLI and an
+optional MCP server that drive a real Chrome instance and read page state
+through a Chrome extension.
 
 ## Requirements
 
 - Node.js 20+
 - Chrome (stable)
+- Browser Bridge extension (Chrome Web Store; listing coming soon)
 - Local-only usage (all services bind to 127.0.0.1)
 
 ## Install
 
-- Global install: `npm i -g @btraut/browser-bridge`
-- Verify: `browser-bridge --help`
-- This package bundles the Core server, MCP adapter, and extension assets.
+```bash
+npm i -g @btraut/browser-bridge
+browser-bridge --help
+```
+
+## Quickstart
+
+1. Install the Chrome Web Store extension (listing coming soon).
+2. Install the Browser Bridge skill (see below).
+3. (Optional) Add Browser Bridge to your MCP client (Codex or Claude Code below).
+4. Run a quick CLI check:
+
+```bash
+browser-bridge session create
+# Use the session_id from the output for the next commands.
+browser-bridge drive navigate --session-id <id> --url https://example.com
+browser-bridge inspect dom-snapshot --session-id <id>
+browser-bridge session close --session-id <id>
+```
+
+## Skills (Codex + Claude Code)
+
+Copy the Browser Bridge skill into your agent skills directory:
+
+```bash
+cp -R docs/skills/browser-bridge ~/.agents/skills/browser-bridge
+cp -R docs/skills/browser-bridge ~/.claude/skills/browser-bridge
+```
+
+Restart your agent app if it does not pick up the new skill automatically.
+
+## MCP Server (Optional)
+
+The MCP server runs over stdio and forwards tool calls to Core. It is optional,
+since you can use the CLI directly. MCP clients launch it automatically when
+needed, so you typically do not run it yourself.
+
+- Manual start (debugging): `browser-bridge mcp`
+- Use your MCP client to call `tools/list`, then `session.create`
+- Override Core host/port with `--host`, `--port`, or `BROWSER_BRIDGE_CORE_HOST` /
+  `BROWSER_BRIDGE_CORE_PORT`.
+
+## Add MCP (Codex CLI)
+
+```bash
+codex mcp add browser-bridge -- browser-bridge mcp
+```
+
+Optional custom host/port:
+
+```bash
+codex mcp add browser-bridge \
+  --env BROWSER_BRIDGE_CORE_HOST=127.0.0.1 \
+  --env BROWSER_BRIDGE_CORE_PORT=3210 \
+  -- browser-bridge mcp
+```
+
+## Add MCP (Claude Code)
+
+```bash
+claude mcp add --transport stdio browser-bridge -- browser-bridge mcp
+```
+
+Optional custom host/port:
+
+```bash
+claude mcp add --transport stdio browser-bridge \
+  --env BROWSER_BRIDGE_CORE_HOST=127.0.0.1 \
+  --env BROWSER_BRIDGE_CORE_PORT=3210 \
+  -- browser-bridge mcp
+```
+
+## Diagnostics
+
+- CLI: `browser-bridge diagnostics doctor --session-id <id>`
+- Reports extension and debugger status alongside session state.
 
 ## Security Model (v1)
 
 - Extension <-> Core WebSocket has no authentication; trust local machine only.
 - Do not expose the port or run the Core daemon on shared hosts.
 
-## Setup and Commands
+## Development Notes
 
-These commands are provided by the workspace scaffolding at the repo root. If the script names change, update this list to match `package.json`.
-
-- Install dependencies: `npm install`
-- Build: `npm run build`
-- Lint: `npm run lint`
-- Test: `npm test`
-
-## Git Hooks
-
-The pre-commit hook runs formatting checks, linting, and typechecks before a commit.
-Enable it in your clone (applies to worktrees) with:
-`git config core.hooksPath .githooks`
-
-## Demo
-
-- Manual checklist: `docs/manual-test.md`
-- Scripted run: `scripts/demo.sh` (requires build output and extension loaded)
-- Tool coverage strategy: `docs/tool-coverage.md`
-- Full-tool CLI smoke: `scripts/cli-full-tool-smoke.sh`
-
-## MCP Adapter
-
-The MCP adapter runs over stdio and forwards tool calls to Core.
-
-- Start the adapter: `node -e "require('@btraut/browser-bridge').startMcpServer()"`
-- Use your MCP client to call `tools/list`, then `session.create`
-
-## API Notes
-
-- HTTP payloads use snake_case (for example `session_id`, `tab_id`, `include_metadata`), while TypeScript helpers use camelCase. This boundary is intentional at the HTTP edge.
-- Prefer `drive.go_back` / `drive.go_forward` for history navigation; `drive.back` / `drive.forward` remain as compatibility aliases.
-
-## Diagnostics
-
-- CLI: `node packages/cli/dist/index.js diagnostics doctor --session-id <id>`
-- Reports extension and debugger status alongside session state.
-
-## Extension (Drive Plane) - Load Unpacked
+If you are contributing locally, load the extension unpacked:
 
 1. Open Chrome and navigate to `chrome://extensions`.
 2. Enable **Developer mode**.
-3. Click **Load unpacked** and select `packages/extension` (repo) or
-   `node_modules/@btraut/browser-bridge-extension` (npm install).
+3. Click **Load unpacked** and select `packages/extension` (repo).
 4. Confirm the extension's background service worker is running.
 5. Start the Core daemon (or CLI) so the extension can connect to `127.0.0.1`.
 
-## Drive Plane Manual Check
-
-1. Build the workspace: `npm run build`.
-2. Start Core (default `127.0.0.1:3210`, override with `BROWSER_BRIDGE_CORE_PORT`).
-3. Load the extension as above and open any page.
-4. Create a session: `curl -s localhost:3210/session/create -X POST -H 'content-type: application/json' -d '{}'`.
-5. Call a drive route (for example `drive.tab_list`) and verify a tab list is returned.
-
-## Workspace Layout (Planned)
-
-```
-packages/
-  core/         # daemon + session state machine + HTTP API
-  shared/       # schemas, types, constants
-  mcp-adapter/  # MCP server wrapping core API
-  cli/          # CLI wrapping core API
-  extension/    # Chrome extension (drive plane)
-```
-
-## Versioning and Release
-
-All packages are private and intended for local development use in v1. Build artifacts are emitted to `dist/` via `npm run build`.
+Additional manual test flows live in `docs/manual-test.md`.
