@@ -53,6 +53,17 @@ export type DomSnapshotResult = {
   warnings?: string[];
 };
 
+type AxNodeRecord = {
+  nodeId?: string;
+  backendDOMNodeId?: number;
+  role?: { value?: string } | string;
+  name?: { value?: string } | string;
+  childIds?: string[];
+  ignored?: boolean;
+  properties?: Array<{ name?: string; value?: { value?: unknown } }>;
+  ref?: string;
+};
+
 type SnapshotRecord = {
   sessionId: string;
   format: "ax" | "html";
@@ -137,6 +148,35 @@ export type InspectServiceOptions = {
 
 const DEFAULT_MAX_SNAPSHOTS_PER_SESSION = 20;
 const DEFAULT_MAX_SNAPSHOT_HISTORY = 100;
+const SNAPSHOT_REF_ATTRIBUTE = "data-bv-ref";
+const MAX_REF_ASSIGNMENTS = 500;
+const MAX_REF_WARNINGS = 5;
+const INTERACTIVE_AX_ROLES = new Set([
+  "button",
+  "link",
+  "textbox",
+  "combobox",
+  "listbox",
+  "checkbox",
+  "radio",
+  "switch",
+  "searchbox",
+  "spinbutton",
+  "slider",
+  "option",
+]);
+const DECORATIVE_AX_ROLES = new Set(["generic", "none", "presentation"]);
+const LABEL_AX_ROLES = new Set([
+  "textbox",
+  "combobox",
+  "listbox",
+  "checkbox",
+  "radio",
+  "switch",
+  "searchbox",
+  "spinbutton",
+  "slider",
+]);
 
 export class InspectService {
   private readonly registry: SessionRegistry;
@@ -212,6 +252,9 @@ export class InspectService {
     sessionId: string;
     format: "ax" | "html";
     consistency: "best_effort" | "quiesce";
+    interactive?: boolean;
+    compact?: boolean;
+    selector?: string;
     targetHint?: TargetHint;
   }): Promise<DomSnapshotResult> {
     this.requireSession(input.sessionId);
@@ -219,25 +262,88 @@ export class InspectService {
 
     const work = async (): Promise<DomSnapshotResult> => {
       if (input.format === "html") {
-        const html = await this.captureHtml(selection.tabId);
+        const html = await this.captureHtml(selection.tabId, input.selector);
+        const warnings = [...(selection.warnings ?? [])];
+        if (input.interactive) {
+          warnings.push("Interactive filter is only supported for AX snapshots.");
+        }
+        if (input.compact) {
+          warnings.push("Compact filter is only supported for AX snapshots.");
+        }
+        if (input.selector && html === "") {
+          warnings.push(`Selector not found: ${input.selector}`);
+        }
         return {
           format: "html",
           snapshot: html,
-          warnings: selection.warnings,
+          ...(warnings.length > 0 ? { warnings } : {}),
         };
       }
 
       try {
         await this.enableAccessibility(selection.tabId);
-        const result = await this.debuggerCommand(
+        const selectorWarnings: string[] = [];
+        let result: unknown;
+        if (input.selector) {
+          const resolved = await this.resolveNodeIdForSelector(
+            selection.tabId,
+            input.selector
+          );
+          selectorWarnings.push(...(resolved.warnings ?? []));
+          if (!resolved.nodeId) {
+            let refWarnings: string[] = [];
+            try {
+              refWarnings = await this.applySnapshotRefs(
+                selection.tabId,
+                new Map()
+              );
+            } catch {
+              refWarnings = ["Failed to clear prior snapshot refs."];
+            }
+            const warnings = [
+              ...(selection.warnings ?? []),
+              ...selectorWarnings,
+              ...refWarnings,
+            ];
+            return {
+              format: "ax",
+              snapshot: { nodes: [] },
+              ...(warnings.length > 0 ? { warnings } : {}),
+            };
+          }
+          result = await this.debuggerCommand(
+            selection.tabId,
+            "Accessibility.getPartialAXTree",
+            { nodeId: resolved.nodeId }
+          );
+        } else {
+          result = await this.debuggerCommand(
+            selection.tabId,
+            "Accessibility.getFullAXTree",
+            {}
+          );
+        }
+        const snapshot =
+          input.interactive || input.compact
+            ? this.applyAxSnapshotFilters(result, {
+                interactiveOnly: input.interactive,
+                compact: input.compact,
+              })
+            : result;
+        const refMap = this.assignRefsToAxSnapshot(snapshot);
+        const refWarnings = await this.applySnapshotRefs(
           selection.tabId,
-          "Accessibility.getFullAXTree",
-          {}
+          refMap
         );
+        const warnings = [
+          ...(selection.warnings ?? []),
+          ...selectorWarnings,
+          ...(refWarnings ?? []),
+        ];
         return {
           format: "ax",
-          snapshot: result,
-          warnings: selection.warnings,
+          snapshot,
+          ...(warnings.length > 0 ? { warnings } : {}),
         };
       } catch (error) {
         if (error instanceof InspectError) {
@@ -249,10 +355,19 @@ export class InspectService {
           if (!fallbackCodes.includes(error.code)) {
             throw error;
           }
-          const html = await this.captureHtml(selection.tabId);
+          const html = await this.captureHtml(selection.tabId, input.selector);
           const warnings = [
             ...(selection.warnings ?? []),
             "AX snapshot failed; returned HTML instead.",
+            ...(input.interactive
+              ? ["Interactive filter is only supported for AX snapshots."]
+              : []),
+            ...(input.compact
+              ? ["Compact filter is only supported for AX snapshots."]
+              : []),
+            ...(input.selector && html === ""
+              ? [`Selector not found: ${input.selector}`]
+              : []),
           ];
           return {
             format: "html",
@@ -320,6 +435,85 @@ export class InspectService {
       removed,
       changed,
       summary: `Added ${added.length}, removed ${removed.length}, changed ${changed.length}.`,
+    };
+  }
+
+  async find(input: {
+    sessionId: string;
+    kind: "role" | "text" | "label";
+    role?: string;
+    name?: string;
+    text?: string;
+    label?: string;
+    targetHint?: TargetHint;
+  }): Promise<{ matches: Array<{ ref: string; role?: string; name?: string }>; warnings?: string[] }> {
+    const snapshot = await this.domSnapshot({
+      sessionId: input.sessionId,
+      format: "ax",
+      consistency: "best_effort",
+      targetHint: input.targetHint,
+    });
+    const warnings = [...(snapshot.warnings ?? [])];
+    if (snapshot.format !== "ax") {
+      warnings.push("AX snapshot unavailable; cannot resolve refs.");
+      return {
+        matches: [],
+        ...(warnings.length > 0 ? { warnings } : {}),
+      };
+    }
+
+    const nodes = this.getAxNodes(snapshot.snapshot);
+    const matches: Array<{ ref: string; role?: string; name?: string }> = [];
+
+    const nameQuery =
+      typeof input.name === "string" ? this.normalizeQuery(input.name) : "";
+    const textQuery =
+      typeof input.text === "string" ? this.normalizeQuery(input.text) : "";
+    const labelQuery =
+      typeof input.label === "string" ? this.normalizeQuery(input.label) : "";
+    const roleQuery =
+      typeof input.role === "string" ? this.normalizeQuery(input.role) : "";
+
+    for (const node of nodes) {
+      if (!node || typeof node !== "object") {
+        continue;
+      }
+      if (typeof node.ref !== "string" || node.ref.length === 0) {
+        continue;
+      }
+      const role = this.getAxRole(node);
+      const name = this.getAxName(node);
+
+      if (input.kind === "role") {
+        if (!role || role !== roleQuery) {
+          continue;
+        }
+        if (nameQuery && !this.matchesTextValue(name, nameQuery)) {
+          continue;
+        }
+      } else if (input.kind === "text") {
+        if (!textQuery || !this.matchesAxText(node, textQuery)) {
+          continue;
+        }
+      } else if (input.kind === "label") {
+        if (!labelQuery || !LABEL_AX_ROLES.has(role)) {
+          continue;
+        }
+        if (!this.matchesTextValue(name, labelQuery)) {
+          continue;
+        }
+      }
+
+      matches.push({
+        ref: node.ref,
+        ...(role ? { role } : {}),
+        ...(name ? { name } : {}),
+      });
+    }
+
+    return {
+      matches,
+      ...(warnings.length > 0 ? { warnings } : {}),
     };
   }
 
@@ -761,6 +955,233 @@ export class InspectService {
     return null;
   }
 
+  private getAxNodes(snapshot: unknown): AxNodeRecord[] {
+    const nodes = Array.isArray(snapshot)
+      ? snapshot
+      : (snapshot as { nodes?: unknown[] })?.nodes;
+    return Array.isArray(nodes) ? (nodes as AxNodeRecord[]) : [];
+  }
+
+  private applyAxSnapshotFilters(
+    snapshot: unknown,
+    options: { interactiveOnly?: boolean; compact?: boolean }
+  ): unknown {
+    let filtered = snapshot;
+    if (options.compact) {
+      filtered = this.compactAxSnapshot(filtered);
+    }
+    if (options.interactiveOnly) {
+      filtered = this.filterAxSnapshot(filtered, (node) =>
+        this.isInteractiveAxNode(node)
+      );
+    }
+    return filtered;
+  }
+
+  private filterAxSnapshot(
+    snapshot: unknown,
+    predicate: (node: AxNodeRecord) => boolean
+  ): unknown {
+    const nodes = this.getAxNodes(snapshot);
+    if (nodes.length === 0) {
+      return snapshot;
+    }
+    const keepIds = new Set<string>();
+    const filtered = nodes.filter((node) => {
+      if (!node || typeof node !== "object") {
+        return false;
+      }
+      const keep = predicate(node);
+      if (keep && typeof node.nodeId === "string") {
+        keepIds.add(node.nodeId);
+      }
+      return keep;
+    });
+    for (const node of filtered) {
+      if (Array.isArray(node.childIds)) {
+        node.childIds = node.childIds.filter((id) => keepIds.has(id));
+      }
+    }
+    return this.replaceAxNodes(snapshot, filtered);
+  }
+
+  private replaceAxNodes(
+    snapshot: unknown,
+    nodes: AxNodeRecord[]
+  ): unknown {
+    if (Array.isArray(snapshot)) {
+      return nodes;
+    }
+    if (snapshot && typeof snapshot === "object") {
+      (snapshot as { nodes?: unknown[] }).nodes = nodes;
+    }
+    return snapshot;
+  }
+
+  private isInteractiveAxNode(node: AxNodeRecord): boolean {
+    const role = this.getAxRole(node);
+    return Boolean(role && INTERACTIVE_AX_ROLES.has(role));
+  }
+
+  private compactAxSnapshot(snapshot: unknown): unknown {
+    const nodes = this.getAxNodes(snapshot);
+    if (nodes.length === 0) {
+      return snapshot;
+    }
+    const nodeById = new Map<string, AxNodeRecord>();
+    nodes.forEach((node) => {
+      if (node && typeof node.nodeId === "string") {
+        nodeById.set(node.nodeId, node);
+      }
+    });
+
+    const keepIds = new Set<string>();
+    for (const node of nodes) {
+      if (!node || typeof node !== "object" || typeof node.nodeId !== "string") {
+        continue;
+      }
+      if (this.shouldKeepCompactNode(node)) {
+        keepIds.add(node.nodeId);
+      }
+    }
+
+    const filtered = nodes.filter(
+      (node) =>
+        node &&
+        typeof node.nodeId === "string" &&
+        keepIds.has(node.nodeId)
+    );
+
+    for (const node of filtered) {
+      if (!Array.isArray(node.childIds) || typeof node.nodeId !== "string") {
+        continue;
+      }
+      const nextChildIds: string[] = [];
+      for (const childId of node.childIds) {
+        nextChildIds.push(
+          ...this.collectKeptDescendants(childId, nodeById, keepIds)
+        );
+      }
+      node.childIds = Array.from(new Set(nextChildIds));
+    }
+
+    return this.replaceAxNodes(snapshot, filtered);
+  }
+
+  private collectKeptDescendants(
+    nodeId: string,
+    nodeById: Map<string, AxNodeRecord>,
+    keepIds: Set<string>,
+    visited: Set<string> = new Set()
+  ): string[] {
+    if (visited.has(nodeId)) {
+      return [];
+    }
+    visited.add(nodeId);
+    if (keepIds.has(nodeId)) {
+      return [nodeId];
+    }
+    const node = nodeById.get(nodeId);
+    if (!node || !Array.isArray(node.childIds)) {
+      return [];
+    }
+    const output: string[] = [];
+    for (const childId of node.childIds) {
+      output.push(
+        ...this.collectKeptDescendants(childId, nodeById, keepIds, visited)
+      );
+    }
+    return output;
+  }
+
+  private shouldKeepCompactNode(node: AxNodeRecord): boolean {
+    if (node.ignored) {
+      return false;
+    }
+    const role = this.getAxRole(node);
+    if (role && INTERACTIVE_AX_ROLES.has(role)) {
+      return true;
+    }
+    const name = this.getAxName(node);
+    const hasName = name.trim().length > 0;
+    const hasValue = this.hasAxValue(node);
+    if (hasName || hasValue) {
+      return true;
+    }
+    const hasChildren = Array.isArray(node.childIds) && node.childIds.length > 0;
+    if (!role || DECORATIVE_AX_ROLES.has(role)) {
+      return false;
+    }
+    return hasChildren;
+  }
+
+  private getAxRole(node: AxNodeRecord): string {
+    const role =
+      typeof node.role === "string" ? node.role : node.role?.value ?? "";
+    return typeof role === "string" ? role.toLowerCase() : "";
+  }
+
+  private getAxName(node: AxNodeRecord): string {
+    const name =
+      typeof node.name === "string" ? node.name : node.name?.value ?? "";
+    return typeof name === "string" ? name : "";
+  }
+
+  private hasAxValue(node: AxNodeRecord): boolean {
+    if (!Array.isArray(node.properties)) {
+      return false;
+    }
+    for (const prop of node.properties) {
+      if (!prop || typeof prop !== "object") {
+        continue;
+      }
+      const value = (prop as { value?: { value?: unknown } }).value?.value;
+      if (value === undefined || value === null) {
+        continue;
+      }
+      if (typeof value === "string" && value.trim().length === 0) {
+        continue;
+      }
+      return true;
+    }
+    return false;
+  }
+
+  private normalizeQuery(value: string): string {
+    return value.trim().toLowerCase();
+  }
+
+  private matchesTextValue(value: string, query: string): boolean {
+    if (!query) {
+      return false;
+    }
+    return value.toLowerCase().includes(query);
+  }
+
+  private matchesAxText(node: AxNodeRecord, query: string): boolean {
+    if (!query) {
+      return false;
+    }
+    const candidates = [this.getAxName(node)];
+    if (Array.isArray(node.properties)) {
+      for (const prop of node.properties) {
+        if (!prop || typeof prop !== "object") {
+          continue;
+        }
+        const value = (prop as { value?: { value?: unknown } }).value?.value;
+        if (value === undefined || value === null) {
+          continue;
+        }
+        if (typeof value === "string") {
+          candidates.push(value);
+        } else if (typeof value === "number" || typeof value === "boolean") {
+          candidates.push(String(value));
+        }
+      }
+    }
+    return candidates.some((text) => this.matchesTextValue(text, query));
+  }
+
   private collectHtmlEntries(html: string): Map<string, string> {
     const entries = new Map<string, string>();
     const tagPattern = /<([a-zA-Z0-9-]+)([^>]*)>/g;
@@ -789,10 +1210,8 @@ export class InspectService {
 
   private collectAxEntries(snapshot: unknown): Map<string, string> {
     const entries = new Map<string, string>();
-    const nodes = Array.isArray(snapshot)
-      ? snapshot
-      : (snapshot as { nodes?: unknown[] })?.nodes;
-    if (!Array.isArray(nodes)) {
+    const nodes = this.getAxNodes(snapshot);
+    if (nodes.length === 0) {
       return entries;
     }
     nodes.forEach((node, index) => {
@@ -822,11 +1241,129 @@ export class InspectService {
     return entries;
   }
 
-  private async captureHtml(tabId: number): Promise<string> {
+  private assignRefsToAxSnapshot(snapshot: unknown): Map<number, string> {
+    const nodes = this.getAxNodes(snapshot);
+    const refs = new Map<number, string>();
+    let index = 1;
+    for (const node of nodes) {
+      if (!node || typeof node !== "object") {
+        continue;
+      }
+      if (node.ignored) {
+        continue;
+      }
+      const backendId = node.backendDOMNodeId;
+      if (typeof backendId !== "number") {
+        continue;
+      }
+      const ref = `@e${index}`;
+      index += 1;
+      node.ref = ref;
+      refs.set(backendId, ref);
+    }
+    return refs;
+  }
+
+  private async applySnapshotRefs(
+    tabId: number,
+    refs: Map<number, string>
+  ): Promise<string[]> {
+    const warnings: string[] = [];
+    await this.debuggerCommand(tabId, "DOM.enable", {});
     await this.debuggerCommand(tabId, "Runtime.enable", {});
+
+    try {
+      await this.clearSnapshotRefs(tabId);
+    } catch {
+      warnings.push("Failed to clear prior snapshot refs.");
+    }
+
+    if (refs.size === 0) {
+      return warnings;
+    }
+
+    let applied = 0;
+    for (const [backendNodeId, ref] of refs) {
+      if (applied >= MAX_REF_ASSIGNMENTS) {
+        warnings.push(
+          `Snapshot refs truncated at ${MAX_REF_ASSIGNMENTS} elements.`
+        );
+        break;
+      }
+      try {
+        const described = await this.debuggerCommand(tabId, "DOM.describeNode", {
+          backendNodeId,
+        });
+        const node = (described as { node?: { nodeId?: number; nodeType?: number } })
+          .node;
+        if (!node || node.nodeType !== 1 || typeof node.nodeId !== "number") {
+          if (warnings.length < MAX_REF_WARNINGS) {
+            warnings.push(`Ref ${ref} could not be applied to a DOM element.`);
+          }
+          continue;
+        }
+        await this.debuggerCommand(tabId, "DOM.setAttributeValue", {
+          nodeId: node.nodeId,
+          name: SNAPSHOT_REF_ATTRIBUTE,
+          value: ref,
+        });
+        applied += 1;
+      } catch {
+        if (warnings.length < MAX_REF_WARNINGS) {
+          warnings.push(`Ref ${ref} could not be applied.`);
+        }
+      }
+    }
+    return warnings;
+  }
+
+  private async clearSnapshotRefs(tabId: number): Promise<void> {
+    await this.debuggerCommand(tabId, "Runtime.evaluate", {
+      expression: `document.querySelectorAll('[${SNAPSHOT_REF_ATTRIBUTE}]').forEach((el) => el.removeAttribute('${SNAPSHOT_REF_ATTRIBUTE}'))`,
+      returnByValue: true,
+      awaitPromise: true,
+    });
+  }
+
+  private async resolveNodeIdForSelector(
+    tabId: number,
+    selector: string
+  ): Promise<{ nodeId?: number; warnings?: string[] }> {
+    await this.debuggerCommand(tabId, "DOM.enable", {});
+    const document = await this.debuggerCommand(tabId, "DOM.getDocument", {
+      depth: 1,
+    });
+    const rootNodeId = (document as { root?: { nodeId?: number } }).root?.nodeId;
+    if (typeof rootNodeId !== "number") {
+      return { warnings: ["Failed to resolve DOM root for selector."] };
+    }
+    try {
+      const result = await this.debuggerCommand(tabId, "DOM.querySelector", {
+        nodeId: rootNodeId,
+        selector,
+      });
+      const nodeId = (result as { nodeId?: number }).nodeId;
+      if (!nodeId) {
+        return { warnings: [`Selector not found: ${selector}`] };
+      }
+      return { nodeId };
+    } catch (error) {
+      if (error instanceof InspectError) {
+        return { warnings: [error.message] };
+      }
+      return { warnings: ["Selector query failed."] };
+    }
+  }
+
+  private async captureHtml(tabId: number, selector?: string): Promise<string> {
+    await this.debuggerCommand(tabId, "Runtime.enable", {});
+    const expression = selector
+      ? `(() => { try { const el = document.querySelector(${JSON.stringify(
+          selector
+        )}); return el ? el.outerHTML : ""; } catch { return ""; } })()`
+      : "document.documentElement ? document.documentElement.outerHTML : ''";
     const result = await this.debuggerCommand(tabId, "Runtime.evaluate", {
-      expression:
-        "document.documentElement ? document.documentElement.outerHTML : ''",
+      expression,
       returnByValue: true,
       awaitPromise: true,
     });

@@ -8,13 +8,15 @@ export const LocatorRoleSchema = z.object({
 
 export const LocatorSchema = z
   .object({
+    ref: z.string().min(1).optional(),
     testid: z.string().min(1).optional(),
     css: z.string().min(1).optional(),
     text: z.string().min(1).optional(),
     role: LocatorRoleSchema.optional(),
   })
   .refine(
-    (value) => Boolean(value.testid || value.css || value.text || value.role),
+    (value) =>
+      Boolean(value.ref || value.testid || value.css || value.text || value.role),
     {
       message: 'Locator must include at least one selector.',
     }
@@ -265,6 +267,17 @@ export const DriveHandleDialogInputSchema = z.object({
 });
 export const DriveHandleDialogOutputSchema = OpResultSchema;
 
+export const DialogAcceptInputSchema = SessionIdSchema.extend({
+  promptText: z.string().optional(),
+  tab_id: z.number().finite().optional(),
+});
+export const DialogAcceptOutputSchema = OpResultSchema;
+
+export const DialogDismissInputSchema = SessionIdSchema.extend({
+  tab_id: z.number().finite().optional(),
+});
+export const DialogDismissOutputSchema = OpResultSchema;
+
 export const DriveKeyModifiersSchema = z.object({
   ctrl: z.boolean().optional(),
   alt: z.boolean().optional(),
@@ -396,6 +409,9 @@ export const InspectDomSnapshotInputSchema = z.object({
   session_id: z.string().min(1),
   format: InspectDomFormatSchema.default('ax'),
   consistency: InspectConsistencySchema.default('best_effort'),
+  interactive: z.boolean().default(false),
+  compact: z.boolean().default(false),
+  selector: z.string().min(1).optional(),
   target: TargetHintSchema.optional(),
 });
 export const InspectDomSnapshotOutputSchema = DomSnapshotSchema;
@@ -409,6 +425,42 @@ export const DomDiffResultSchema = z.object({
 
 export const InspectDomDiffInputSchema = SessionIdSchema;
 export const InspectDomDiffOutputSchema = DomDiffResultSchema;
+
+export const InspectFindRoleInputSchema = SessionIdSchema.extend({
+  kind: z.literal("role"),
+  role: z.string().min(1),
+  name: z.string().min(1).optional(),
+  target: TargetHintSchema.optional(),
+});
+
+export const InspectFindTextInputSchema = SessionIdSchema.extend({
+  kind: z.literal("text"),
+  text: z.string().min(1),
+  target: TargetHintSchema.optional(),
+});
+
+export const InspectFindLabelInputSchema = SessionIdSchema.extend({
+  kind: z.literal("label"),
+  label: z.string().min(1),
+  target: TargetHintSchema.optional(),
+});
+
+export const InspectFindInputSchema = z.discriminatedUnion("kind", [
+  InspectFindRoleInputSchema,
+  InspectFindTextInputSchema,
+  InspectFindLabelInputSchema,
+]);
+
+export const InspectFindMatchSchema = z.object({
+  ref: z.string(),
+  role: z.string().optional(),
+  name: z.string().optional(),
+});
+
+export const InspectFindOutputSchema = z.object({
+  matches: z.array(InspectFindMatchSchema),
+  warnings: z.array(z.string()).optional(),
+});
 
 export const InspectPageStateInputSchema = SessionIdSchema.extend({
   target: TargetHintSchema.optional(),

@@ -4,6 +4,7 @@ export type DriveLocatorRole = {
 };
 
 export type DriveLocator = {
+  ref?: string;
   testid?: string;
   css?: string;
   text?: string;

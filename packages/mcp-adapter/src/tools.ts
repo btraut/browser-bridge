@@ -4,6 +4,10 @@ import {
   ArtifactsScreenshotOutputSchema,
   DiagnosticsDoctorInputSchema,
   DiagnosticsDoctorOutputSchema,
+  DialogAcceptInputSchema,
+  DialogAcceptOutputSchema,
+  DialogDismissInputSchema,
+  DialogDismissOutputSchema,
   ErrorEnvelopeSchema,
   DriveClickInputSchema,
   DriveClickOutputSchema,
@@ -53,6 +57,8 @@ import {
   InspectDomSnapshotOutputSchema,
   InspectEvaluateInputSchema,
   InspectEvaluateOutputSchema,
+  InspectFindInputSchema,
+  InspectFindOutputSchema,
   InspectPageStateInputSchema,
   InspectPageStateOutputSchema,
   InspectNetworkHarInputSchema,
@@ -277,6 +283,26 @@ export const TOOL_DEFINITIONS: Array<{ name: string; config: ToolConfig }> = [
     },
   },
   {
+    name: 'dialog.accept',
+    config: {
+      title: 'Dialog Accept',
+      description: 'Accept a JavaScript dialog.',
+      inputSchema: DialogAcceptInputSchema,
+      outputSchema: envelope(DialogAcceptOutputSchema),
+      corePath: '/dialog/accept',
+    },
+  },
+  {
+    name: 'dialog.dismiss',
+    config: {
+      title: 'Dialog Dismiss',
+      description: 'Dismiss a JavaScript dialog.',
+      inputSchema: DialogDismissInputSchema,
+      outputSchema: envelope(DialogDismissOutputSchema),
+      corePath: '/dialog/dismiss',
+    },
+  },
+  {
     name: 'drive.key',
     config: {
       title: 'Drive Key',
@@ -364,6 +390,16 @@ export const TOOL_DEFINITIONS: Array<{ name: string; config: ToolConfig }> = [
       inputSchema: InspectDomDiffInputSchema,
       outputSchema: envelope(InspectDomDiffOutputSchema),
       corePath: '/inspect/dom_diff',
+    },
+  },
+  {
+    name: 'inspect.find',
+    config: {
+      title: 'Inspect Find',
+      description: 'Find elements in the accessibility tree and return refs.',
+      inputSchema: InspectFindInputSchema,
+      outputSchema: envelope(InspectFindOutputSchema),
+      corePath: '/inspect/find',
     },
   },
   {

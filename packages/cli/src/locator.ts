@@ -6,6 +6,7 @@ type LocatorRoleInput = {
 };
 
 export type LocatorInput = {
+  ref?: string;
   testid?: string;
   css?: string;
   text?: string;
@@ -13,6 +14,7 @@ export type LocatorInput = {
 };
 
 type LocatorOptions = {
+  locatorRef?: string;
   locatorTestid?: string;
   locatorCss?: string;
   locatorText?: string;
@@ -24,6 +26,10 @@ export const buildLocator = (
   options: LocatorOptions
 ): LocatorInput | undefined => {
   const locator: LocatorInput = {};
+
+  if (options.locatorRef) {
+    locator.ref = options.locatorRef;
+  }
 
   if (options.locatorTestid) {
     locator.testid = options.locatorTestid;
@@ -53,7 +59,13 @@ export const buildLocator = (
     };
   }
 
-  if (!locator.testid && !locator.css && !locator.text && !locator.role) {
+  if (
+    !locator.ref &&
+    !locator.testid &&
+    !locator.css &&
+    !locator.text &&
+    !locator.role
+  ) {
     return undefined;
   }
 

@@ -7,6 +7,7 @@ import {
   InspectDomDiffInputSchema,
   InspectDomSnapshotInputSchema,
   InspectEvaluateInputSchema,
+  InspectFindInputSchema,
   InspectExtractContentInputSchema,
   InspectNetworkHarInputSchema,
   InspectPageStateInputSchema,
@@ -186,6 +187,9 @@ export const registerInspectRoutes = (
         sessionId: body.session_id,
         format: body.format,
         consistency: body.consistency,
+        interactive: body.interactive,
+        compact: body.compact,
+        selector: body.selector,
         targetHint: resolveTargetHint(body.target, options),
       });
     })
@@ -194,6 +198,35 @@ export const registerInspectRoutes = (
     '/inspect/dom_diff',
     makeHandler(InspectDomDiffInputSchema, async (body) => {
       return inspect.domDiff({ sessionId: body.session_id });
+    })
+  );
+  router.post(
+    '/inspect/find',
+    makeHandler(InspectFindInputSchema, async (body) => {
+      const targetHint = resolveTargetHint(body.target, options);
+      if (body.kind === 'role') {
+        return await inspect.find({
+          sessionId: body.session_id,
+          kind: 'role',
+          role: body.role,
+          name: body.name,
+          targetHint,
+        });
+      }
+      if (body.kind === 'text') {
+        return await inspect.find({
+          sessionId: body.session_id,
+          kind: 'text',
+          text: body.text,
+          targetHint,
+        });
+      }
+      return await inspect.find({
+        sessionId: body.session_id,
+        kind: 'label',
+        label: body.label,
+        targetHint,
+      });
     })
   );
   router.post(

@@ -4,6 +4,8 @@ import {
   ArtifactsScreenshotInputSchema,
   DiagnosticsDoctorInputSchema,
   DiagnosticReportSchema,
+  DialogAcceptInputSchema,
+  DialogDismissInputSchema,
   DriveClickInputSchema,
   DriveDragInputSchema,
   DriveFillFormInputSchema,
@@ -26,6 +28,7 @@ import {
   InspectDomDiffOutputSchema,
   InspectExtractContentInputSchema,
   InspectEvaluateInputSchema,
+  InspectFindInputSchema,
   InspectPageStateInputSchema,
   LocatorSchema,
   OpResultSchema,
@@ -148,6 +151,30 @@ describe('shared schemas', () => {
     expect(parsed.action).toBe('accept');
   });
 
+  it('parses dialog accept input', () => {
+    const parsed = DialogAcceptInputSchema.parse({
+      session_id: 'session-1',
+      promptText: 'hello',
+    });
+    expect(parsed.promptText).toBe('hello');
+  });
+
+  it('parses dialog dismiss input', () => {
+    const parsed = DialogDismissInputSchema.parse({
+      session_id: 'session-1',
+      tab_id: 2,
+    });
+    expect(parsed.tab_id).toBe(2);
+  });
+
+  it('parses locator ref input', () => {
+    const parsed = DriveClickInputSchema.parse({
+      session_id: 'session-1',
+      locator: { ref: '@e1' },
+    });
+    expect(parsed.locator.ref).toBe('@e1');
+  });
+
   it('parses hover input', () => {
     const parsed = DriveHoverInputSchema.parse({
       session_id: 'session-1',
@@ -199,6 +226,27 @@ describe('shared schemas', () => {
     });
     expect(parsed.format).toBe('ax');
     expect(parsed.consistency).toBe('best_effort');
+    expect(parsed.interactive).toBe(false);
+    expect(parsed.compact).toBe(false);
+  });
+
+  it('parses dom snapshot selector', () => {
+    const parsed = InspectDomSnapshotInputSchema.parse({
+      session_id: 'session-1',
+      selector: '#main-content',
+    });
+    expect(parsed.selector).toBe('#main-content');
+  });
+
+  it('parses inspect find role input', () => {
+    const parsed = InspectFindInputSchema.parse({
+      session_id: 'session-1',
+      kind: 'role',
+      role: 'button',
+      name: 'Submit',
+    });
+    expect(parsed.kind).toBe('role');
+    expect(parsed.role).toBe('button');
   });
 
   it('parses dom diff schemas', () => {

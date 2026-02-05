@@ -1,5 +1,19 @@
 # Hybrid Browser Control MCP (Drive + Inspect) - Spec + Plan
 
+> **WARNING: THIS DOCUMENT IS OUT OF DATE**
+>
+> This spec/plan was written during initial development and has drifted from the actual implementation. Do not rely on it as an accurate description of the current system. Refer to the source code for ground truth.
+>
+> Key areas that may be inaccurate:
+> - Architecture details and component responsibilities
+> - API surface and endpoint specifications
+> - Concurrency model and state machine behavior
+> - Implementation milestones (many are complete, some evolved differently)
+>
+> TODO: Reconcile this document with the implementation or archive it.
+
+---
+
 ## Context
 
 This project builds a local, developer-focused browser control system for coding agents. It exposes a hybrid Drive + Inspect controller via MCP and a CLI, backed by a single Core daemon. Requirements are captured in `docs/requirements.md`.

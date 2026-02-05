@@ -237,6 +237,33 @@ export const MCP_TOOL_FIXTURES: ToolFixture[] = [
     },
   },
   {
+    name: "dialog.accept",
+    corePath: "/dialog/accept",
+    input: {
+      session_id: "session-1",
+      promptText: "confirm",
+    },
+    successEnvelope: {
+      ok: true,
+      result: {
+        ok: true,
+      },
+    },
+  },
+  {
+    name: "dialog.dismiss",
+    corePath: "/dialog/dismiss",
+    input: {
+      session_id: "session-1",
+    },
+    successEnvelope: {
+      ok: true,
+      result: {
+        ok: true,
+      },
+    },
+  },
+  {
     name: "drive.key",
     corePath: "/drive/key",
     input: {
@@ -373,6 +400,22 @@ export const MCP_TOOL_FIXTURES: ToolFixture[] = [
         removed: [],
         changed: ["span.title"],
         summary: "Added 1, removed 0, changed 1.",
+      },
+    },
+  },
+  {
+    name: "inspect.find",
+    corePath: "/inspect/find",
+    input: {
+      session_id: "session-1",
+      kind: "role",
+      role: "button",
+      name: "Submit",
+    },
+    successEnvelope: {
+      ok: true,
+      result: {
+        matches: [{ ref: "@e1", role: "button", name: "Submit" }],
       },
     },
   },

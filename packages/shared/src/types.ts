@@ -9,6 +9,10 @@ import {
   DiagnosticReportSchema,
   DiagnosticsDoctorInputSchema,
   DiagnosticsDoctorOutputSchema,
+  DialogAcceptInputSchema,
+  DialogAcceptOutputSchema,
+  DialogDismissInputSchema,
+  DialogDismissOutputSchema,
   DomSnapshotSchema,
   DomDiffResultSchema,
   DriveClickInputSchema,
@@ -69,6 +73,9 @@ import {
   InspectExtractContentOutputSchema,
   InspectEvaluateInputSchema,
   InspectEvaluateOutputSchema,
+  InspectFindInputSchema,
+  InspectFindMatchSchema,
+  InspectFindOutputSchema,
   InspectPageStateInputSchema,
   InspectPageStateOutputSchema,
   InspectNetworkHarInputSchema,
@@ -151,6 +158,10 @@ export type DriveDragInput = z.infer<typeof DriveDragInputSchema>;
 export type DriveDragOutput = z.infer<typeof DriveDragOutputSchema>;
 export type DriveHandleDialogInput = z.infer<typeof DriveHandleDialogInputSchema>;
 export type DriveHandleDialogOutput = z.infer<typeof DriveHandleDialogOutputSchema>;
+export type DialogAcceptInput = z.infer<typeof DialogAcceptInputSchema>;
+export type DialogAcceptOutput = z.infer<typeof DialogAcceptOutputSchema>;
+export type DialogDismissInput = z.infer<typeof DialogDismissInputSchema>;
+export type DialogDismissOutput = z.infer<typeof DialogDismissOutputSchema>;
 export type DriveKeyModifiers = z.infer<typeof DriveKeyModifiersSchema>;
 export type DriveKeyPressInput = z.infer<typeof DriveKeyPressInputSchema>;
 export type DriveKeyPressOutput = z.infer<typeof DriveKeyPressOutputSchema>;
@@ -180,6 +191,9 @@ export type InspectDomSnapshotOutput = z.infer<
 >;
 export type InspectDomDiffInput = z.infer<typeof InspectDomDiffInputSchema>;
 export type InspectDomDiffOutput = z.infer<typeof InspectDomDiffOutputSchema>;
+export type InspectFindInput = z.infer<typeof InspectFindInputSchema>;
+export type InspectFindMatch = z.infer<typeof InspectFindMatchSchema>;
+export type InspectFindOutput = z.infer<typeof InspectFindOutputSchema>;
 export type InspectExtractContentFormat = z.infer<typeof InspectExtractContentFormatSchema>;
 export type InspectExtractContentInput = z.infer<typeof InspectExtractContentInputSchema>;
 export type InspectExtractContentOutput = z.infer<typeof InspectExtractContentOutputSchema>;

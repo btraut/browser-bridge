@@ -5,11 +5,12 @@ import {
   InspectDomSnapshotInputSchema,
   InspectExtractContentInputSchema,
   InspectEvaluateInputSchema,
+  InspectFindInputSchema,
   InspectNetworkHarInputSchema,
   InspectPageStateInputSchema,
   InspectPerformanceMetricsInputSchema,
 } from '@browser-vision/shared';
-import { parseInput } from '../cli-output';
+import { CliError, parseInput } from '../cli-output';
 import { runCommand } from '../cli-runtime';
 
 export const registerInspectCommands = (program: Command): void => {
@@ -21,12 +22,18 @@ export const registerInspectCommands = (program: Command): void => {
     .requiredOption('--session-id <id>', 'Session identifier')
     .option('--format <format>', 'Snapshot format (ax, html)')
     .option('--consistency <mode>', 'Consistency mode (best_effort, quiesce)')
+    .option('-i, --interactive', 'Only include interactive elements')
+    .option('-c, --compact', 'Remove empty/decorative nodes')
+    .option('-s, --selector <selector>', 'Limit snapshot to selector')
     .action(async (options, command) => {
       await runCommand(command, (client) => {
         const payload = parseInput(InspectDomSnapshotInputSchema, {
           session_id: options.sessionId,
           format: options.format,
           consistency: options.consistency,
+          interactive: options.interactive,
+          compact: options.compact,
+          selector: options.selector,
         });
         return client.post('/inspect/dom_snapshot', payload);
       });
@@ -42,6 +49,49 @@ export const registerInspectCommands = (program: Command): void => {
           session_id: options.sessionId,
         });
         return client.post('/inspect/dom_diff', payload);
+      });
+    });
+
+  inspect
+    .command('find')
+    .description('Find elements and return refs')
+    .requiredOption('--session-id <id>', 'Session identifier')
+    .argument('<kind>', 'Find kind (role, text, label)')
+    .argument('<value>', 'Role name or text to match')
+    .option('--name <name>', 'Accessible name to match (role only)')
+    .action(async (kind, value, options, command) => {
+      await runCommand(command, (client) => {
+        const normalizedKind = String(kind ?? '').toLowerCase();
+        let payload: unknown;
+        if (normalizedKind === 'role') {
+          payload = {
+            session_id: options.sessionId,
+            kind: 'role',
+            role: value,
+            name: options.name,
+          };
+        } else if (normalizedKind === 'text') {
+          payload = {
+            session_id: options.sessionId,
+            kind: 'text',
+            text: value,
+          };
+        } else if (normalizedKind === 'label') {
+          payload = {
+            session_id: options.sessionId,
+            kind: 'label',
+            label: value,
+          };
+        } else {
+          throw new CliError({
+            code: 'INVALID_ARGUMENT',
+            message: 'kind must be role, text, or label.',
+            retryable: false,
+            details: { field: 'kind' },
+          });
+        }
+        const parsed = parseInput(InspectFindInputSchema, payload);
+        return client.post('/inspect/find', parsed);
       });
     });
 

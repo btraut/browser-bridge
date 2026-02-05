@@ -8,6 +8,8 @@ import {
   DriveGoForwardInputSchema,
   DriveHoverInputSchema,
   DriveDragInputSchema,
+  DialogAcceptInputSchema,
+  DialogDismissInputSchema,
   DriveFillFormInputSchema,
   DriveHandleDialogInputSchema,
   DriveKeyInputSchema,
@@ -134,6 +136,53 @@ const makeHandler = <T extends { session_id: string }>(
   };
 };
 
+const makeDialogHandler = <T extends { session_id: string }>(
+  action: "accept" | "dismiss",
+  schema: SchemaLike<T>,
+  drive: DriveController
+) => {
+  return (req: RequestLike, res: ResponseLike): void => {
+    const parsed = parseBody(schema, req.body ?? {});
+    if (parsed.error) {
+      sendError(res, errorStatus('INVALID_ARGUMENT'), {
+        code: 'INVALID_ARGUMENT',
+        message: parsed.error.message,
+        retryable: false,
+        ...(parsed.error.details ? { details: parsed.error.details } : {}),
+      });
+      return;
+    }
+
+    const body = parsed.data as Record<string, unknown>;
+    const sessionId = body.session_id as string;
+    const params = { ...body, action };
+    delete params.session_id;
+
+    void drive
+      .execute(sessionId, 'drive.handle_dialog', params)
+      .then((result) => {
+        if (result.ok) {
+          const payload =
+            result.result === undefined ? { ok: true } : result.result;
+          sendResult(res, payload);
+          return;
+        }
+        sendError(res, errorStatus(result.error.code), result.error);
+      })
+      .catch((error) => {
+        console.error('Drive execute failed:', error);
+        sendError(res, errorStatus('INTERNAL'), {
+          code: 'INTERNAL',
+          message: 'Unexpected error while executing drive action.',
+          retryable: false,
+          details: {
+            hint: error instanceof Error ? error.message : "Unknown error.",
+          },
+        });
+      });
+  };
+};
+
 export const registerDriveRoutes = (
   router: RouteRegistry,
   options: DriveRouteOptions
@@ -184,6 +233,14 @@ export const registerDriveRoutes = (
   router.post(
     '/drive/handle_dialog',
     makeHandler('drive.handle_dialog', DriveHandleDialogInputSchema, drive)
+  );
+  router.post(
+    '/dialog/accept',
+    makeDialogHandler('accept', DialogAcceptInputSchema, drive)
+  );
+  router.post(
+    '/dialog/dismiss',
+    makeDialogHandler('dismiss', DialogDismissInputSchema, drive)
   );
   router.post(
     '/drive/key',
