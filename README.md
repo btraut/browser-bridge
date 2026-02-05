@@ -38,6 +38,8 @@ Enable it in your clone (applies to worktrees) with:
 
 - Manual checklist: `docs/manual-test.md`
 - Scripted run: `scripts/demo.sh` (requires build output and extension loaded)
+- Tool coverage strategy: `docs/tool-coverage.md`
+- Full-tool CLI smoke: `scripts/cli-full-tool-smoke.sh`
 
 ## MCP Adapter
 

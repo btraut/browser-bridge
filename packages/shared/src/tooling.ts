@@ -1,0 +1,46 @@
+export type McpToolDefinition = {
+  name: string;
+  corePath: string;
+};
+
+export const MCP_TOOL_DEFINITIONS: McpToolDefinition[] = [
+  { name: 'session.create', corePath: '/session/create' },
+  { name: 'session.status', corePath: '/session/status' },
+  { name: 'session.recover', corePath: '/session/recover' },
+  { name: 'session.close', corePath: '/session/close' },
+  { name: 'drive.navigate', corePath: '/drive/navigate' },
+  { name: 'drive.go_back', corePath: '/drive/go_back' },
+  { name: 'drive.go_forward', corePath: '/drive/go_forward' },
+  { name: 'drive.back', corePath: '/drive/back' },
+  { name: 'drive.forward', corePath: '/drive/forward' },
+  { name: 'drive.click', corePath: '/drive/click' },
+  { name: 'drive.hover', corePath: '/drive/hover' },
+  { name: 'drive.select', corePath: '/drive/select' },
+  { name: 'drive.type', corePath: '/drive/type' },
+  { name: 'drive.fill_form', corePath: '/drive/fill_form' },
+  { name: 'drive.drag', corePath: '/drive/drag' },
+  { name: 'drive.handle_dialog', corePath: '/drive/handle_dialog' },
+  { name: 'dialog.accept', corePath: '/dialog/accept' },
+  { name: 'dialog.dismiss', corePath: '/dialog/dismiss' },
+  { name: 'drive.key', corePath: '/drive/key' },
+  { name: 'drive.key_press', corePath: '/drive/key_press' },
+  { name: 'drive.scroll', corePath: '/drive/scroll' },
+  { name: 'drive.wait_for', corePath: '/drive/wait_for' },
+  { name: 'drive.tab_list', corePath: '/drive/tab_list' },
+  { name: 'drive.tab_activate', corePath: '/drive/tab_activate' },
+  { name: 'drive.tab_close', corePath: '/drive/tab_close' },
+  { name: 'inspect.dom_snapshot', corePath: '/inspect/dom_snapshot' },
+  { name: 'inspect.dom_diff', corePath: '/inspect/dom_diff' },
+  { name: 'inspect.find', corePath: '/inspect/find' },
+  { name: 'inspect.extract_content', corePath: '/inspect/extract_content' },
+  { name: 'inspect.page_state', corePath: '/inspect/page_state' },
+  { name: 'inspect.console_list', corePath: '/inspect/console_list' },
+  { name: 'inspect.network_har', corePath: '/inspect/network_har' },
+  { name: 'inspect.evaluate', corePath: '/inspect/evaluate' },
+  {
+    name: 'inspect.performance_metrics',
+    corePath: '/inspect/performance_metrics',
+  },
+  { name: 'artifacts.screenshot', corePath: '/artifacts/screenshot' },
+  { name: 'diagnostics.doctor', corePath: '/diagnostics/doctor' },
+];

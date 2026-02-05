@@ -34,6 +34,16 @@ This checklist validates the Drive + Inspect planes and artifact handling end-to
 10. Open the artifact folder:
     `node packages/cli/dist/index.js open-artifacts --session-id <id>`
 
+## Optional Full-Tool CLI Smoke
+
+This optional script exercises every CLI tool against a deterministic fixture
+page. It requires the extension to be loaded and the workspace to be built.
+
+1. Open `docs/fixtures/smoke-page.html` in Chrome.
+2. Build the workspace: `npm run build`.
+3. Run the smoke script:
+   `scripts/cli-full-tool-smoke.sh`
+
 ## MCP Adapter Sanity Check
 
 1. Start the MCP adapter (stdio transport):
