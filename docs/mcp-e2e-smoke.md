@@ -10,7 +10,7 @@ It is **not** part of CI because it requires a live browser environment.
 3. Load the extension from `packages/extension` (repo) or
    `node_modules/@btraut/browser-bridge-extension` (npm install) in
    `chrome://extensions`.
-4. Open a Chrome tab to a real page (example: `https://example.com`).
+4. Open a dedicated Chrome tab you do not mind navigating (example: `about:blank` or `https://example.com`).
 5. Ensure DevTools is closed on the target tab (the debugger cannot attach while DevTools is open).
 
 ## Run
@@ -22,7 +22,7 @@ It is **not** part of CI because it requires a live browser environment.
 3. Connect with your MCP client and run `tools/list`.
 4. Run `session.create` and note the `session_id`.
 5. With the `session_id`, run a minimal smoke set:
-   - `drive.navigate` to a known URL
+   - `drive.navigate` to a known URL (defaults to the active tab unless `tab_id` is provided)
    - `drive.tab_list`
    - `inspect.dom_snapshot`
    - `artifacts.screenshot`
