@@ -9,6 +9,7 @@ import { registerInspectCommands } from './inspect';
 import { registerOpenArtifactsCommand } from './open-artifacts';
 import { registerSessionCommands } from './session';
 import { runCommand } from '../cli-runtime';
+import type { CoreClient } from '../core-client';
 
 vi.mock('../cli-runtime', () => ({
   runCommand: vi.fn(),
@@ -38,11 +39,19 @@ const buildProgram = (): Command => {
 type PostCall = [string, unknown];
 
 const runFixture = async (argv: string[]): Promise<PostCall> => {
-  const post = vi.fn(async () => ({ ok: true, result: {} }));
+  const post = vi.fn(async () => ({
+    ok: true as const,
+    result: {},
+  }));
+  const client = {
+    baseUrl: 'http://127.0.0.1',
+    ensureReady: async () => undefined,
+    post,
+  } as CoreClient;
 
   const runCommandMock = vi.mocked(runCommand);
   runCommandMock.mockImplementation(async (_command, work) => {
-    await work({ post } as { post: typeof post }, {});
+    await work(client, {});
   });
 
   const program = buildProgram();
@@ -51,7 +60,9 @@ const runFixture = async (argv: string[]): Promise<PostCall> => {
   expect(runCommandMock).toHaveBeenCalledTimes(1);
   expect(post).toHaveBeenCalledTimes(1);
 
-  return post.mock.calls[0] as PostCall;
+  const call = post.mock.calls[0];
+  expect(call).toBeDefined();
+  return call as unknown as PostCall;
 };
 
 describe('cli command payload shaping', () => {

@@ -1,5 +1,13 @@
 import { Command } from 'commander';
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest';
 import { createServer } from 'node:http';
 import { CLI_TOOL_FIXTURES } from '../tool-fixtures';
 import { runCommand } from '../cli-runtime';
@@ -80,12 +88,13 @@ const startMockCore = async (): Promise<{
 
 const buildCommand = (port: number): Command => {
   const command = new Command();
-  command.opts = () => ({
+  const opts = () => ({
     host: '127.0.0.1',
     port,
     json: true,
     daemon: false,
   });
+  command.opts = opts as Command['opts'];
   return command;
 };
 
@@ -110,7 +119,9 @@ describe('cli integration (mock core)', () => {
 
   it('forwards requests and prints JSON output', async () => {
     for (const fixture of coreFixtures) {
-      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+      const logSpy = vi
+        .spyOn(console, 'log')
+        .mockImplementation(() => undefined);
 
       const command = buildCommand(state.port);
       await runCommand(command, (client) =>

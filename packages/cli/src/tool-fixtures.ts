@@ -79,14 +79,7 @@ export const CLI_TOOL_FIXTURES: CliToolFixture[] = [
     name: 'drive.go_forward',
     kind: 'core',
     corePath: '/drive/go_forward',
-    argv: [
-      'drive',
-      'go-forward',
-      '--session-id',
-      'session-1',
-      '--tab-id',
-      '2',
-    ],
+    argv: ['drive', 'go-forward', '--session-id', 'session-1', '--tab-id', '2'],
     payload: { session_id: 'session-1', tab_id: 2 },
   },
   {
@@ -107,7 +100,14 @@ export const CLI_TOOL_FIXTURES: CliToolFixture[] = [
     name: 'drive.click',
     kind: 'core',
     corePath: '/drive/click',
-    argv: ['drive', 'click', '--session-id', 'session-1', '--locator-css', 'button'],
+    argv: [
+      'drive',
+      'click',
+      '--session-id',
+      'session-1',
+      '--locator-css',
+      'button',
+    ],
     payload: {
       session_id: 'session-1',
       locator: { css: 'button' },
@@ -197,6 +197,8 @@ export const CLI_TOOL_FIXTURES: CliToolFixture[] = [
         {
           selector: 'input[name=email]',
           value: 'test@example.com',
+          type: 'auto',
+          submit: false,
         },
       ],
       tab_id: 1,
@@ -419,14 +421,7 @@ export const CLI_TOOL_FIXTURES: CliToolFixture[] = [
     name: 'drive.tab_close',
     kind: 'core',
     corePath: '/drive/tab_close',
-    argv: [
-      'drive',
-      'tab-close',
-      '--session-id',
-      'session-1',
-      '--tab-id',
-      '3',
-    ],
+    argv: ['drive', 'tab-close', '--session-id', 'session-1', '--tab-id', '3'],
     payload: { session_id: 'session-1', tab_id: 3 },
   },
   {
