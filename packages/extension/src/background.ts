@@ -186,8 +186,14 @@ const mapDebuggerErrorMessage = (
   ) {
     return {
       code: 'DEBUGGER_IN_USE',
-      message,
+      message:
+        'Debugger already attached. Close DevTools on the target tab and retry.',
       retryable: true,
+      details: {
+        reason: 'debugger_in_use',
+        hint: 'Close DevTools on the target tab and retry.',
+        original_message: message,
+      },
     };
   }
   if (

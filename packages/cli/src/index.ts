@@ -5,6 +5,7 @@ import { registerDialogCommands } from './commands/dialog';
 import { registerDiagnosticsCommands } from './commands/diagnostics';
 import { registerDriveCommands } from './commands/drive';
 import { registerInspectCommands } from './commands/inspect';
+import { registerMcpCommand } from './commands/mcp';
 import { registerOpenArtifactsCommand } from './commands/open-artifacts';
 import { registerSessionCommands } from './commands/session';
 
@@ -25,5 +26,6 @@ registerArtifactsCommands(program);
 registerDiagnosticsCommands(program);
 registerDialogCommands(program);
 registerOpenArtifactsCommand(program);
+registerMcpCommand(program);
 
 void program.parseAsync(process.argv);

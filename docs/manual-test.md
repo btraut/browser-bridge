@@ -47,7 +47,7 @@ page. It requires the extension to be loaded and the workspace to be built.
 ## MCP Adapter Sanity Check
 
 1. Start the MCP adapter (stdio transport):
-   `node -e "require('@btraut/browser-bridge').startMcpServer()"`
+   `browser-bridge mcp`
 2. Connect with your MCP client and run `tools/list` to confirm `session.*`, `drive.*`, `inspect.*`, `artifacts.*`, `diagnostics.*`.
 3. Run `session.create` to verify end-to-end Core routing.
 

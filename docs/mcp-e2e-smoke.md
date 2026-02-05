@@ -18,7 +18,7 @@ It is **not** part of CI because it requires a live browser environment.
 1. Start the Core daemon:
    `npm run start`
 2. Start the MCP adapter (stdio transport):
-   `node -e "require('@btraut/browser-bridge').startMcpServer()"`
+   `browser-bridge mcp`
 3. Connect with your MCP client and run `tools/list`.
 4. Run `session.create` and note the `session_id`.
 5. With the `session_id`, run a minimal smoke set:

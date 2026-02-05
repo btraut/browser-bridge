@@ -6,6 +6,7 @@ import { registerDiagnosticsCommands } from './diagnostics';
 import { registerDialogCommands } from './dialog';
 import { registerDriveCommands } from './drive';
 import { registerInspectCommands } from './inspect';
+import { registerMcpCommand } from './mcp';
 import { registerOpenArtifactsCommand } from './open-artifacts';
 import { registerSessionCommands } from './session';
 import { runCommand } from '../cli-runtime';
@@ -13,6 +14,7 @@ import type { CoreClient } from '../core-client';
 
 vi.mock('../cli-runtime', () => ({
   runCommand: vi.fn(),
+  getGlobalOptions: vi.fn(() => ({})),
 }));
 
 const buildProgram = (): Command => {
@@ -30,6 +32,7 @@ const buildProgram = (): Command => {
   registerDiagnosticsCommands(program);
   registerDialogCommands(program);
   registerOpenArtifactsCommand(program);
+  registerMcpCommand(program);
 
   program.exitOverride();
 
