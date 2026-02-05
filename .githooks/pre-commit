@@ -1,0 +1,27 @@
+#!/usr/bin/env sh
+# bd-shim v1
+# bd-hooks-version: 0.49.1
+#
+# bd (beads) pre-commit hook - thin shim
+#
+# This shim delegates to 'bd hook pre-commit' which contains
+# the actual hook logic. This pattern ensures hook behavior is always
+# in sync with the installed bd version - no manual updates needed.
+#
+# After the beads hook runs, this delegates to the repo pre-commit
+# script for format/lint/typecheck.
+
+repo_root="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
+hook_script="$repo_root/scripts/git-hooks/pre-commit.sh"
+
+if command -v bd >/dev/null 2>&1; then
+    bd hook pre-commit "$@" || exit $?
+else
+    echo "Warning: bd not found; skipping beads pre-commit tasks" >&2
+fi
+
+if [ -x "$hook_script" ]; then
+    exec "$hook_script" "$@"
+fi
+
+exit 0

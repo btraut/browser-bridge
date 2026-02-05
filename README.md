@@ -21,6 +21,12 @@ These commands are provided by the workspace scaffolding at the repo root. If th
 - Lint: `npm run lint`
 - Test: `npm test`
 
+## Git Hooks
+
+The pre-commit hook runs formatting checks, linting, and typechecks before a commit.
+Enable it in your clone (applies to worktrees) with:
+`git config core.hooksPath .githooks`
+
 ## Demo
 
 - Manual checklist: `docs/manual-test.md`
