@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { Command } from 'commander';
 import { registerArtifactsCommands } from './commands/artifacts';
+import { registerDialogCommands } from './commands/dialog';
 import { registerDiagnosticsCommands } from './commands/diagnostics';
 import { registerDriveCommands } from './commands/drive';
 import { registerInspectCommands } from './commands/inspect';
@@ -22,6 +23,7 @@ registerDriveCommands(program);
 registerInspectCommands(program);
 registerArtifactsCommands(program);
 registerDiagnosticsCommands(program);
+registerDialogCommands(program);
 registerOpenArtifactsCommand(program);
 
 void program.parseAsync(process.argv);
