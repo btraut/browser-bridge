@@ -20,7 +20,10 @@ browser-bridge --help
 
 ## Quickstart
 
-1. Install the Chrome Web Store extension (listing coming soon).
+1. Install the Chrome Web Store extension (listing coming soon). For local
+   testing without the store, you can load unpacked from:
+   - this repo: `packages/extension`
+   - npm install: `$(npm root -g)/@btraut/browser-bridge/extension`
 2. Install the Browser Bridge skill (see below).
 3. (Optional) Add Browser Bridge to your MCP client (Codex or Claude Code below).
 4. Run a quick CLI check:
@@ -38,8 +41,13 @@ browser-bridge session close --session-id <id>
 Copy the Browser Bridge skill into your agent skills directory:
 
 ```bash
-cp -R docs/skills/browser-bridge ~/.agents/skills/browser-bridge
-cp -R docs/skills/browser-bridge ~/.claude/skills/browser-bridge
+# From this repo:
+# cp -R docs/skills/browser-bridge ~/.agents/skills/browser-bridge
+# cp -R docs/skills/browser-bridge ~/.claude/skills/browser-bridge
+
+# From npm (global install):
+cp -R "$(npm root -g)/@btraut/browser-bridge/skills/browser-bridge" ~/.agents/skills/browser-bridge
+cp -R "$(npm root -g)/@btraut/browser-bridge/skills/browser-bridge" ~/.claude/skills/browser-bridge
 ```
 
 Restart your agent app if it does not pick up the new skill automatically.
@@ -103,6 +111,7 @@ If you are contributing locally, load the extension unpacked:
 2. Enable **Developer mode**.
 3. Click **Load unpacked** and select `packages/extension` (repo).
 4. Confirm the extension's background service worker is running.
-5. Start the Core daemon (or CLI) so the extension can connect to `127.0.0.1`.
+5. Start the Core daemon (or run `browser-bridge session create`) so the
+   extension can connect to `127.0.0.1`.
 
 Additional manual test flows live in `docs/manual-test.md`.

@@ -108,7 +108,7 @@ This project builds a local, developer-focused browser control system for coding
 
 12. Packaging and release hygiene
     Files to touch: `package.json` files in each package, `LICENSE`, `README.md`
-    Code changes: set package names, bin entry for CLI, and minimal publish config (private by default). Ensure builds output to `dist/` and work from fresh checkout.
+    Code changes: publish a single self-contained `@btraut/browser-bridge` artifact (CLI + Core + MCP adapter bundled). Keep other workspace packages private/build-only. Ensure builds output to `dist/` and work from fresh checkout.
     Tests: run `npm pack` dry run to verify packaging.
     Docs: add “Versioning and Release” notes (local-only v1).
     Verify: `npm run build` from clean repo.

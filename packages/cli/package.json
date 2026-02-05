@@ -2,22 +2,29 @@
   "name": "@btraut/browser-bridge",
   "version": "0.1.0",
   "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
   "publishConfig": {
     "access": "public"
   },
   "main": "dist/api.js",
   "types": "dist/api.d.ts",
   "files": [
-    "dist"
+    "dist",
+    "extension",
+    "skills",
+    "README.md",
+    "LICENSE"
   ],
   "bin": {
     "browser-bridge": "dist/index.js"
   },
+  "scripts": {
+    "prepack": "node ./scripts/prepack.mjs",
+    "postpack": "node ./scripts/postpack.mjs"
+  },
   "dependencies": {
-    "@btraut/browser-bridge-core": "file:../core",
-    "@btraut/browser-bridge-extension": "file:../extension",
-    "@btraut/browser-bridge-mcp-adapter": "file:../mcp-adapter",
-    "@btraut/browser-bridge-shared": "file:../shared",
     "@modelcontextprotocol/sdk": "^1.25.3",
     "@mozilla/readability": "^0.5.0",
     "commander": "^14.0.3",
@@ -26,11 +33,5 @@
     "turndown": "^7.2.0",
     "ws": "^8.19.0",
     "zod": "^4.0.1"
-  },
-  "bundledDependencies": [
-    "@btraut/browser-bridge-core",
-    "@btraut/browser-bridge-extension",
-    "@btraut/browser-bridge-mcp-adapter",
-    "@btraut/browser-bridge-shared"
-  ]
+  }
 }

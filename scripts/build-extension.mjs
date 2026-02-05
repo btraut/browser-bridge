@@ -1,4 +1,5 @@
 import { build } from 'esbuild';
+import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -8,6 +9,10 @@ const __dirname = path.dirname(__filename);
 const repoRoot = path.resolve(__dirname, '..');
 const extensionRoot = path.join(repoRoot, 'packages', 'extension');
 const outdir = path.join(extensionRoot, 'dist');
+
+// Keep the unpacked extension dir clean (avoids publishing stale build outputs).
+await fs.rm(outdir, { recursive: true, force: true });
+await fs.mkdir(outdir, { recursive: true });
 
 // MV3 background service workers can be ESM ("type": "module").
 await build({

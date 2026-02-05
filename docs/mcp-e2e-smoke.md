@@ -8,7 +8,7 @@ It is **not** part of CI because it requires a live browser environment.
 1. Install dependencies: `npm install`.
 2. Build the workspace: `npm run build`.
 3. Load the extension from `packages/extension` (repo) or
-   `node_modules/@btraut/browser-bridge-extension` (npm install) in
+   `node_modules/@btraut/browser-bridge/extension` (npm install) in
    `chrome://extensions`.
 4. Open a dedicated Chrome tab you do not mind navigating (example: `about:blank` or `https://example.com`).
 5. Ensure DevTools is closed on the target tab (the debugger cannot attach while DevTools is open).

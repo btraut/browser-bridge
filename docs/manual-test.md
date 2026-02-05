@@ -8,7 +8,7 @@ This checklist validates the Drive + Inspect planes and artifact handling end-to
 2. Build the workspace: `npm run build`.
    - If you're using the unpacked extension from this repo, reload it in `chrome://extensions` after rebuilding so Chrome picks up updated content scripts.
 3. Load the extension from `packages/extension` (repo) or
-   `node_modules/@btraut/browser-bridge-extension` (npm install) in
+   `node_modules/@btraut/browser-bridge/extension` (npm install) in
    `chrome://extensions`.
 4. Open a dedicated Chrome tab you do not mind navigating (example: `about:blank` or `https://example.com`).
 5. Ensure DevTools is closed on the target tab (the debugger cannot attach while DevTools is open).

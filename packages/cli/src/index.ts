@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 import { Command } from 'commander';
 import { registerArtifactsCommands } from './commands/artifacts';
 import { registerDialogCommands } from './commands/dialog';
