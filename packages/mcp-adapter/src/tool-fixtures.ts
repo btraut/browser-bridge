@@ -1,5 +1,5 @@
-import type { ApiEnvelope } from '@browser-vision/shared';
-import type { ErrorEnvelope } from '@browser-vision/shared';
+import type { ApiEnvelope } from '@btraut/browser-bridge-shared';
+import type { ErrorEnvelope } from '@btraut/browser-bridge-shared';
 
 export type ToolFixture = {
   name: string;

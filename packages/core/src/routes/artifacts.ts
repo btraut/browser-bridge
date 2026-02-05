@@ -1,7 +1,7 @@
 import { InspectError, InspectService, createInspectService } from '../inspect';
 import type { ExtensionBridge } from '../extension-bridge';
 import type { SessionRegistry } from '../session';
-import { ArtifactsScreenshotInputSchema } from '@browser-vision/shared';
+import { ArtifactsScreenshotInputSchema } from '@btraut/browser-bridge-shared';
 import {
   ResponseLike,
   deriveHintFromTabs,

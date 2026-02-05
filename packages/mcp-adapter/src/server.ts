@@ -18,7 +18,7 @@ export type McpAdapterStartHandle = McpAdapterHandle & {
   transport: StdioServerTransport;
 };
 
-const DEFAULT_SERVER_NAME = 'browser-vision';
+const DEFAULT_SERVER_NAME = 'browser-bridge';
 const DEFAULT_SERVER_VERSION = '0.0.0';
 
 export const createMcpServer = (

@@ -22,7 +22,7 @@ import {
   DriveTabListInputSchema,
   DriveTypeInputSchema,
   DriveWaitForInputSchema,
-} from '@browser-vision/shared';
+} from '@btraut/browser-bridge-shared';
 import { ResponseLike, errorStatus, sendError, sendResult } from './shared';
 
 type RequestLike = {

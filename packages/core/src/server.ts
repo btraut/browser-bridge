@@ -104,7 +104,9 @@ const resolveCorePort = (portOverride?: number): number => {
   if (portOverride !== undefined) {
     return portOverride;
   }
-  const env = process.env.BROWSER_VISION_CORE_PORT;
+  const env =
+    process.env.BROWSER_BRIDGE_CORE_PORT ||
+    process.env.BROWSER_VISION_CORE_PORT;
   if (env) {
     const parsed = Number(env);
     if (Number.isFinite(parsed) && parsed > 0) {

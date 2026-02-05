@@ -1,5 +1,5 @@
 import { Command } from 'commander';
-import { DiagnosticsDoctorInputSchema } from '@browser-vision/shared';
+import { DiagnosticsDoctorInputSchema } from '@btraut/browser-bridge-shared';
 import { parseInput } from '../cli-output';
 import { runCommand } from '../cli-runtime';
 
