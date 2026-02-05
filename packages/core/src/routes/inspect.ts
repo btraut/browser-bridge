@@ -2,15 +2,26 @@ import { InspectError, InspectService, createInspectService } from '../inspect';
 import { TargetHint } from '../target-matching';
 import { SessionRegistry } from '../session';
 import type { ExtensionBridge } from '../extension-bridge';
-import type { DriveTabInfo } from '../drive-protocol';
+import {
+  InspectConsoleListInputSchema,
+  InspectDomDiffInputSchema,
+  InspectDomSnapshotInputSchema,
+  InspectEvaluateInputSchema,
+  InspectExtractContentInputSchema,
+  InspectNetworkHarInputSchema,
+  InspectPageStateInputSchema,
+  InspectPerformanceMetricsInputSchema,
+} from '@browser-vision/shared';
+import {
+  ResponseLike,
+  deriveHintFromTabs,
+  errorStatus,
+  sendError,
+  sendResult,
+} from './shared';
 
 type RequestLike = {
   body?: unknown;
-};
-
-type ResponseLike = {
-  status: (code: number) => ResponseLike;
-  json: (body: unknown) => void;
 };
 
 type RouteRegistry = {
@@ -36,27 +47,21 @@ type ErrorCode =
   | 'ARTIFACT_IO_ERROR'
   | 'INTERNAL';
 
-type ErrorEnvelope = {
-  ok: false;
-  error: {
-    code: ErrorCode;
-    message: string;
-    retryable: boolean;
-    details?: Record<string, unknown>;
-  };
-};
-
-type SuccessEnvelope<T> = {
-  ok: true;
-  result: T;
-};
-
 type ValidationError = {
   message: string;
   details?: Record<string, unknown>;
 };
 
-type Validator = (body: unknown) => ValidationError | null;
+type SchemaLike<T> = {
+  safeParse: (
+    body: unknown
+  ) =>
+    | { success: true; data: T }
+    | {
+        success: false;
+        error: { issues: { message: string; path: PropertyKey[] }[] };
+      };
+};
 
 type InspectRoutesOptions = {
   registry: SessionRegistry;
@@ -64,177 +69,51 @@ type InspectRoutesOptions = {
   extensionBridge?: ExtensionBridge;
 };
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value);
-
-const errorEnvelope = (
-  code: ErrorCode,
-  message: string,
-  retryable: boolean,
-  details?: Record<string, unknown>
-): ErrorEnvelope => ({
-  ok: false,
-  error: {
-    code,
-    message,
-    retryable,
-    ...(details ? { details } : {}),
-  },
-});
-
-const sendError = (
+const sendInspectError = (
   res: ResponseLike,
   code: ErrorCode,
   message: string,
   retryable: boolean,
   details?: Record<string, unknown>
 ): void => {
-  const status = (() => {
-    switch (code) {
-      case 'INVALID_ARGUMENT':
-        return 400;
-      case 'SESSION_NOT_FOUND':
-        return 404;
-      case 'TAB_NOT_FOUND':
-        return 404;
-      case 'SESSION_CLOSED':
-        return 409;
-      case 'DEBUGGER_IN_USE':
-        return 409;
-      case 'ATTACH_DENIED':
-        return 403;
-      case 'EXTENSION_DISCONNECTED':
-        return 503;
-      case 'NOT_SUPPORTED':
-        return 501;
-      case 'TIMEOUT':
-        return 504;
-      case 'INSPECT_UNAVAILABLE':
-        return 503;
-      case 'EVALUATION_FAILED':
-      case 'ARTIFACT_IO_ERROR':
-      case 'INTERNAL':
-      default:
-        return 500;
-    }
-  })();
-  res.status(status).json(errorEnvelope(code, message, retryable, details));
+  sendError(res, errorStatus(code), {
+    code,
+    message,
+    retryable,
+    ...(details ? { details } : {}),
+  });
 };
 
-const sendResult = <T>(res: ResponseLike, result: T): void => {
-  const envelope: SuccessEnvelope<T> = { ok: true, result };
-  res.status(200).json(envelope);
+type TargetHintInput = {
+  url?: string;
+  title?: string;
+  last_active_at?: string;
+  lastActiveAt?: string;
 };
 
-const requireObject = (body: unknown): ValidationError | null => {
-  if (!isRecord(body)) {
-    return { message: 'Request body must be an object.' };
+const parseBody = <T>(
+  schema: SchemaLike<T>,
+  body: unknown
+): { data?: T; error?: ValidationError } => {
+  const result = schema.safeParse(body);
+  if (result.success) {
+    return { data: result.data };
   }
-  return null;
+  const issue = result.error.issues[0];
+  const details =
+    issue && issue.path.length > 0
+      ? { field: issue.path.map((part) => part.toString()).join('.') }
+      : undefined;
+  return {
+    error: {
+      message: issue?.message ?? 'Request body is invalid.',
+      ...(details ? { details } : {}),
+    },
+  };
 };
 
-const requireString = (
-  obj: Record<string, unknown>,
-  field: string,
-  label = field
-): ValidationError | null => {
-  const value = obj[field];
-  if (typeof value !== 'string' || value.trim().length === 0) {
-    return {
-      message: `${label} must be a non-empty string.`,
-      details: { field },
-    };
-  }
-  return null;
-};
-
-const optionalString = (
-  obj: Record<string, unknown>,
-  field: string,
-  label = field
-): ValidationError | null => {
-  const value = obj[field];
-  if (value === undefined) {
-    return null;
-  }
-  if (typeof value !== 'string' || value.trim().length === 0) {
-    return {
-      message: `${label} must be a non-empty string.`,
-      details: { field },
-    };
-  }
-  return null;
-};
-
-const optionalEnum = (
-  obj: Record<string, unknown>,
-  field: string,
-  allowed: readonly string[],
-  label = field
-): ValidationError | null => {
-  const value = obj[field];
-  if (value === undefined) {
-    return null;
-  }
-  if (typeof value !== 'string' || !allowed.includes(value)) {
-    return {
-      message: `${label} must be one of ${allowed
-        .map((entry) => `'${entry}'`)
-        .join(', ')}.`,
-      details: { field },
-    };
-  }
-  return null;
-};
-
-const optionalTargetHint = (
-  obj: Record<string, unknown>
-): ValidationError | null => {
-  const target = obj.target;
-  if (target === undefined) {
-    return null;
-  }
-  if (!isRecord(target)) {
-    return {
-      message: 'target must be an object.',
-      details: { field: 'target' },
-    };
-  }
-  const url = target.url;
-  if (
-    url !== undefined &&
-    (typeof url !== 'string' || url.trim().length === 0)
-  ) {
-    return {
-      message: 'target.url must be a non-empty string.',
-      details: { field: 'target.url' },
-    };
-  }
-  const title = target.title;
-  if (
-    title !== undefined &&
-    (typeof title !== 'string' || title.trim().length === 0)
-  ) {
-    return {
-      message: 'target.title must be a non-empty string.',
-      details: { field: 'target.title' },
-    };
-  }
-  const lastActiveAt = target.last_active_at ?? target.lastActiveAt;
-  if (lastActiveAt !== undefined && typeof lastActiveAt !== 'string') {
-    return {
-      message: 'target.last_active_at must be a string.',
-      details: { field: 'target.last_active_at' },
-    };
-  }
-  return null;
-};
-
-const readTargetHint = (
-  obj: Record<string, unknown>
-): TargetHint | undefined => {
-  const target = obj.target;
-  if (!isRecord(target)) {
+const readTargetHint = (target?: TargetHintInput): TargetHint | undefined => {
+  if (!target) {
     return undefined;
   }
   const url = typeof target.url === 'string' ? target.url : undefined;
@@ -248,39 +127,11 @@ const readTargetHint = (
   return { url, title, lastActiveAt };
 };
 
-const deriveHintFromTabs = (tabs: DriveTabInfo[]): TargetHint | undefined => {
-  if (!Array.isArray(tabs) || tabs.length === 0) {
-    return undefined;
-  }
-  let best: DriveTabInfo | undefined;
-  let bestTime = -Infinity;
-  for (const tab of tabs) {
-    const raw = tab.last_active_at;
-    const time = raw ? Date.parse(raw) : NaN;
-    const score = Number.isFinite(time) ? time : -Infinity;
-    if (!best || score > bestTime) {
-      best = tab;
-      bestTime = score;
-    }
-  }
-  if (!best) {
-    return undefined;
-  }
-  if (!best.url && !best.title && !best.last_active_at) {
-    return undefined;
-  }
-  return {
-    url: best.url,
-    title: best.title,
-    lastActiveAt: best.last_active_at,
-  };
-};
-
 const resolveTargetHint = (
-  body: Record<string, unknown>,
+  target: TargetHintInput | undefined,
   options: InspectRoutesOptions
 ): TargetHint | undefined => {
-  const explicit = readTargetHint(body);
+  const explicit = readTargetHint(target);
   if (explicit) {
     return explicit;
   }
@@ -288,112 +139,32 @@ const resolveTargetHint = (
   return deriveHintFromTabs(tabs);
 };
 
-const validateSessionId = (
-  obj: Record<string, unknown>
-): ValidationError | null => requireString(obj, 'session_id');
-
-const validateDomSnapshot: Validator = (body) => {
-  const objectError = requireObject(body);
-  if (objectError) {
-    return objectError;
-  }
-  const obj = body as Record<string, unknown>;
-  const sessionError = validateSessionId(obj);
-  if (sessionError) {
-    return sessionError;
-  }
-  const formatError = optionalEnum(obj, 'format', ['ax', 'html']);
-  if (formatError) {
-    return formatError;
-  }
-  const consistencyError = optionalEnum(obj, 'consistency', [
-    'best_effort',
-    'quiesce',
-  ]);
-  if (consistencyError) {
-    return consistencyError;
-  }
-  return optionalTargetHint(obj);
-};
-
-const validateConsoleList: Validator = (body) => {
-  const objectError = requireObject(body);
-  if (objectError) {
-    return objectError;
-  }
-  const obj = body as Record<string, unknown>;
-  const sessionError = validateSessionId(obj);
-  if (sessionError) {
-    return sessionError;
-  }
-  return optionalTargetHint(obj);
-};
-
-const validateNetworkHar: Validator = (body) => {
-  const objectError = requireObject(body);
-  if (objectError) {
-    return objectError;
-  }
-  const obj = body as Record<string, unknown>;
-  const sessionError = validateSessionId(obj);
-  if (sessionError) {
-    return sessionError;
-  }
-  return optionalTargetHint(obj);
-};
-
-const validateEvaluate: Validator = (body) => {
-  const objectError = requireObject(body);
-  if (objectError) {
-    return objectError;
-  }
-  const obj = body as Record<string, unknown>;
-  const sessionError = validateSessionId(obj);
-  if (sessionError) {
-    return sessionError;
-  }
-  const expressionError = optionalString(obj, 'expression', 'expression');
-  if (expressionError) {
-    return expressionError;
-  }
-  return optionalTargetHint(obj);
-};
-
-const validatePerformanceMetrics: Validator = (body) => {
-  const objectError = requireObject(body);
-  if (objectError) {
-    return objectError;
-  }
-  const obj = body as Record<string, unknown>;
-  const sessionError = validateSessionId(obj);
-  if (sessionError) {
-    return sessionError;
-  }
-  return optionalTargetHint(obj);
-};
-
-const makeHandler =
-  <T>(
-    validator: Validator,
-    handler: (body: Record<string, unknown>) => Promise<T>
-  ) =>
+const makeHandler = <TBody extends { session_id: string }, TResult>(
+  schema: SchemaLike<TBody>,
+  handler: (body: TBody) => Promise<TResult>
+) =>
   async (req: RequestLike, res: ResponseLike): Promise<void> => {
-    const error = validator(req.body);
-    if (error) {
-      sendError(res, 'INVALID_ARGUMENT', error.message, false, error.details);
+    const parsed = parseBody(schema, req.body ?? {});
+    if (parsed.error) {
+      sendInspectError(
+        res,
+        'INVALID_ARGUMENT',
+        parsed.error.message,
+        false,
+        parsed.error.details
+      );
       return;
     }
 
     try {
-      const body = (req.body ?? {}) as Record<string, unknown>;
-      const result = await handler(body);
+      const result = await handler(parsed.data as TBody);
       sendResult(res, result);
     } catch (err) {
       if (err instanceof InspectError) {
-        sendError(res, err.code, err.message, err.retryable, err.details);
+        sendInspectError(res, err.code, err.message, err.retryable, err.details);
         return;
       }
-      sendError(res, 'INTERNAL', 'Unexpected inspect error.', false);
+      sendInspectError(res, 'INTERNAL', 'Unexpected inspect error.', false);
     }
   };
 
@@ -410,50 +181,75 @@ export const registerInspectRoutes = (
 
   router.post(
     '/inspect/dom_snapshot',
-    makeHandler(validateDomSnapshot, async (body) => {
+    makeHandler(InspectDomSnapshotInputSchema, async (body) => {
       return await inspect.domSnapshot({
-        sessionId: body.session_id as string,
-        format: (body.format as 'ax' | 'html') ?? 'ax',
-        consistency:
-          (body.consistency as 'best_effort' | 'quiesce') ?? 'best_effort',
-        targetHint: resolveTargetHint(body, options),
+        sessionId: body.session_id,
+        format: body.format,
+        consistency: body.consistency,
+        targetHint: resolveTargetHint(body.target, options),
+      });
+    })
+  );
+  router.post(
+    '/inspect/dom_diff',
+    makeHandler(InspectDomDiffInputSchema, async (body) => {
+      return inspect.domDiff({ sessionId: body.session_id });
+    })
+  );
+  router.post(
+    '/inspect/extract_content',
+    makeHandler(InspectExtractContentInputSchema, async (body) => {
+      return await inspect.extractContent({
+        sessionId: body.session_id,
+        format: body.format,
+        includeMetadata: body.include_metadata,
+        targetHint: resolveTargetHint(body.target, options),
+      });
+    })
+  );
+  router.post(
+    '/inspect/page_state',
+    makeHandler(InspectPageStateInputSchema, async (body) => {
+      return await inspect.pageState({
+        sessionId: body.session_id,
+        targetHint: resolveTargetHint(body.target, options),
       });
     })
   );
   router.post(
     '/inspect/console_list',
-    makeHandler(validateConsoleList, async (body) => {
+    makeHandler(InspectConsoleListInputSchema, async (body) => {
       return await inspect.consoleList({
-        sessionId: body.session_id as string,
-        targetHint: resolveTargetHint(body, options),
+        sessionId: body.session_id,
+        targetHint: resolveTargetHint(body.target, options),
       });
     })
   );
   router.post(
     '/inspect/network_har',
-    makeHandler(validateNetworkHar, async (body) => {
+    makeHandler(InspectNetworkHarInputSchema, async (body) => {
       return await inspect.networkHar({
-        sessionId: body.session_id as string,
-        targetHint: resolveTargetHint(body, options),
+        sessionId: body.session_id,
+        targetHint: resolveTargetHint(body.target, options),
       });
     })
   );
   router.post(
     '/inspect/evaluate',
-    makeHandler(validateEvaluate, async (body) => {
+    makeHandler(InspectEvaluateInputSchema, async (body) => {
       return await inspect.evaluate({
-        sessionId: body.session_id as string,
-        expression: body.expression as string | undefined,
-        targetHint: resolveTargetHint(body, options),
+        sessionId: body.session_id,
+        expression: body.expression,
+        targetHint: resolveTargetHint(body.target, options),
       });
     })
   );
   router.post(
     '/inspect/performance_metrics',
-    makeHandler(validatePerformanceMetrics, async (body) => {
+    makeHandler(InspectPerformanceMetricsInputSchema, async (body) => {
       return await inspect.performanceMetrics({
-        sessionId: body.session_id as string,
-        targetHint: resolveTargetHint(body, options),
+        sessionId: body.session_id,
+        targetHint: resolveTargetHint(body.target, options),
       });
     })
   );

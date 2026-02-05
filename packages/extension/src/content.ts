@@ -9,7 +9,7 @@ type ContentResult =
   | { ok: true; result?: unknown }
   | { ok: false; error: DriveErrorInfo };
 
-const runDriveAction = async (
+export const runDriveAction = async (
   action: string,
   params: Record<string, unknown> | undefined
 ): Promise<ContentResult> => {
@@ -44,7 +44,69 @@ const runDriveAction = async (
     if (style.visibility === 'hidden' || style.display === 'none') {
       return false;
     }
-    return element.getClientRects().length > 0;
+    const rect = element.getBoundingClientRect();
+    if (rect.width === 0 && rect.height === 0) {
+      return false;
+    }
+    if (
+      element.offsetWidth === 0 &&
+      element.offsetHeight === 0 &&
+      element.getClientRects().length === 0
+    ) {
+      return false;
+    }
+    let current: HTMLElement | null = element;
+    while (current) {
+      const style = window.getComputedStyle(current);
+      if (style.display === "none") {
+        return false;
+      }
+      if (style.visibility === "hidden" || style.visibility === "collapse") {
+        return false;
+      }
+      const opacity = Number.parseFloat(style.opacity ?? "1");
+      if (Number.isFinite(opacity) && opacity <= 0) {
+        return false;
+      }
+      current = current.parentElement;
+    }
+    return true;
+  };
+
+  // Heuristic guard against unsafe regex patterns to avoid ReDoS in url_matches.
+  const buildUrlMatcher = (
+    pattern: string
+  ):
+    | { ok: true; matcher: (url: string) => boolean }
+    | { ok: false; error: ContentResult } => {
+    const maxLength = 256;
+    if (pattern.length > maxLength) {
+      return {
+        ok: false,
+        error: buildError(
+          "INVALID_ARGUMENT",
+          `url_matches pattern exceeds ${maxLength} characters.`
+        ),
+      };
+    }
+    const nestedQuantifiers =
+      /\((?:[^()\\]|\\.)*[+*{](?:[^()\\]|\\.)*\)[+*{]/.test(pattern);
+    const repeatedWildcards = /(\.\*.*\.\*)|(\.\+.*\.\+)/.test(pattern);
+    if (nestedQuantifiers || repeatedWildcards) {
+      return {
+        ok: false,
+        error: buildError(
+          "INVALID_ARGUMENT",
+          "url_matches pattern rejected due to unsafe regex complexity."
+        ),
+      };
+    }
+    try {
+      const regex = new RegExp(pattern);
+      return { ok: true, matcher: (url: string) => regex.test(url) };
+    } catch {
+      return { ok: true, matcher: (url: string) => url.includes(pattern) };
+    }
   };
 
   const findByText = (text: string): Element | null => {
@@ -120,6 +182,218 @@ const runDriveAction = async (
     return null;
   };
 
+  const coerceBoolean = (value: string | boolean): boolean => {
+    if (typeof value === "boolean") {
+      return value;
+    }
+    const normalized = value.trim().toLowerCase();
+    return ["true", "1", "yes", "y", "on", "checked"].includes(normalized);
+  };
+
+  const dispatchValueEvents = (element: HTMLElement): void => {
+    element.dispatchEvent(new Event("input", { bubbles: true }));
+    element.dispatchEvent(new Event("change", { bubbles: true }));
+  };
+
+  const selectOption = (
+    select: HTMLSelectElement,
+    value: string
+  ): boolean => {
+    const option = Array.from(select.options).find(
+      (entry) => entry.value === value || entry.text === value
+    );
+    if (!option) {
+      return false;
+    }
+    select.value = option.value;
+    dispatchValueEvents(select);
+    return true;
+  };
+
+  const selectOptionByIndex = (
+    select: HTMLSelectElement,
+    index: number
+  ): boolean => {
+    if (!Number.isInteger(index)) {
+      return false;
+    }
+    if (index < 0 || index >= select.options.length) {
+      return false;
+    }
+    select.selectedIndex = index;
+    dispatchValueEvents(select);
+    return true;
+  };
+
+  const setTextValue = (
+    element: HTMLElement,
+    value: string,
+    clear: boolean
+  ): boolean => {
+    const tag = element.tagName.toLowerCase();
+    if (tag === "input" || tag === "textarea") {
+      const input = element as HTMLInputElement | HTMLTextAreaElement;
+      if (clear) {
+        input.value = "";
+      }
+      input.value = `${input.value}${value}`;
+      dispatchValueEvents(input);
+      return true;
+    }
+    if (element.isContentEditable) {
+      if (clear) {
+        element.textContent = "";
+      }
+      element.textContent = `${element.textContent ?? ""}${value}`;
+      dispatchValueEvents(element);
+      return true;
+    }
+    return false;
+  };
+
+  const detectFieldType = (
+    element: Element
+  ): "text" | "select" | "checkbox" | "radio" | "contentEditable" => {
+    if (element instanceof HTMLSelectElement) {
+      return "select";
+    }
+    if (element instanceof HTMLInputElement) {
+      const type = element.type.toLowerCase();
+      if (type === "checkbox") {
+        return "checkbox";
+      }
+      if (type === "radio") {
+        return "radio";
+      }
+      return "text";
+    }
+    if (element instanceof HTMLTextAreaElement) {
+      return "text";
+    }
+    if (element instanceof HTMLElement && element.isContentEditable) {
+      return "contentEditable";
+    }
+    return "text";
+  };
+
+  const submitIfRequested = (element: Element): void => {
+    const form = element.closest("form");
+    if (form && form instanceof HTMLFormElement) {
+      form.requestSubmit();
+    } else if (element instanceof HTMLElement) {
+      element.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Enter", bubbles: true })
+      );
+    }
+  };
+
+  const sleep = (ms: number): Promise<void> =>
+    new Promise((resolve) => window.setTimeout(resolve, ms));
+
+  const dispatchPointer = (
+    element: Element,
+    type: string,
+    x: number,
+    y: number
+  ): void => {
+    element.dispatchEvent(
+      new PointerEvent(type, {
+        bubbles: true,
+        cancelable: true,
+        clientX: x,
+        clientY: y,
+        button: 0,
+      })
+    );
+  };
+
+  const dispatchDrag = (
+    element: Element,
+    type: string,
+    x: number,
+    y: number,
+    dataTransfer?: DataTransfer
+  ): void => {
+    try {
+      element.dispatchEvent(
+        new DragEvent(type, {
+          bubbles: true,
+          cancelable: true,
+          clientX: x,
+          clientY: y,
+          dataTransfer,
+        })
+      );
+    } catch {
+      element.dispatchEvent(new Event(type, { bubbles: true, cancelable: true }));
+    }
+  };
+
+  const keyToCode = (key: string): string => {
+    const map: Record<string, string> = {
+      Enter: "Enter",
+      Tab: "Tab",
+      Escape: "Escape",
+      Esc: "Escape",
+      Backspace: "Backspace",
+      Delete: "Delete",
+      ArrowUp: "ArrowUp",
+      ArrowDown: "ArrowDown",
+      ArrowLeft: "ArrowLeft",
+      ArrowRight: "ArrowRight",
+      Home: "Home",
+      End: "End",
+      PageUp: "PageUp",
+      PageDown: "PageDown",
+      " ": "Space",
+      Space: "Space",
+    };
+    if (map[key]) {
+      return map[key];
+    }
+    if (key.length === 1) {
+      if (/[a-zA-Z]/.test(key)) {
+        return `Key${key.toUpperCase()}`;
+      }
+      if (/[0-9]/.test(key)) {
+        return `Digit${key}`;
+      }
+    }
+    return key;
+  };
+
+  const normalizeModifiers = (
+    modifiers: unknown
+  ): { ctrl: boolean; alt: boolean; shift: boolean; meta: boolean } => {
+    const state = { ctrl: false, alt: false, shift: false, meta: false };
+    if (Array.isArray(modifiers)) {
+      modifiers.forEach((modifier) => {
+        if (typeof modifier !== "string") {
+          return;
+        }
+        const normalized = modifier.toLowerCase();
+        if (normalized === "ctrl") {
+          state.ctrl = true;
+        } else if (normalized === "alt") {
+          state.alt = true;
+        } else if (normalized === "shift") {
+          state.shift = true;
+        } else if (normalized === "meta") {
+          state.meta = true;
+        }
+      });
+      return state;
+    }
+    if (modifiers && typeof modifiers === "object") {
+      const record = modifiers as Record<string, unknown>;
+      state.ctrl = Boolean(record.ctrl);
+      state.alt = Boolean(record.alt);
+      state.shift = Boolean(record.shift);
+      state.meta = Boolean(record.meta);
+    }
+    return state;
+  };
+
   const activeEditableElement = (): HTMLElement | null => {
     const active = document.activeElement;
     if (!active || !(active instanceof HTMLElement)) {
@@ -159,6 +433,65 @@ const runDriveAction = async (
             : 1;
         for (let i = 0; i < count; i += 1) {
           (target as HTMLElement).click();
+        }
+        return ok();
+      }
+      case 'drive.hover': {
+        const { locator, delay_ms } = parseParams();
+        const target = resolveLocator(locator as Record<string, unknown>);
+        if (!target) {
+          return buildError('LOCATOR_NOT_FOUND', 'Failed to resolve locator.');
+        }
+        const rect = target.getBoundingClientRect();
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+        const eventInit = {
+          bubbles: true,
+          cancelable: true,
+          clientX: centerX,
+          clientY: centerY,
+        };
+        target.dispatchEvent(new MouseEvent('mouseover', eventInit));
+        target.dispatchEvent(
+          new MouseEvent('mouseenter', { ...eventInit, bubbles: false })
+        );
+        target.dispatchEvent(new MouseEvent('mousemove', eventInit));
+        if (typeof delay_ms === 'number' && Number.isFinite(delay_ms)) {
+          const waitMs = Math.min(Math.max(delay_ms, 0), 10000);
+          if (waitMs > 0) {
+            await sleep(waitMs);
+          }
+        }
+        const html = document.documentElement?.outerHTML ?? '';
+        return ok({ format: 'html', snapshot: html });
+      }
+      case 'drive.select': {
+        const { locator, value, text, index } = parseParams();
+        const target = resolveLocator(locator as Record<string, unknown>);
+        if (!target) {
+          return buildError('LOCATOR_NOT_FOUND', 'Failed to resolve locator.');
+        }
+        if (!(target instanceof HTMLSelectElement)) {
+          return buildError(
+            'INVALID_ARGUMENT',
+            'Target is not a select element.'
+          );
+        }
+        let applied = false;
+        if (typeof index === 'number' && Number.isFinite(index)) {
+          applied = selectOptionByIndex(target, Math.trunc(index));
+        }
+        if (!applied && typeof value === 'string') {
+          applied = selectOption(target, value);
+        }
+        if (!applied && typeof text === 'string') {
+          applied = selectOption(target, text);
+        }
+        if (!applied) {
+          return buildError(
+            'INVALID_ARGUMENT',
+            'No matching option found for select.'
+          );
         }
         return ok();
       }
@@ -219,6 +552,209 @@ const runDriveAction = async (
 
         return ok();
       }
+      case 'drive.fill_form': {
+        const { fields } = parseParams();
+        if (!Array.isArray(fields) || fields.length === 0) {
+          return buildError(
+            'INVALID_ARGUMENT',
+            'fields must be a non-empty array.'
+          );
+        }
+        let filled = 0;
+        const errors: string[] = [];
+        fields.forEach((field, index) => {
+          if (!field || typeof field !== 'object') {
+            errors.push(`Field ${index} is not an object.`);
+            return;
+          }
+          const record = field as Record<string, unknown>;
+          const selector = record.selector;
+          const locator =
+            record.locator && typeof record.locator === 'object'
+              ? (record.locator as Record<string, unknown>)
+              : undefined;
+          let element: Element | null = null;
+          if (locator) {
+            element = resolveLocator(locator);
+          }
+          if (!element && typeof selector === 'string' && selector.length > 0) {
+            element = document.querySelector(selector);
+          }
+          if (!element) {
+            errors.push(`Field ${index} could not be resolved.`);
+            return;
+          }
+
+          const value = record.value;
+          if (typeof value !== 'string' && typeof value !== 'boolean') {
+            errors.push(`Field ${index} has invalid value.`);
+            return;
+          }
+
+          const type =
+            typeof record.type === 'string' && record.type.length > 0
+              ? record.type
+              : 'auto';
+          const resolvedType =
+            type === 'auto' ? detectFieldType(element) : type;
+          const submit = Boolean(record.submit);
+
+          let applied = false;
+          if (resolvedType === 'select') {
+            if (element instanceof HTMLSelectElement) {
+              applied = selectOption(element, String(value));
+            }
+          } else if (resolvedType === 'checkbox' || resolvedType === 'radio') {
+            if (element instanceof HTMLInputElement) {
+              const shouldCheck =
+                typeof value === 'boolean' ? value : coerceBoolean(value);
+              element.checked = shouldCheck;
+              dispatchValueEvents(element);
+              applied = true;
+            }
+          } else {
+            if (element instanceof HTMLElement) {
+              applied = setTextValue(element, String(value), true);
+            }
+          }
+
+          if (!applied) {
+            errors.push(`Field ${index} could not be filled.`);
+            return;
+          }
+
+          if (submit) {
+            submitIfRequested(element);
+          }
+          filled += 1;
+        });
+
+        return ok({
+          filled,
+          attempted: fields.length,
+          errors: errors.length > 0 ? errors : [],
+        });
+      }
+      case 'drive.drag': {
+        const { from, to, steps } = parseParams();
+        const fromEl = resolveLocator(from as Record<string, unknown>);
+        if (!fromEl) {
+          return buildError(
+            'LOCATOR_NOT_FOUND',
+            'Failed to resolve drag source.'
+          );
+        }
+        const toEl = resolveLocator(to as Record<string, unknown>);
+        if (!toEl) {
+          return buildError(
+            'LOCATOR_NOT_FOUND',
+            'Failed to resolve drag target.'
+          );
+        }
+
+        const fromRect = fromEl.getBoundingClientRect();
+        const toRect = toEl.getBoundingClientRect();
+        const startX = fromRect.left + fromRect.width / 2;
+        const startY = fromRect.top + fromRect.height / 2;
+        const endX = toRect.left + toRect.width / 2;
+        const endY = toRect.top + toRect.height / 2;
+        // Defensive bounds in case content script receives unvalidated inputs.
+        const totalSteps =
+          typeof steps === 'number' && Number.isFinite(steps)
+            ? Math.max(1, Math.min(50, Math.floor(steps)))
+            : 12;
+        let dataTransfer: DataTransfer | undefined;
+        try {
+          dataTransfer = new DataTransfer();
+        } catch {
+          dataTransfer = undefined;
+        }
+
+        dispatchPointer(fromEl, 'pointerdown', startX, startY);
+        dispatchDrag(fromEl, 'dragstart', startX, startY, dataTransfer);
+
+        for (let i = 1; i <= totalSteps; i += 1) {
+          const progress = i / totalSteps;
+          const x = startX + (endX - startX) * progress;
+          const y = startY + (endY - startY) * progress;
+          const target = document.elementFromPoint(x, y) ?? toEl;
+          dispatchPointer(target, 'pointermove', x, y);
+          dispatchDrag(target, 'dragover', x, y, dataTransfer);
+          await sleep(10);
+        }
+
+        const dropTarget = document.elementFromPoint(endX, endY) ?? toEl;
+        dispatchDrag(dropTarget, 'drop', endX, endY, dataTransfer);
+        dispatchPointer(dropTarget, 'pointerup', endX, endY);
+        dispatchDrag(fromEl, 'dragend', endX, endY, dataTransfer);
+        return ok();
+      }
+      case 'drive.key_press': {
+        const { key, modifiers } = parseParams();
+        if (typeof key !== 'string' || key.length === 0) {
+          return buildError(
+            'INVALID_ARGUMENT',
+            'key must be a non-empty string.'
+          );
+        }
+        const target =
+          document.activeElement instanceof HTMLElement
+            ? document.activeElement
+            : document.body;
+        if (!target) {
+          return buildError('INVALID_ARGUMENT', 'No target for key press.');
+        }
+        const mods = normalizeModifiers(modifiers);
+        const eventInit = {
+          key,
+          code: keyToCode(key),
+          bubbles: true,
+          cancelable: true,
+          ctrlKey: mods.ctrl,
+          altKey: mods.alt,
+          shiftKey: mods.shift,
+          metaKey: mods.meta,
+        };
+        target.dispatchEvent(new KeyboardEvent('keydown', eventInit));
+        target.dispatchEvent(new KeyboardEvent('keyup', eventInit));
+        return ok();
+      }
+      case 'drive.key': {
+        const { key, modifiers, repeat } = parseParams();
+        if (typeof key !== 'string' || key.length === 0) {
+          return buildError(
+            'INVALID_ARGUMENT',
+            'key must be a non-empty string.'
+          );
+        }
+        const target =
+          document.activeElement instanceof HTMLElement
+            ? document.activeElement
+            : document.body;
+        if (!target) {
+          return buildError('INVALID_ARGUMENT', 'No target for key press.');
+        }
+        const mods = normalizeModifiers(modifiers);
+        const eventInit = {
+          key,
+          code: keyToCode(key),
+          bubbles: true,
+          cancelable: true,
+          ctrlKey: mods.ctrl,
+          altKey: mods.alt,
+          shiftKey: mods.shift,
+          metaKey: mods.meta,
+        };
+        const count =
+          typeof repeat === 'number' && Number.isFinite(repeat)
+            ? Math.max(1, Math.min(50, Math.floor(repeat)))
+            : 1;
+        for (let i = 0; i < count; i += 1) {
+          target.dispatchEvent(new KeyboardEvent('keydown', eventInit));
+          target.dispatchEvent(new KeyboardEvent('keyup', eventInit));
+        }
+        return ok();
+      }
       case 'drive.scroll': {
         const { delta_x, delta_y, top, left, behavior } = parseParams();
         const scrollBehavior =
@@ -271,18 +807,20 @@ const runDriveAction = async (
             ? Math.max(0, timeout_ms)
             : 30000;
         const start = Date.now();
+        const urlMatcher =
+          kind === "url_matches" ? buildUrlMatcher(value) : null;
+        if (urlMatcher && !urlMatcher.ok) {
+          return urlMatcher.error;
+        }
 
         const checkCondition = (): boolean => {
           if (kind === 'text_present') {
             return (document.body?.innerText ?? '').includes(value);
           }
           if (kind === 'url_matches') {
-            try {
-              const regex = new RegExp(value);
-              return regex.test(window.location.href);
-            } catch {
-              return window.location.href.includes(value);
-            }
+            return urlMatcher
+              ? urlMatcher.matcher(window.location.href)
+              : window.location.href.includes(value);
           }
           const selector = value;
           const element = document.querySelector(selector);
@@ -318,8 +856,8 @@ const runDriveAction = async (
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
-chrome.runtime.onMessage.addListener(
-  (
+if (typeof chrome !== 'undefined' && chrome.runtime?.onMessage) {
+  chrome.runtime.onMessage.addListener((
     message: Record<string, unknown>,
     _sender: unknown,
     sendResponse: (response: ContentResult) => void
@@ -336,10 +874,7 @@ chrome.runtime.onMessage.addListener(
       return;
     }
 
-    void runDriveAction(
-      message.action,
-      message.params as Record<string, unknown>
-    )
+    void runDriveAction(message.action, message.params as Record<string, unknown>)
       .then(sendResponse)
       .catch((error) => {
         const messageText =
@@ -355,5 +890,5 @@ chrome.runtime.onMessage.addListener(
       });
 
     return true;
-  }
-);
+  });
+}

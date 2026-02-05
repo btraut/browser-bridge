@@ -1,6 +1,17 @@
 import { Command } from 'commander';
 import {
   DriveClickInputSchema,
+  DriveDragInputSchema,
+  DriveFillFormInputSchema,
+  DriveBackInputSchema,
+  DriveForwardInputSchema,
+  DriveGoBackInputSchema,
+  DriveGoForwardInputSchema,
+  DriveHandleDialogInputSchema,
+  DriveHoverInputSchema,
+  DriveSelectInputSchema,
+  DriveKeyInputSchema,
+  DriveKeyPressInputSchema,
   DriveNavigateInputSchema,
   DriveScrollInputSchema,
   DriveTabActivateInputSchema,
@@ -21,6 +32,14 @@ const parseNumber = (value: unknown): number | undefined => {
   return Number.isFinite(parsed) ? parsed : Number.NaN;
 };
 
+const parseJson = (value: string, label: string): unknown => {
+  try {
+    return JSON.parse(value);
+  } catch {
+    throw new Error(`${label} must be valid JSON.`);
+  }
+};
+
 export const registerDriveCommands = (program: Command): void => {
   const drive = program.command('drive').description('Drive commands');
 
@@ -38,6 +57,66 @@ export const registerDriveCommands = (program: Command): void => {
           wait: options.wait,
         });
         return client.post('/drive/navigate', payload);
+      });
+    });
+
+  drive
+    .command('go-back')
+    .description('Go back in browser history')
+    .requiredOption('--session-id <id>', 'Session identifier')
+    .option('--tab-id <id>', 'Tab identifier')
+    .action(async (options, command) => {
+      await runCommand(command, (client) => {
+        const payload = parseInput(DriveGoBackInputSchema, {
+          session_id: options.sessionId,
+          tab_id: parseNumber(options.tabId),
+        });
+        return client.post('/drive/go_back', payload);
+      });
+    });
+
+  drive
+    .command('back')
+    .description('Go back in browser history')
+    .requiredOption('--session-id <id>', 'Session identifier')
+    .option('--tab-id <id>', 'Tab identifier')
+    .action(async (options, command) => {
+      await runCommand(command, (client) => {
+        const payload = parseInput(DriveBackInputSchema, {
+          session_id: options.sessionId,
+          tab_id: parseNumber(options.tabId),
+        });
+        return client.post('/drive/back', payload);
+      });
+    });
+
+  drive
+    .command('go-forward')
+    .description('Go forward in browser history')
+    .requiredOption('--session-id <id>', 'Session identifier')
+    .option('--tab-id <id>', 'Tab identifier')
+    .action(async (options, command) => {
+      await runCommand(command, (client) => {
+        const payload = parseInput(DriveGoForwardInputSchema, {
+          session_id: options.sessionId,
+          tab_id: parseNumber(options.tabId),
+        });
+        return client.post('/drive/go_forward', payload);
+      });
+    });
+
+  drive
+    .command('forward')
+    .description('Go forward in browser history')
+    .requiredOption('--session-id <id>', 'Session identifier')
+    .option('--tab-id <id>', 'Tab identifier')
+    .action(async (options, command) => {
+      await runCommand(command, (client) => {
+        const payload = parseInput(DriveForwardInputSchema, {
+          session_id: options.sessionId,
+          tab_id: parseNumber(options.tabId),
+        });
+        return client.post('/drive/forward', payload);
       });
     });
 
@@ -70,6 +149,66 @@ export const registerDriveCommands = (program: Command): void => {
     });
 
   drive
+    .command('hover')
+    .description('Hover over an element')
+    .requiredOption('--session-id <id>', 'Session identifier')
+    .option('--locator-testid <id>', 'Locator test id')
+    .option('--locator-css <selector>', 'Locator CSS selector')
+    .option('--locator-text <text>', 'Locator text')
+    .option('--locator-role <role>', 'Locator role name')
+    .option('--locator-role-value <value>', 'Locator role value')
+    .option('--delay-ms <ms>', 'Delay after hover in milliseconds')
+    .action(async (options, command) => {
+      await runCommand(command, (client) => {
+        const locator = requireLocator({
+          locatorTestid: options.locatorTestid,
+          locatorCss: options.locatorCss,
+          locatorText: options.locatorText,
+          locatorRole: options.locatorRole,
+          locatorRoleValue: options.locatorRoleValue,
+        });
+        const payload = parseInput(DriveHoverInputSchema, {
+          session_id: options.sessionId,
+          locator,
+          delay_ms: parseNumber(options.delayMs),
+        });
+        return client.post('/drive/hover', payload);
+      });
+    });
+
+  drive
+    .command('select')
+    .description('Select an option in a dropdown')
+    .requiredOption('--session-id <id>', 'Session identifier')
+    .option('--locator-testid <id>', 'Locator test id')
+    .option('--locator-css <selector>', 'Locator CSS selector')
+    .option('--locator-text <text>', 'Locator text')
+    .option('--locator-role <role>', 'Locator role name')
+    .option('--locator-role-value <value>', 'Locator role value')
+    .option('--value <value>', 'Option value attribute')
+    .option('--text <text>', 'Option visible text')
+    .option('--index <index>', 'Option index (0-based)')
+    .action(async (options, command) => {
+      await runCommand(command, (client) => {
+        const locator = requireLocator({
+          locatorTestid: options.locatorTestid,
+          locatorCss: options.locatorCss,
+          locatorText: options.locatorText,
+          locatorRole: options.locatorRole,
+          locatorRoleValue: options.locatorRoleValue,
+        });
+        const payload = parseInput(DriveSelectInputSchema, {
+          session_id: options.sessionId,
+          locator,
+          value: options.value,
+          text: options.text,
+          index: parseNumber(options.index),
+        });
+        return client.post('/drive/select', payload);
+      });
+    });
+
+  drive
     .command('type')
     .description('Type into a field')
     .requiredOption('--session-id <id>', 'Session identifier')
@@ -98,6 +237,139 @@ export const registerDriveCommands = (program: Command): void => {
           submit: Boolean(options.submit),
         });
         return client.post('/drive/type', payload);
+      });
+    });
+
+  drive
+    .command('fill-form')
+    .description('Fill multiple form fields')
+    .requiredOption('--session-id <id>', 'Session identifier')
+    .requiredOption('--fields <json>', 'JSON array of fields to fill')
+    .option('--tab-id <id>', 'Tab identifier')
+    .action(async (options, command) => {
+      await runCommand(command, (client) => {
+        const fields = parseJson(options.fields, 'fields');
+        const payload = parseInput(DriveFillFormInputSchema, {
+          session_id: options.sessionId,
+          fields,
+          tab_id: parseNumber(options.tabId),
+        });
+        return client.post('/drive/fill_form', payload);
+      });
+    });
+
+  drive
+    .command('drag')
+    .description('Drag an element to a target')
+    .requiredOption('--session-id <id>', 'Session identifier')
+    .option('--from-locator-testid <id>', 'Source locator test id')
+    .option('--from-locator-css <selector>', 'Source locator CSS selector')
+    .option('--from-locator-text <text>', 'Source locator text')
+    .option('--from-locator-role <role>', 'Source locator role name')
+    .option('--from-locator-role-value <value>', 'Source locator role value')
+    .option('--to-locator-testid <id>', 'Target locator test id')
+    .option('--to-locator-css <selector>', 'Target locator CSS selector')
+    .option('--to-locator-text <text>', 'Target locator text')
+    .option('--to-locator-role <role>', 'Target locator role name')
+    .option('--to-locator-role-value <value>', 'Target locator role value')
+    .option('--steps <steps>', 'Number of drag steps')
+    .option('--tab-id <id>', 'Tab identifier')
+    .action(async (options, command) => {
+      await runCommand(command, (client) => {
+        const from = requireLocator({
+          locatorTestid: options.fromLocatorTestid,
+          locatorCss: options.fromLocatorCss,
+          locatorText: options.fromLocatorText,
+          locatorRole: options.fromLocatorRole,
+          locatorRoleValue: options.fromLocatorRoleValue,
+        });
+        const to = requireLocator({
+          locatorTestid: options.toLocatorTestid,
+          locatorCss: options.toLocatorCss,
+          locatorText: options.toLocatorText,
+          locatorRole: options.toLocatorRole,
+          locatorRoleValue: options.toLocatorRoleValue,
+        });
+        const payload = parseInput(DriveDragInputSchema, {
+          session_id: options.sessionId,
+          from,
+          to,
+          steps: parseNumber(options.steps),
+          tab_id: parseNumber(options.tabId),
+        });
+        return client.post('/drive/drag', payload);
+      });
+    });
+
+  drive
+    .command('handle-dialog')
+    .description('Handle a JavaScript dialog')
+    .requiredOption('--session-id <id>', 'Session identifier')
+    .requiredOption('--action <action>', 'Dialog action (accept, dismiss)')
+    .option('--prompt-text <text>', 'Prompt text for prompt() dialogs')
+    .option('--tab-id <id>', 'Tab identifier')
+    .action(async (options, command) => {
+      await runCommand(command, (client) => {
+        const payload = parseInput(DriveHandleDialogInputSchema, {
+          session_id: options.sessionId,
+          action: options.action,
+          promptText: options.promptText,
+          tab_id: parseNumber(options.tabId),
+        });
+        return client.post('/drive/handle_dialog', payload);
+      });
+    });
+
+  drive
+    .command('key-press')
+    .description('Press a keyboard key')
+    .requiredOption('--session-id <id>', 'Session identifier')
+    .requiredOption('--key <key>', 'Key to press (e.g. Enter, ArrowDown)')
+    .option('--ctrl', 'Hold control modifier')
+    .option('--alt', 'Hold alt modifier')
+    .option('--shift', 'Hold shift modifier')
+    .option('--meta', 'Hold meta modifier')
+    .option('--tab-id <id>', 'Tab identifier')
+    .action(async (options, command) => {
+      await runCommand(command, (client) => {
+        const payload = parseInput(DriveKeyPressInputSchema, {
+          session_id: options.sessionId,
+          key: options.key,
+          modifiers: {
+            ctrl: Boolean(options.ctrl),
+            alt: Boolean(options.alt),
+            shift: Boolean(options.shift),
+            meta: Boolean(options.meta),
+          },
+          tab_id: parseNumber(options.tabId),
+        });
+        return client.post('/drive/key_press', payload);
+      });
+    });
+
+  drive
+    .command('key')
+    .description('Press a keyboard key with modifiers')
+    .requiredOption('--session-id <id>', 'Session identifier')
+    .requiredOption('--key <key>', 'Key to press (e.g. Enter, ArrowDown)')
+    .option(
+      '--modifier <modifier>',
+      'Modifier key (ctrl, alt, shift, meta)',
+      (value: string, previous: string[]) => [...(previous ?? []), value],
+      []
+    )
+    .option('--repeat <count>', 'Number of times to press')
+    .option('--tab-id <id>', 'Tab identifier')
+    .action(async (options, command) => {
+      await runCommand(command, (client) => {
+        const payload = parseInput(DriveKeyInputSchema, {
+          session_id: options.sessionId,
+          key: options.key,
+          modifiers: options.modifier,
+          repeat: parseNumber(options.repeat),
+          tab_id: parseNumber(options.tabId),
+        });
+        return client.post('/drive/key', payload);
       });
     });
 

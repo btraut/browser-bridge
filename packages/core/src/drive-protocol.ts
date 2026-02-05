@@ -24,9 +24,39 @@ export type DriveNavigateParams = {
   wait?: 'none' | 'domcontentloaded';
 };
 
+export type DriveGoBackParams = {
+  tab_id?: number;
+};
+
+export type DriveGoForwardParams = {
+  tab_id?: number;
+};
+
+export type DriveBackParams = {
+  tab_id?: number;
+};
+
+export type DriveForwardParams = {
+  tab_id?: number;
+};
+
 export type DriveClickParams = {
   locator: DriveLocator;
   click_count?: number;
+  tab_id?: number;
+};
+
+export type DriveHoverParams = {
+  locator: DriveLocator;
+  delay_ms?: number;
+  tab_id?: number;
+};
+
+export type DriveSelectParams = {
+  locator: DriveLocator;
+  value?: string;
+  text?: string;
+  index?: number;
   tab_id?: number;
 };
 
@@ -35,6 +65,50 @@ export type DriveTypeParams = {
   text: string;
   clear?: boolean;
   submit?: boolean;
+  tab_id?: number;
+};
+
+export type DriveFillFormField = {
+  selector?: string;
+  locator?: DriveLocator;
+  value: string | boolean;
+  type?: "auto" | "text" | "select" | "checkbox" | "radio" | "contentEditable";
+  submit?: boolean;
+};
+
+export type DriveFillFormParams = {
+  fields: DriveFillFormField[];
+  tab_id?: number;
+};
+
+export type DriveDragParams = {
+  from: DriveLocator;
+  to: DriveLocator;
+  steps?: number;
+  tab_id?: number;
+};
+
+export type DriveHandleDialogParams = {
+  action: "accept" | "dismiss";
+  promptText?: string;
+  tab_id?: number;
+};
+
+export type DriveKeyPressParams = {
+  key: string;
+  modifiers?: {
+    ctrl?: boolean;
+    alt?: boolean;
+    shift?: boolean;
+    meta?: boolean;
+  };
+  tab_id?: number;
+};
+
+export type DriveKeyParams = {
+  key: string;
+  modifiers?: Array<"ctrl" | "alt" | "shift" | "meta">;
+  repeat?: number;
   tab_id?: number;
 };
 
@@ -75,15 +149,28 @@ export type DriveTabReportParams = {
 
 export type DriveAction =
   | 'drive.navigate'
+  | 'drive.go_back'
+  | 'drive.go_forward'
+  | 'drive.back'
+  | 'drive.forward'
+  | 'drive.keepalive'
   | 'drive.click'
+  | 'drive.hover'
+  | 'drive.select'
   | 'drive.type'
+  | 'drive.fill_form'
+  | 'drive.drag'
+  | 'drive.handle_dialog'
+  | 'drive.key'
+  | 'drive.key_press'
   | 'drive.scroll'
   | 'drive.wait_for'
   | 'drive.tab_list'
   | 'drive.tab_activate'
   | 'drive.tab_close'
   | 'drive.hello'
-  | 'drive.tab_report';
+  | 'drive.tab_report'
+  | 'drive.ping';
 
 export type DriveRequestStatus = 'request';
 export type DriveResponseStatus = 'ok' | 'error';

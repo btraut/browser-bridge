@@ -331,7 +331,9 @@ export class DebuggerBridge {
       clearTimeout(state.idleTimer);
     }
     state.idleTimer = setTimeout(() => {
-      void this.detach(tabId);
+      void this.detach(tabId).catch((error) => {
+        console.error("DebuggerBridge idle detach failed:", error);
+      });
     }, this.idleTimeoutMs);
   }
 

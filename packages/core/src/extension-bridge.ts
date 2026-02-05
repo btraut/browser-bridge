@@ -55,6 +55,8 @@ export class ExtensionBridgeError extends Error {
 export type ExtensionBridgeOptions = {
   path?: string;
   registry?: SessionRegistry;
+  heartbeatIntervalMs?: number;
+  heartbeatTimeoutMs?: number;
 };
 
 export class ExtensionBridge {
@@ -64,6 +66,10 @@ export class ExtensionBridge {
   private connected = false;
   private lastSeenAt?: string;
   private tabs: DriveTabInfo[] = [];
+  private heartbeatInterval: ReturnType<typeof setInterval> | null = null;
+  private awaitingHeartbeat = false;
+  private readonly heartbeatIntervalMs: number;
+  private readonly heartbeatTimeoutMs: number;
   private readonly path: string;
   private readonly registry?: SessionRegistry;
   private readonly debuggerListeners = new Set<DebuggerEventListener>();
@@ -72,6 +78,8 @@ export class ExtensionBridge {
     this.wss = new WebSocketServer({ noServer: true });
     this.path = options.path ?? '/drive';
     this.registry = options.registry;
+    this.heartbeatIntervalMs = options.heartbeatIntervalMs ?? 15000;
+    this.heartbeatTimeoutMs = options.heartbeatTimeoutMs ?? 5000;
 
     this.wss.on('connection', (socket) => {
       this.handleConnection(socket);
@@ -143,12 +151,20 @@ export class ExtensionBridge {
     }
 
     const id = randomUUID();
-    const request: ExtensionRequest = {
-      id,
-      action,
-      status: 'request',
-      params,
-    };
+    const request: ExtensionRequest =
+      typeof action === 'string' && action.startsWith('debugger.')
+        ? {
+            id,
+            action: action as DebuggerRequestAction,
+            status: 'request',
+            params,
+          }
+        : {
+            id,
+            action: action as DriveAction,
+            status: 'request',
+            params,
+          };
 
     const response = await new Promise<ExtensionResponse>((resolve, reject) => {
       const timeout = setTimeout(() => {
@@ -175,6 +191,53 @@ export class ExtensionBridge {
     return response;
   }
 
+  private startHeartbeat(): void {
+    if (this.heartbeatInterval) {
+      return;
+    }
+    this.heartbeatInterval = setInterval(() => {
+      void this.sendHeartbeat();
+    }, this.heartbeatIntervalMs);
+    void this.sendHeartbeat();
+  }
+
+  private stopHeartbeat(): void {
+    if (this.heartbeatInterval) {
+      clearInterval(this.heartbeatInterval);
+      this.heartbeatInterval = null;
+    }
+    this.awaitingHeartbeat = false;
+  }
+
+  private async sendHeartbeat(): Promise<void> {
+    if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
+      return;
+    }
+    if (this.awaitingHeartbeat) {
+      return;
+    }
+    this.awaitingHeartbeat = true;
+    try {
+      await this.requestInternal("drive.ping", undefined, this.heartbeatTimeoutMs);
+    } catch (error) {
+      console.warn("Extension heartbeat failed:", error);
+      this.forceDisconnect();
+    } finally {
+      this.awaitingHeartbeat = false;
+    }
+  }
+
+  private forceDisconnect(): void {
+    if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+      try {
+        this.socket.terminate();
+      } catch {
+        this.socket.close();
+      }
+    }
+    this.handleDisconnect();
+  }
+
   private handleConnection(socket: WebSocket): void {
     if (this.socket && this.socket.readyState === WebSocket.OPEN) {
       this.socket.close();
@@ -185,6 +248,7 @@ export class ExtensionBridge {
     this.lastSeenAt = new Date().toISOString();
 
     this.applyDriveConnected();
+    this.startHeartbeat();
 
     socket.on('message', (data) => {
       this.handleMessage(data);
@@ -204,6 +268,7 @@ export class ExtensionBridge {
       return;
     }
 
+    this.stopHeartbeat();
     this.connected = false;
     this.socket = null;
     this.lastSeenAt = new Date().toISOString();
@@ -283,8 +348,8 @@ export class ExtensionBridge {
     for (const listener of this.debuggerListeners) {
       try {
         listener(event);
-      } catch {
-        // Ignore debugger event handler failures.
+      } catch (error) {
+        console.debug("Debugger event listener failed.", error);
       }
     }
   }
@@ -303,8 +368,11 @@ export class ExtensionBridge {
         } else if (session.state === SessionState.DEGRADED_DRIVE) {
           this.registry.apply(session.id, 'RECOVER_SUCCEEDED');
         }
-      } catch {
-        // Ignore invalid transitions.
+      } catch (error) {
+        console.debug(
+          `Drive connect transition ignored for session ${session.id} (${session.state}).`,
+          error
+        );
       }
     }
   }
@@ -319,8 +387,11 @@ export class ExtensionBridge {
         if (session.state === SessionState.READY) {
           this.registry.apply(session.id, 'DRIVE_DISCONNECTED');
         }
-      } catch {
-        // Ignore invalid transitions.
+      } catch (error) {
+        console.debug(
+          `Drive disconnect transition ignored for session ${session.id} (${session.state}).`,
+          error
+        );
       }
     }
   }

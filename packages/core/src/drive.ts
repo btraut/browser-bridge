@@ -156,8 +156,11 @@ export class DriveController {
       } else if (session.state === SessionState.DEGRADED_DRIVE) {
         this.registry.apply(sessionId, 'RECOVER_SUCCEEDED');
       }
-    } catch {
-      // Ignore invalid transitions.
+    } catch (error) {
+      console.debug(
+        `Drive ready transition ignored for session ${sessionId}.`,
+        error
+      );
     }
   }
 
@@ -167,8 +170,11 @@ export class DriveController {
       if (session.state === SessionState.READY) {
         this.registry.apply(sessionId, 'DRIVE_DISCONNECTED');
       }
-    } catch {
-      // Ignore invalid transitions.
+    } catch (error) {
+      console.debug(
+        `Drive disconnect transition ignored for session ${sessionId}.`,
+        error
+      );
     }
   }
 }

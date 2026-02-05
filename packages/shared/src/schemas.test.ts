@@ -4,9 +4,29 @@ import {
   ArtifactsScreenshotInputSchema,
   DiagnosticsDoctorInputSchema,
   DiagnosticReportSchema,
+  DriveClickInputSchema,
+  DriveDragInputSchema,
+  DriveFillFormInputSchema,
+  DriveBackInputSchema,
+  DriveForwardInputSchema,
+  DriveGoBackInputSchema,
+  DriveGoForwardInputSchema,
+  DriveHandleDialogInputSchema,
+  DriveHoverInputSchema,
+  DriveSelectInputSchema,
+  DriveKeyInputSchema,
+  DriveKeyPressInputSchema,
   DriveNavigateInputSchema,
   DriveScrollInputSchema,
+  DriveTypeInputSchema,
+  DriveWaitForInputSchema,
+  InspectConsoleListInputSchema,
+  InspectDomDiffInputSchema,
   InspectDomSnapshotInputSchema,
+  InspectDomDiffOutputSchema,
+  InspectExtractContentInputSchema,
+  InspectEvaluateInputSchema,
+  InspectPageStateInputSchema,
   LocatorSchema,
   OpResultSchema,
   SessionCreateInputSchema,
@@ -36,12 +56,141 @@ describe('shared schemas', () => {
     expect(parsed.wait).toBe('domcontentloaded');
   });
 
+  it('accepts tab_id on drive requests', () => {
+    expect(
+      DriveNavigateInputSchema.parse({
+        session_id: 'session-1',
+        url: 'https://example.com',
+        tab_id: 5,
+      }).tab_id
+    ).toBe(5);
+    expect(
+      DriveClickInputSchema.parse({
+        session_id: 'session-1',
+        locator: { css: '.cta' },
+        tab_id: 2,
+      }).tab_id
+    ).toBe(2);
+    expect(
+      DriveTypeInputSchema.parse({
+        session_id: 'session-1',
+        text: 'hello',
+        tab_id: 3,
+      }).tab_id
+    ).toBe(3);
+    expect(
+      DriveWaitForInputSchema.parse({
+        session_id: 'session-1',
+        condition: { kind: 'text_present', value: 'ready' },
+        tab_id: 9,
+      }).tab_id
+    ).toBe(9);
+    expect(
+      DriveGoBackInputSchema.parse({
+        session_id: "session-1",
+        tab_id: 4,
+      }).tab_id
+    ).toBe(4);
+    expect(
+      DriveGoForwardInputSchema.parse({
+        session_id: "session-1",
+        tab_id: 8,
+      }).tab_id
+    ).toBe(8);
+    expect(
+      DriveBackInputSchema.parse({
+        session_id: "session-1",
+        tab_id: 6,
+      }).tab_id
+    ).toBe(6);
+    expect(
+      DriveForwardInputSchema.parse({
+        session_id: "session-1",
+        tab_id: 7,
+      }).tab_id
+    ).toBe(7);
+  });
+
   it('parses drive scroll input', () => {
     const parsed = DriveScrollInputSchema.parse({
       session_id: 'session-1',
       delta_y: 120,
     });
     expect(parsed.delta_y).toBe(120);
+  });
+
+  it('parses fill form input', () => {
+    const parsed = DriveFillFormInputSchema.parse({
+      session_id: 'session-1',
+      fields: [
+        { selector: '#email', value: 'test@example.com' },
+        { selector: '#terms', value: true, type: 'checkbox' },
+      ],
+    });
+    expect(parsed.fields).toHaveLength(2);
+  });
+
+  it('parses drive drag input', () => {
+    const parsed = DriveDragInputSchema.parse({
+      session_id: 'session-1',
+      from: { css: '.drag-source' },
+      to: { css: '.drop-target' },
+    });
+    expect(parsed.steps).toBe(12);
+  });
+
+  it('parses handle dialog input', () => {
+    const parsed = DriveHandleDialogInputSchema.parse({
+      session_id: 'session-1',
+      action: 'accept',
+      promptText: 'ok',
+    });
+    expect(parsed.action).toBe('accept');
+  });
+
+  it('parses hover input', () => {
+    const parsed = DriveHoverInputSchema.parse({
+      session_id: 'session-1',
+      locator: { css: '.card' },
+      delay_ms: 100,
+    });
+    expect(parsed.delay_ms).toBe(100);
+  });
+
+  it('parses select input', () => {
+    const parsed = DriveSelectInputSchema.parse({
+      session_id: 'session-1',
+      locator: { css: 'select#size' },
+      value: 'large',
+    });
+    expect(parsed.value).toBe('large');
+  });
+
+  it('parses key press input', () => {
+    const parsed = DriveKeyPressInputSchema.parse({
+      session_id: 'session-1',
+      key: 'Enter',
+      modifiers: { ctrl: true },
+    });
+    expect(parsed.key).toBe('Enter');
+  });
+
+  it('parses key input', () => {
+    const parsed = DriveKeyInputSchema.parse({
+      session_id: 'session-1',
+      key: 'Escape',
+      modifiers: ['ctrl', 'shift'],
+      repeat: 2,
+    });
+    expect(parsed.repeat).toBe(2);
+  });
+
+  it('requires a scroll delta or position', () => {
+    expect(() =>
+      DriveScrollInputSchema.parse({
+        session_id: 'session-1',
+      })
+    ).toThrow();
   });
 
   it('parses inspect dom snapshot defaults', () => {
@@ -52,11 +201,76 @@ describe('shared schemas', () => {
     expect(parsed.consistency).toBe('best_effort');
   });
 
+  it('parses dom diff schemas', () => {
+    const input = InspectDomDiffInputSchema.parse({ session_id: 'session-1' });
+    expect(input.session_id).toBe('session-1');
+    const output = InspectDomDiffOutputSchema.parse({
+      added: ['div#new'],
+      removed: [],
+      changed: ['span.title'],
+      summary: 'Added 1, removed 0, changed 1.',
+    });
+    expect(output.added).toHaveLength(1);
+  });
+
+  it('parses inspect page state input', () => {
+    const parsed = InspectPageStateInputSchema.parse({
+      session_id: 'session-1',
+    });
+    expect(parsed.session_id).toBe('session-1');
+  });
+
+  it('parses inspect extract content defaults', () => {
+    const parsed = InspectExtractContentInputSchema.parse({
+      session_id: 'session-1',
+    });
+    expect(parsed.format).toBe('markdown');
+    expect(parsed.include_metadata).toBe(true);
+  });
+
+  it('accepts inspect target hints', () => {
+    const parsed = InspectDomSnapshotInputSchema.parse({
+      session_id: 'session-1',
+      target: {
+        url: 'https://example.com',
+        last_active_at: '2025-01-01T00:00:00Z',
+      },
+    });
+    expect(parsed.target?.url).toBe('https://example.com');
+
+    const evalParsed = InspectEvaluateInputSchema.parse({
+      session_id: 'session-1',
+      expression: '1+1',
+      target: { title: 'Example', lastActiveAt: '2025-01-01T00:00:00Z' },
+    });
+    expect(evalParsed.target?.title).toBe('Example');
+
+    const consoleParsed = InspectConsoleListInputSchema.parse({
+      session_id: 'session-1',
+      target: { title: 'Console' },
+    });
+    expect(consoleParsed.target?.title).toBe('Console');
+  });
+
   it('parses artifacts screenshot defaults', () => {
     const parsed = ArtifactsScreenshotInputSchema.parse({
       session_id: 'session-1',
     });
     expect(parsed.target).toBe('viewport');
+    expect(parsed.fullPage).toBe(false);
+    expect(parsed.format).toBe('png');
+  });
+
+  it('accepts full page screenshot options', () => {
+    const parsed = ArtifactsScreenshotInputSchema.parse({
+      session_id: 'session-1',
+      fullPage: true,
+      format: 'jpeg',
+      quality: 80,
+    });
+    expect(parsed.fullPage).toBe(true);
+    expect(parsed.format).toBe('jpeg');
+    expect(parsed.quality).toBe(80);
   });
 
   it('parses diagnostics doctor with optional session', () => {
@@ -85,6 +299,35 @@ describe('shared schemas', () => {
       },
     });
     expect(report.success).toBe(true);
+  });
+
+  it('parses diagnostics recovery metrics', () => {
+    const parsed = DiagnosticReportSchema.parse({
+      ok: true,
+      recovery: {
+        last_attempt: {
+          session_id: 'session-1',
+          recovered: false,
+          state: 'READY',
+          at: '2025-01-01T00:00:00Z',
+        },
+        attempts: [
+          {
+            session_id: 'session-1',
+            recovered: false,
+            state: 'READY',
+            at: '2025-01-01T00:00:00Z',
+          },
+        ],
+        success_count: 1,
+        failure_count: 2,
+        success_rate: 0.33,
+        recent_failure_count: 2,
+        loop_detected: false,
+      },
+    });
+
+    expect(parsed.recovery?.success_count).toBe(1);
   });
 
   it('validates the error envelope shape', () => {

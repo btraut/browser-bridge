@@ -6,7 +6,13 @@ import eslintConfigPrettier from 'eslint-config-prettier';
 
 export default [
   {
-    ignores: ['**/dist/**', '**/node_modules/**'],
+    ignores: [
+      '**/dist/**',
+      '**/node_modules/**',
+      'packages/shared/src/**/*.js',
+      'packages/shared/src/**/*.d.ts',
+      'packages/shared/src/**/*.map',
+    ],
   },
   js.configs.recommended,
   {

@@ -5,14 +5,10 @@ import type { DriveController } from '../drive';
 import type { InspectService } from '../inspect';
 import type { DebuggerBridge } from '../debugger-bridge';
 import type { RecoveryTracker } from '../recovery';
+import { ResponseLike, isRecord, sendError, sendResult } from './shared';
 
 type RequestLike = {
   body?: unknown;
-};
-
-type ResponseLike = {
-  status: (code: number) => ResponseLike;
-  json: (body: unknown) => void;
 };
 
 type RouteRegistry = {
@@ -30,37 +26,6 @@ type DiagnosticsRoutesOptions = {
   inspectService?: InspectService;
   recoveryTracker?: RecoveryTracker;
 };
-
-type ErrorEnvelope = {
-  ok: false;
-  error: {
-    code: 'INVALID_ARGUMENT' | 'INTERNAL';
-    message: string;
-    retryable: boolean;
-    details?: Record<string, unknown>;
-  };
-};
-
-type SuccessEnvelope<T> = {
-  ok: true;
-  result: T;
-};
-
-const sendError = (
-  res: ResponseLike,
-  status: number,
-  error: ErrorEnvelope['error']
-): void => {
-  res.status(status).json({ ok: false, error });
-};
-
-const sendResult = <T>(res: ResponseLike, result: T): void => {
-  const envelope: SuccessEnvelope<T> = { ok: true, result };
-  res.status(200).json(envelope);
-};
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value);
 
 export const registerDiagnosticsRoutes = (
   router: RouteRegistry,
@@ -114,10 +79,10 @@ export const registerDiagnosticsRoutes = (
         const lastError = options.debuggerBridge.getLastError();
         context.debugger = {
           attached: options.debuggerBridge.hasAttachments(),
-          idleTimeoutMs: settings.idleTimeoutMs,
-          consoleBufferSize: settings.consoleBufferSize,
-          networkBufferSize: settings.networkBufferSize,
-          lastError: lastError
+          idle_timeout_ms: settings.idleTimeoutMs,
+          console_buffer_size: settings.consoleBufferSize,
+          network_buffer_size: settings.networkBufferSize,
+          last_error: lastError
             ? {
                 code: lastError.error.code,
                 message: lastError.error.message,
@@ -163,6 +128,7 @@ export const registerDiagnosticsRoutes = (
             at: attempt.at,
           };
         }
+        context.recoveryMetrics = options.recoveryTracker.getMetrics();
       }
 
       const report = buildDiagnosticReport(sessionId, context);
