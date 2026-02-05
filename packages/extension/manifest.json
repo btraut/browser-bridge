@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Browser Bridge",
   "version": "0.1.0",
-  "description": "Drive plane extension for local browser control.",
+  "description": "Control Chrome for Browser Bridge: drive tabs and inspect pages for coding agents.",
   "icons": {
     "16": "assets/icons/icon-16.png",
     "32": "assets/icons/icon-32.png",
