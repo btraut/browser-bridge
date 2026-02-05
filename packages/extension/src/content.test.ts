@@ -1,5 +1,5 @@
 /** @vitest-environment jsdom */
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { runDriveAction } from './content';
 
 type PointerEventInit = { [key: string]: unknown };
@@ -30,6 +30,32 @@ beforeEach(() => {
 });
 
 describe('content drive actions', () => {
+  it('defers click so dialog-triggering clicks do not block responses', async () => {
+    vi.useFakeTimers();
+    try {
+      const button = document.createElement('button');
+      button.id = 'click-me';
+      let clicked = 0;
+      button.addEventListener('click', () => {
+        clicked += 1;
+      });
+      document.body.appendChild(button);
+
+      const result = await runDriveAction('drive.click', {
+        locator: { css: '#click-me' },
+      });
+
+      expect(result.ok).toBe(true);
+      // Click runs on the next tick.
+      expect(clicked).toBe(0);
+
+      await vi.runAllTimersAsync();
+      expect(clicked).toBe(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('hovers and returns a snapshot', async () => {
     const target = document.createElement('div');
     target.id = 'card';

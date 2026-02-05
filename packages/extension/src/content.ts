@@ -439,9 +439,19 @@ export const runDriveAction = async (
           typeof click_count === 'number' && Number.isFinite(click_count)
             ? Math.max(1, Math.floor(click_count))
             : 1;
-        for (let i = 0; i < count; i += 1) {
-          (target as HTMLElement).click();
-        }
+        // Clicking elements that trigger JS dialogs (alert/confirm/prompt) can
+        // block the renderer thread before we can reply to the background script,
+        // causing the caller to time out. Defer the click to the next tick so
+        // we can respond immediately.
+        window.setTimeout(() => {
+          try {
+            for (let i = 0; i < count; i += 1) {
+              (target as HTMLElement).click();
+            }
+          } catch {
+            // Best-effort: the element may have disappeared or navigation occurred.
+          }
+        }, 0);
         return ok();
       }
       case 'drive.hover': {
