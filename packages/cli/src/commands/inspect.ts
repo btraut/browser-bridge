@@ -22,6 +22,7 @@ export const registerInspectCommands = (program: Command): void => {
     .option('--format <format>', 'Snapshot format (ax, html)')
     .option('--consistency <mode>', 'Consistency mode (best_effort, quiesce)')
     .option('-i, --interactive', 'Only include interactive elements')
+    .option('-c, --compact', 'Remove empty/decorative nodes')
     .action(async (options, command) => {
       await runCommand(command, (client) => {
         const payload = parseInput(InspectDomSnapshotInputSchema, {
@@ -29,6 +30,7 @@ export const registerInspectCommands = (program: Command): void => {
           format: options.format,
           consistency: options.consistency,
           interactive: options.interactive,
+          compact: options.compact,
         });
         return client.post('/inspect/dom_snapshot', payload);
       });

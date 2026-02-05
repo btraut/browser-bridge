@@ -399,6 +399,7 @@ export const InspectDomSnapshotInputSchema = z.object({
   format: InspectDomFormatSchema.default('ax'),
   consistency: InspectConsistencySchema.default('best_effort'),
   interactive: z.boolean().default(false),
+  compact: z.boolean().default(false),
   target: TargetHintSchema.optional(),
 });
 export const InspectDomSnapshotOutputSchema = DomSnapshotSchema;

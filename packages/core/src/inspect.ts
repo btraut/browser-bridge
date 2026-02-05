@@ -165,6 +165,7 @@ const INTERACTIVE_AX_ROLES = new Set([
   "slider",
   "option",
 ]);
+const DECORATIVE_AX_ROLES = new Set(["generic", "none", "presentation"]);
 
 export class InspectService {
   private readonly registry: SessionRegistry;
@@ -241,6 +242,7 @@ export class InspectService {
     format: "ax" | "html";
     consistency: "best_effort" | "quiesce";
     interactive?: boolean;
+    compact?: boolean;
     targetHint?: TargetHint;
   }): Promise<DomSnapshotResult> {
     this.requireSession(input.sessionId);
@@ -252,6 +254,9 @@ export class InspectService {
         const warnings = [...(selection.warnings ?? [])];
         if (input.interactive) {
           warnings.push("Interactive filter is only supported for AX snapshots.");
+        }
+        if (input.compact) {
+          warnings.push("Compact filter is only supported for AX snapshots.");
         }
         return {
           format: "html",
@@ -267,9 +272,13 @@ export class InspectService {
           "Accessibility.getFullAXTree",
           {}
         );
-        const snapshot = input.interactive
-          ? this.applyAxSnapshotFilters(result, { interactiveOnly: true })
-          : result;
+        const snapshot =
+          input.interactive || input.compact
+            ? this.applyAxSnapshotFilters(result, {
+                interactiveOnly: input.interactive,
+                compact: input.compact,
+              })
+            : result;
         const refMap = this.assignRefsToAxSnapshot(snapshot);
         const refWarnings = await this.applySnapshotRefs(
           selection.tabId,
@@ -300,6 +309,9 @@ export class InspectService {
             "AX snapshot failed; returned HTML instead.",
             ...(input.interactive
               ? ["Interactive filter is only supported for AX snapshots."]
+              : []),
+            ...(input.compact
+              ? ["Compact filter is only supported for AX snapshots."]
               : []),
           ];
           return {
@@ -818,9 +830,12 @@ export class InspectService {
 
   private applyAxSnapshotFilters(
     snapshot: unknown,
-    options: { interactiveOnly?: boolean }
+    options: { interactiveOnly?: boolean; compact?: boolean }
   ): unknown {
     let filtered = snapshot;
+    if (options.compact) {
+      filtered = this.compactAxSnapshot(filtered);
+    }
     if (options.interactiveOnly) {
       filtered = this.filterAxSnapshot(filtered, (node) =>
         this.isInteractiveAxNode(node)
@@ -870,12 +885,132 @@ export class InspectService {
   }
 
   private isInteractiveAxNode(node: AxNodeRecord): boolean {
-    const role =
-      typeof node.role === "string" ? node.role : node.role?.value ?? "";
-    if (!role) {
+    const role = this.getAxRole(node);
+    return Boolean(role && INTERACTIVE_AX_ROLES.has(role));
+  }
+
+  private compactAxSnapshot(snapshot: unknown): unknown {
+    const nodes = this.getAxNodes(snapshot);
+    if (nodes.length === 0) {
+      return snapshot;
+    }
+    const nodeById = new Map<string, AxNodeRecord>();
+    nodes.forEach((node) => {
+      if (node && typeof node.nodeId === "string") {
+        nodeById.set(node.nodeId, node);
+      }
+    });
+
+    const keepIds = new Set<string>();
+    for (const node of nodes) {
+      if (!node || typeof node !== "object" || typeof node.nodeId !== "string") {
+        continue;
+      }
+      if (this.shouldKeepCompactNode(node)) {
+        keepIds.add(node.nodeId);
+      }
+    }
+
+    const filtered = nodes.filter(
+      (node) =>
+        node &&
+        typeof node.nodeId === "string" &&
+        keepIds.has(node.nodeId)
+    );
+
+    for (const node of filtered) {
+      if (!Array.isArray(node.childIds) || typeof node.nodeId !== "string") {
+        continue;
+      }
+      const nextChildIds: string[] = [];
+      for (const childId of node.childIds) {
+        nextChildIds.push(
+          ...this.collectKeptDescendants(childId, nodeById, keepIds)
+        );
+      }
+      node.childIds = Array.from(new Set(nextChildIds));
+    }
+
+    return this.replaceAxNodes(snapshot, filtered);
+  }
+
+  private collectKeptDescendants(
+    nodeId: string,
+    nodeById: Map<string, AxNodeRecord>,
+    keepIds: Set<string>,
+    visited: Set<string> = new Set()
+  ): string[] {
+    if (visited.has(nodeId)) {
+      return [];
+    }
+    visited.add(nodeId);
+    if (keepIds.has(nodeId)) {
+      return [nodeId];
+    }
+    const node = nodeById.get(nodeId);
+    if (!node || !Array.isArray(node.childIds)) {
+      return [];
+    }
+    const output: string[] = [];
+    for (const childId of node.childIds) {
+      output.push(
+        ...this.collectKeptDescendants(childId, nodeById, keepIds, visited)
+      );
+    }
+    return output;
+  }
+
+  private shouldKeepCompactNode(node: AxNodeRecord): boolean {
+    if (node.ignored) {
       return false;
     }
-    return INTERACTIVE_AX_ROLES.has(role.toLowerCase());
+    const role = this.getAxRole(node);
+    if (role && INTERACTIVE_AX_ROLES.has(role)) {
+      return true;
+    }
+    const name = this.getAxName(node);
+    const hasName = name.trim().length > 0;
+    const hasValue = this.hasAxValue(node);
+    if (hasName || hasValue) {
+      return true;
+    }
+    const hasChildren = Array.isArray(node.childIds) && node.childIds.length > 0;
+    if (!role || DECORATIVE_AX_ROLES.has(role)) {
+      return false;
+    }
+    return hasChildren;
+  }
+
+  private getAxRole(node: AxNodeRecord): string {
+    const role =
+      typeof node.role === "string" ? node.role : node.role?.value ?? "";
+    return typeof role === "string" ? role.toLowerCase() : "";
+  }
+
+  private getAxName(node: AxNodeRecord): string {
+    const name =
+      typeof node.name === "string" ? node.name : node.name?.value ?? "";
+    return typeof name === "string" ? name : "";
+  }
+
+  private hasAxValue(node: AxNodeRecord): boolean {
+    if (!Array.isArray(node.properties)) {
+      return false;
+    }
+    for (const prop of node.properties) {
+      if (!prop || typeof prop !== "object") {
+        continue;
+      }
+      const value = (prop as { value?: { value?: unknown } }).value?.value;
+      if (value === undefined || value === null) {
+        continue;
+      }
+      if (typeof value === "string" && value.trim().length === 0) {
+        continue;
+      }
+      return true;
+    }
+    return false;
   }
 
   private collectHtmlEntries(html: string): Map<string, string> {

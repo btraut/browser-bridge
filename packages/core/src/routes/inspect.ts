@@ -187,6 +187,7 @@ export const registerInspectRoutes = (
         format: body.format,
         consistency: body.consistency,
         interactive: body.interactive,
+        compact: body.compact,
         targetHint: resolveTargetHint(body.target, options),
       });
     })
