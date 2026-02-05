@@ -156,8 +156,12 @@ export type DriveFillFormInput = z.infer<typeof DriveFillFormInputSchema>;
 export type DriveFillFormOutput = z.infer<typeof DriveFillFormOutputSchema>;
 export type DriveDragInput = z.infer<typeof DriveDragInputSchema>;
 export type DriveDragOutput = z.infer<typeof DriveDragOutputSchema>;
-export type DriveHandleDialogInput = z.infer<typeof DriveHandleDialogInputSchema>;
-export type DriveHandleDialogOutput = z.infer<typeof DriveHandleDialogOutputSchema>;
+export type DriveHandleDialogInput = z.infer<
+  typeof DriveHandleDialogInputSchema
+>;
+export type DriveHandleDialogOutput = z.infer<
+  typeof DriveHandleDialogOutputSchema
+>;
 export type DialogAcceptInput = z.infer<typeof DialogAcceptInputSchema>;
 export type DialogAcceptOutput = z.infer<typeof DialogAcceptOutputSchema>;
 export type DialogDismissInput = z.infer<typeof DialogDismissInputSchema>;
@@ -194,15 +198,23 @@ export type InspectDomDiffOutput = z.infer<typeof InspectDomDiffOutputSchema>;
 export type InspectFindInput = z.infer<typeof InspectFindInputSchema>;
 export type InspectFindMatch = z.infer<typeof InspectFindMatchSchema>;
 export type InspectFindOutput = z.infer<typeof InspectFindOutputSchema>;
-export type InspectExtractContentFormat = z.infer<typeof InspectExtractContentFormatSchema>;
-export type InspectExtractContentInput = z.infer<typeof InspectExtractContentInputSchema>;
-export type InspectExtractContentOutput = z.infer<typeof InspectExtractContentOutputSchema>;
+export type InspectExtractContentFormat = z.infer<
+  typeof InspectExtractContentFormatSchema
+>;
+export type InspectExtractContentInput = z.infer<
+  typeof InspectExtractContentInputSchema
+>;
+export type InspectExtractContentOutput = z.infer<
+  typeof InspectExtractContentOutputSchema
+>;
 export type FormFieldInfo = z.infer<typeof FormFieldInfoSchema>;
 export type FormInfo = z.infer<typeof FormInfoSchema>;
 export type StorageEntry = z.infer<typeof StorageEntrySchema>;
 export type PageState = z.infer<typeof PageStateSchema>;
 export type InspectPageStateInput = z.infer<typeof InspectPageStateInputSchema>;
-export type InspectPageStateOutput = z.infer<typeof InspectPageStateOutputSchema>;
+export type InspectPageStateOutput = z.infer<
+  typeof InspectPageStateOutputSchema
+>;
 export type InspectConsoleListInput = z.infer<
   typeof InspectConsoleListInputSchema
 >;

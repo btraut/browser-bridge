@@ -169,7 +169,7 @@ const isRestrictedUrl = (url?: string): boolean => {
       return parsed.pathname.startsWith('/webstore');
     }
   } catch (error) {
-    console.debug("Ignoring invalid URL in restriction check.", error);
+    console.debug('Ignoring invalid URL in restriction check.', error);
   }
   return false;
 };
@@ -359,7 +359,7 @@ class DriveSocket {
 
   start(): void {
     void this.connect().catch((error) => {
-      console.error("DriveSocket connect failed:", error);
+      console.error('DriveSocket connect failed:', error);
     });
   }
 
@@ -377,7 +377,7 @@ class DriveSocket {
 
   sendTabReport(): void {
     void this.emitTabReport().catch((error) => {
-      console.error("DriveSocket emitTabReport failed:", error);
+      console.error('DriveSocket emitTabReport failed:', error);
     });
   }
 
@@ -389,7 +389,7 @@ class DriveSocket {
     this.reconnectTimer = self.setTimeout(() => {
       this.reconnectTimer = null;
       void this.connect().catch((error) => {
-        console.error("DriveSocket reconnect failed:", error);
+        console.error('DriveSocket reconnect failed:', error);
       });
     }, delay);
     this.reconnectDelayMs = Math.min(
@@ -408,7 +408,7 @@ class DriveSocket {
         this.reconnectDelayMs = 1000;
         this.startKeepAlive();
         void this.sendHello().catch((error) => {
-          console.error("DriveSocket hello failed:", error);
+          console.error('DriveSocket hello failed:', error);
         });
       });
 
@@ -428,7 +428,7 @@ class DriveSocket {
         this.scheduleReconnect();
       });
     } catch (error) {
-      console.debug("DriveSocket connect failed, scheduling reconnect.", error);
+      console.debug('DriveSocket connect failed, scheduling reconnect.', error);
       this.scheduleReconnect();
     }
   }
@@ -439,7 +439,7 @@ class DriveSocket {
     try {
       tabs = await queryTabs();
     } catch (error) {
-      console.debug("DriveSocket sendHello failed to read tabs.", error);
+      console.debug('DriveSocket sendHello failed to read tabs.', error);
       tabs = [];
     }
     const params: DriveHelloParams = {
@@ -644,7 +644,8 @@ class DriveSocket {
           }
           try {
             const isBack =
-              message.action === 'drive.go_back' || message.action === 'drive.back';
+              message.action === 'drive.go_back' ||
+              message.action === 'drive.back';
             await wrapChromeVoid((callback) => {
               if (isBack) {
                 chrome.tabs.goBack(tabId as number, () => callback());
@@ -655,7 +656,8 @@ class DriveSocket {
           } catch (error) {
             respondError({
               code: 'FAILED_PRECONDITION',
-              message: error instanceof Error ? error.message : 'No history entry.',
+              message:
+                error instanceof Error ? error.message : 'No history entry.',
               retryable: false,
             });
             return;
@@ -666,7 +668,8 @@ class DriveSocket {
           } catch (error) {
             respondError({
               code: 'TIMEOUT',
-              message: error instanceof Error ? error.message : 'Timed out waiting.',
+              message:
+                error instanceof Error ? error.message : 'Timed out waiting.',
               retryable: true,
             });
             return;
@@ -1114,7 +1117,7 @@ class DriveSocket {
       try {
         await session.attachPromise;
       } catch (error) {
-        console.debug("Debugger attach promise failed before detach.", error);
+        console.debug('Debugger attach promise failed before detach.', error);
         this.clearDebuggerSession(tabId);
         return null;
       }
@@ -1178,7 +1181,7 @@ class DriveSocket {
     }
     session.lastActivityAt = nowIso();
     void this.refreshDebuggerIdleTimer(tabId).catch((error) => {
-      console.error("DriveSocket refreshDebuggerIdleTimer failed:", error);
+      console.error('DriveSocket refreshDebuggerIdleTimer failed:', error);
     });
   }
 
@@ -1193,7 +1196,7 @@ class DriveSocket {
     const timeoutMs = await this.getDebuggerIdleTimeoutMs();
     session.idleTimer = self.setTimeout(() => {
       void this.detachDebugger(tabId).catch((error) => {
-        console.error("DriveSocket detachDebugger failed:", error);
+        console.error('DriveSocket detachDebugger failed:', error);
       });
     }, timeoutMs);
   }
@@ -1268,7 +1271,7 @@ chrome.tabs.onRemoved.addListener((tabId: number) => {
 chrome.debugger.onEvent.addListener(
   (source: DebuggerTarget, method: string, params: Record<string, unknown>) => {
     void socket.handleDebuggerEvent(source, method, params).catch((error) => {
-      console.error("DriveSocket handleDebuggerEvent failed:", error);
+      console.error('DriveSocket handleDebuggerEvent failed:', error);
     });
   }
 );

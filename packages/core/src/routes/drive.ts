@@ -42,9 +42,7 @@ type ValidationError = {
 };
 
 type SchemaLike<T> = {
-  safeParse: (
-    body: unknown
-  ) =>
+  safeParse: (body: unknown) =>
     | { success: true; data: T }
     | {
         success: false;
@@ -115,7 +113,7 @@ const makeHandler = <T extends { session_id: string }>(
         if (result.ok) {
           const payload =
             result.result === undefined
-              ? options.defaultResult ?? { ok: true }
+              ? (options.defaultResult ?? { ok: true })
               : result.result;
           sendResult(res, payload);
           return;
@@ -129,7 +127,7 @@ const makeHandler = <T extends { session_id: string }>(
           message: 'Unexpected error while executing drive action.',
           retryable: false,
           details: {
-            hint: error instanceof Error ? error.message : "Unknown error.",
+            hint: error instanceof Error ? error.message : 'Unknown error.',
           },
         });
       });
@@ -137,7 +135,7 @@ const makeHandler = <T extends { session_id: string }>(
 };
 
 const makeDialogHandler = <T extends { session_id: string }>(
-  action: "accept" | "dismiss",
+  action: 'accept' | 'dismiss',
   schema: SchemaLike<T>,
   drive: DriveController
 ) => {
@@ -153,10 +151,9 @@ const makeDialogHandler = <T extends { session_id: string }>(
       return;
     }
 
-    const body = parsed.data as Record<string, unknown>;
-    const sessionId = body.session_id as string;
-    const params = { ...body, action };
-    delete params.session_id;
+    const body = parsed.data as T;
+    const { session_id: sessionId, ...rest } = body;
+    const params = { ...rest, action };
 
     void drive
       .execute(sessionId, 'drive.handle_dialog', params)
@@ -176,7 +173,7 @@ const makeDialogHandler = <T extends { session_id: string }>(
           message: 'Unexpected error while executing drive action.',
           retryable: false,
           details: {
-            hint: error instanceof Error ? error.message : "Unknown error.",
+            hint: error instanceof Error ? error.message : 'Unknown error.',
           },
         });
       });
@@ -201,10 +198,13 @@ export const registerDriveRoutes = (
     '/drive/go_forward',
     makeHandler('drive.go_forward', DriveGoForwardInputSchema, drive)
   );
-  router.post("/drive/back", makeHandler("drive.back", DriveBackInputSchema, drive));
   router.post(
-    "/drive/forward",
-    makeHandler("drive.forward", DriveForwardInputSchema, drive)
+    '/drive/back',
+    makeHandler('drive.back', DriveBackInputSchema, drive)
+  );
+  router.post(
+    '/drive/forward',
+    makeHandler('drive.forward', DriveForwardInputSchema, drive)
   );
   router.post(
     '/drive/click',

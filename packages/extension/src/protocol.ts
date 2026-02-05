@@ -73,7 +73,7 @@ export type DriveFillFormField = {
   selector?: string;
   locator?: DriveLocator;
   value: string | boolean;
-  type?: "auto" | "text" | "select" | "checkbox" | "radio" | "contentEditable";
+  type?: 'auto' | 'text' | 'select' | 'checkbox' | 'radio' | 'contentEditable';
   submit?: boolean;
 };
 
@@ -90,7 +90,7 @@ export type DriveDragParams = {
 };
 
 export type DriveHandleDialogParams = {
-  action: "accept" | "dismiss";
+  action: 'accept' | 'dismiss';
   promptText?: string;
   tab_id?: number;
 };
@@ -108,7 +108,7 @@ export type DriveKeyPressParams = {
 
 export type DriveKeyParams = {
   key: string;
-  modifiers?: Array<"ctrl" | "alt" | "shift" | "meta">;
+  modifiers?: Array<'ctrl' | 'alt' | 'shift' | 'meta'>;
   repeat?: number;
   tab_id?: number;
 };

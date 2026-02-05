@@ -218,9 +218,13 @@ export class ExtensionBridge {
     }
     this.awaitingHeartbeat = true;
     try {
-      await this.requestInternal("drive.ping", undefined, this.heartbeatTimeoutMs);
+      await this.requestInternal(
+        'drive.ping',
+        undefined,
+        this.heartbeatTimeoutMs
+      );
     } catch (error) {
-      console.warn("Extension heartbeat failed:", error);
+      console.warn('Extension heartbeat failed:', error);
       this.forceDisconnect();
     } finally {
       this.awaitingHeartbeat = false;
@@ -349,7 +353,7 @@ export class ExtensionBridge {
       try {
         listener(event);
       } catch (error) {
-        console.debug("Debugger event listener failed.", error);
+        console.debug('Debugger event listener failed.', error);
       }
     }
   }

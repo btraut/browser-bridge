@@ -9,6 +9,7 @@ Hybrid Browser Control MCP (Drive + Inspect) for a local developer feedback loop
 - Local-only usage (all services bind to 127.0.0.1)
 
 ## Security Model (v1)
+
 - Extension <-> Core WebSocket has no authentication; trust local machine only.
 - Do not expose the port or run the Core daemon on shared hosts.
 
@@ -40,6 +41,7 @@ The MCP adapter runs over stdio and forwards tool calls to Core.
 - Use your MCP client to call `tools/list`, then `session.create`
 
 ## API Notes
+
 - HTTP payloads use snake_case (for example `session_id`, `tab_id`, `include_metadata`), while TypeScript helpers use camelCase. This boundary is intentional at the HTTP edge.
 - Prefer `drive.go_back` / `drive.go_forward` for history navigation; `drive.back` / `drive.forward` remain as compatibility aliases.
 

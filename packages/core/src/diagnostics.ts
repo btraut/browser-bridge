@@ -216,7 +216,8 @@ export const buildDiagnosticReport = (
                   success_count: context.recoveryMetrics.successCount,
                   failure_count: context.recoveryMetrics.failureCount,
                   success_rate: context.recoveryMetrics.successRate,
-                  recent_failure_count: context.recoveryMetrics.recentFailureCount,
+                  recent_failure_count:
+                    context.recoveryMetrics.recentFailureCount,
                   loop_detected: context.recoveryMetrics.loopDetected,
                 }
               : {}),

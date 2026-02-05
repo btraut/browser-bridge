@@ -1,5 +1,5 @@
-import type { ApiEnvelope } from "@browser-vision/shared";
-import type { ErrorEnvelope } from "@browser-vision/shared";
+import type { ApiEnvelope } from '@browser-vision/shared';
+import type { ErrorEnvelope } from '@browser-vision/shared';
 
 export type ToolFixture = {
   name: string;
@@ -9,7 +9,7 @@ export type ToolFixture = {
   errorEnvelope?: ErrorEnvelope;
 };
 
-export type ToolCoverageStatus = "covered" | "optional" | "not_planned";
+export type ToolCoverageStatus = 'covered' | 'optional' | 'not_planned';
 
 export type ToolCoverageRow = {
   name: string;
@@ -22,46 +22,46 @@ export type ToolCoverageRow = {
 
 export const MCP_TOOL_FIXTURES: ToolFixture[] = [
   {
-    name: "session.create",
-    corePath: "/session/create",
+    name: 'session.create',
+    corePath: '/session/create',
     input: {},
     successEnvelope: {
       ok: true,
       result: {
-        session_id: "session-1",
-        state: "READY",
+        session_id: 'session-1',
+        state: 'READY',
       },
     },
   },
   {
-    name: "session.status",
-    corePath: "/session/status",
-    input: { session_id: "session-1" },
+    name: 'session.status',
+    corePath: '/session/status',
+    input: { session_id: 'session-1' },
     successEnvelope: {
       ok: true,
       result: {
-        session_id: "session-1",
-        state: "READY",
+        session_id: 'session-1',
+        state: 'READY',
       },
     },
   },
   {
-    name: "session.recover",
-    corePath: "/session/recover",
-    input: { session_id: "session-1" },
+    name: 'session.recover',
+    corePath: '/session/recover',
+    input: { session_id: 'session-1' },
     successEnvelope: {
       ok: true,
       result: {
-        session_id: "session-1",
+        session_id: 'session-1',
         recovered: true,
-        state: "READY",
+        state: 'READY',
       },
     },
   },
   {
-    name: "session.close",
-    corePath: "/session/close",
-    input: { session_id: "session-1" },
+    name: 'session.close',
+    corePath: '/session/close',
+    input: { session_id: 'session-1' },
     successEnvelope: {
       ok: true,
       result: {
@@ -70,12 +70,12 @@ export const MCP_TOOL_FIXTURES: ToolFixture[] = [
     },
   },
   {
-    name: "drive.navigate",
-    corePath: "/drive/navigate",
+    name: 'drive.navigate',
+    corePath: '/drive/navigate',
     input: {
-      session_id: "session-1",
-      url: "https://example.com",
-      wait: "domcontentloaded",
+      session_id: 'session-1',
+      url: 'https://example.com',
+      wait: 'domcontentloaded',
     },
     successEnvelope: {
       ok: true,
@@ -85,9 +85,9 @@ export const MCP_TOOL_FIXTURES: ToolFixture[] = [
     },
   },
   {
-    name: "drive.go_back",
-    corePath: "/drive/go_back",
-    input: { session_id: "session-1" },
+    name: 'drive.go_back',
+    corePath: '/drive/go_back',
+    input: { session_id: 'session-1' },
     successEnvelope: {
       ok: true,
       result: {
@@ -96,9 +96,9 @@ export const MCP_TOOL_FIXTURES: ToolFixture[] = [
     },
   },
   {
-    name: "drive.go_forward",
-    corePath: "/drive/go_forward",
-    input: { session_id: "session-1" },
+    name: 'drive.go_forward',
+    corePath: '/drive/go_forward',
+    input: { session_id: 'session-1' },
     successEnvelope: {
       ok: true,
       result: {
@@ -107,9 +107,9 @@ export const MCP_TOOL_FIXTURES: ToolFixture[] = [
     },
   },
   {
-    name: "drive.back",
-    corePath: "/drive/back",
-    input: { session_id: "session-1" },
+    name: 'drive.back',
+    corePath: '/drive/back',
+    input: { session_id: 'session-1' },
     successEnvelope: {
       ok: true,
       result: {
@@ -118,9 +118,9 @@ export const MCP_TOOL_FIXTURES: ToolFixture[] = [
     },
   },
   {
-    name: "drive.forward",
-    corePath: "/drive/forward",
-    input: { session_id: "session-1" },
+    name: 'drive.forward',
+    corePath: '/drive/forward',
+    input: { session_id: 'session-1' },
     successEnvelope: {
       ok: true,
       result: {
@@ -129,11 +129,11 @@ export const MCP_TOOL_FIXTURES: ToolFixture[] = [
     },
   },
   {
-    name: "drive.click",
-    corePath: "/drive/click",
+    name: 'drive.click',
+    corePath: '/drive/click',
     input: {
-      session_id: "session-1",
-      locator: { css: "button" },
+      session_id: 'session-1',
+      locator: { css: 'button' },
     },
     successEnvelope: {
       ok: true,
@@ -143,41 +143,27 @@ export const MCP_TOOL_FIXTURES: ToolFixture[] = [
     },
   },
   {
-    name: "drive.hover",
-    corePath: "/drive/hover",
+    name: 'drive.hover',
+    corePath: '/drive/hover',
     input: {
-      session_id: "session-1",
-      locator: { css: "button" },
+      session_id: 'session-1',
+      locator: { css: 'button' },
     },
     successEnvelope: {
       ok: true,
       result: {
-        format: "html",
-        snapshot: "<button>Example</button>",
+        format: 'html',
+        snapshot: '<button>Example</button>',
       },
     },
   },
   {
-    name: "drive.select",
-    corePath: "/drive/select",
+    name: 'drive.select',
+    corePath: '/drive/select',
     input: {
-      session_id: "session-1",
-      locator: { css: "select" },
-      value: "option-1",
-    },
-    successEnvelope: {
-      ok: true,
-      result: {
-        ok: true,
-      },
-    },
-  },
-  {
-    name: "drive.type",
-    corePath: "/drive/type",
-    input: {
-      session_id: "session-1",
-      text: "hello",
+      session_id: 'session-1',
+      locator: { css: 'select' },
+      value: 'option-1',
     },
     successEnvelope: {
       ok: true,
@@ -187,14 +173,28 @@ export const MCP_TOOL_FIXTURES: ToolFixture[] = [
     },
   },
   {
-    name: "drive.fill_form",
-    corePath: "/drive/fill_form",
+    name: 'drive.type',
+    corePath: '/drive/type',
     input: {
-      session_id: "session-1",
+      session_id: 'session-1',
+      text: 'hello',
+    },
+    successEnvelope: {
+      ok: true,
+      result: {
+        ok: true,
+      },
+    },
+  },
+  {
+    name: 'drive.fill_form',
+    corePath: '/drive/fill_form',
+    input: {
+      session_id: 'session-1',
       fields: [
         {
-          selector: "input[name=email]",
-          value: "test@example.com",
+          selector: 'input[name=email]',
+          value: 'test@example.com',
         },
       ],
     },
@@ -207,12 +207,12 @@ export const MCP_TOOL_FIXTURES: ToolFixture[] = [
     },
   },
   {
-    name: "drive.drag",
-    corePath: "/drive/drag",
+    name: 'drive.drag',
+    corePath: '/drive/drag',
     input: {
-      session_id: "session-1",
-      from: { css: "#source" },
-      to: { css: "#target" },
+      session_id: 'session-1',
+      from: { css: '#source' },
+      to: { css: '#target' },
       steps: 10,
     },
     successEnvelope: {
@@ -223,11 +223,11 @@ export const MCP_TOOL_FIXTURES: ToolFixture[] = [
     },
   },
   {
-    name: "drive.handle_dialog",
-    corePath: "/drive/handle_dialog",
+    name: 'drive.handle_dialog',
+    corePath: '/drive/handle_dialog',
     input: {
-      session_id: "session-1",
-      action: "accept",
+      session_id: 'session-1',
+      action: 'accept',
     },
     successEnvelope: {
       ok: true,
@@ -237,11 +237,11 @@ export const MCP_TOOL_FIXTURES: ToolFixture[] = [
     },
   },
   {
-    name: "dialog.accept",
-    corePath: "/dialog/accept",
+    name: 'dialog.accept',
+    corePath: '/dialog/accept',
     input: {
-      session_id: "session-1",
-      promptText: "confirm",
+      session_id: 'session-1',
+      promptText: 'confirm',
     },
     successEnvelope: {
       ok: true,
@@ -251,10 +251,10 @@ export const MCP_TOOL_FIXTURES: ToolFixture[] = [
     },
   },
   {
-    name: "dialog.dismiss",
-    corePath: "/dialog/dismiss",
+    name: 'dialog.dismiss',
+    corePath: '/dialog/dismiss',
     input: {
-      session_id: "session-1",
+      session_id: 'session-1',
     },
     successEnvelope: {
       ok: true,
@@ -264,12 +264,12 @@ export const MCP_TOOL_FIXTURES: ToolFixture[] = [
     },
   },
   {
-    name: "drive.key",
-    corePath: "/drive/key",
+    name: 'drive.key',
+    corePath: '/drive/key',
     input: {
-      session_id: "session-1",
-      key: "Enter",
-      modifiers: ["ctrl"],
+      session_id: 'session-1',
+      key: 'Enter',
+      modifiers: ['ctrl'],
     },
     successEnvelope: {
       ok: true,
@@ -279,11 +279,11 @@ export const MCP_TOOL_FIXTURES: ToolFixture[] = [
     },
   },
   {
-    name: "drive.key_press",
-    corePath: "/drive/key_press",
+    name: 'drive.key_press',
+    corePath: '/drive/key_press',
     input: {
-      session_id: "session-1",
-      key: "Enter",
+      session_id: 'session-1',
+      key: 'Enter',
       modifiers: {
         ctrl: true,
       },
@@ -296,10 +296,10 @@ export const MCP_TOOL_FIXTURES: ToolFixture[] = [
     },
   },
   {
-    name: "drive.scroll",
-    corePath: "/drive/scroll",
+    name: 'drive.scroll',
+    corePath: '/drive/scroll',
     input: {
-      session_id: "session-1",
+      session_id: 'session-1',
       delta_y: 120,
     },
     successEnvelope: {
@@ -310,13 +310,13 @@ export const MCP_TOOL_FIXTURES: ToolFixture[] = [
     },
   },
   {
-    name: "drive.wait_for",
-    corePath: "/drive/wait_for",
+    name: 'drive.wait_for',
+    corePath: '/drive/wait_for',
     input: {
-      session_id: "session-1",
+      session_id: 'session-1',
       condition: {
-        kind: "url_matches",
-        value: "example.com",
+        kind: 'url_matches',
+        value: 'example.com',
       },
     },
     successEnvelope: {
@@ -327,9 +327,9 @@ export const MCP_TOOL_FIXTURES: ToolFixture[] = [
     },
   },
   {
-    name: "drive.tab_list",
-    corePath: "/drive/tab_list",
-    input: { session_id: "session-1" },
+    name: 'drive.tab_list',
+    corePath: '/drive/tab_list',
+    input: { session_id: 'session-1' },
     successEnvelope: {
       ok: true,
       result: {
@@ -337,8 +337,8 @@ export const MCP_TOOL_FIXTURES: ToolFixture[] = [
           {
             tab_id: 1,
             window_id: 1,
-            url: "https://example.com",
-            title: "Example Domain",
+            url: 'https://example.com',
+            title: 'Example Domain',
             active: true,
           },
         ],
@@ -346,10 +346,10 @@ export const MCP_TOOL_FIXTURES: ToolFixture[] = [
     },
   },
   {
-    name: "drive.tab_activate",
-    corePath: "/drive/tab_activate",
+    name: 'drive.tab_activate',
+    corePath: '/drive/tab_activate',
     input: {
-      session_id: "session-1",
+      session_id: 'session-1',
       tab_id: 1,
     },
     successEnvelope: {
@@ -360,10 +360,10 @@ export const MCP_TOOL_FIXTURES: ToolFixture[] = [
     },
   },
   {
-    name: "drive.tab_close",
-    corePath: "/drive/tab_close",
+    name: 'drive.tab_close',
+    corePath: '/drive/tab_close',
     input: {
-      session_id: "session-1",
+      session_id: 'session-1',
       tab_id: 1,
     },
     successEnvelope: {
@@ -374,68 +374,68 @@ export const MCP_TOOL_FIXTURES: ToolFixture[] = [
     },
   },
   {
-    name: "inspect.dom_snapshot",
-    corePath: "/inspect/dom_snapshot",
+    name: 'inspect.dom_snapshot',
+    corePath: '/inspect/dom_snapshot',
     input: {
-      session_id: "session-1",
-      format: "ax",
-      consistency: "best_effort",
+      session_id: 'session-1',
+      format: 'ax',
+      consistency: 'best_effort',
     },
     successEnvelope: {
       ok: true,
       result: {
-        format: "ax",
+        format: 'ax',
         snapshot: {},
       },
     },
   },
   {
-    name: "inspect.dom_diff",
-    corePath: "/inspect/dom_diff",
-    input: { session_id: "session-1" },
+    name: 'inspect.dom_diff',
+    corePath: '/inspect/dom_diff',
+    input: { session_id: 'session-1' },
     successEnvelope: {
       ok: true,
       result: {
-        added: ["div#new"],
+        added: ['div#new'],
         removed: [],
-        changed: ["span.title"],
-        summary: "Added 1, removed 0, changed 1.",
+        changed: ['span.title'],
+        summary: 'Added 1, removed 0, changed 1.',
       },
     },
   },
   {
-    name: "inspect.find",
-    corePath: "/inspect/find",
+    name: 'inspect.find',
+    corePath: '/inspect/find',
     input: {
-      session_id: "session-1",
-      kind: "role",
-      role: "button",
-      name: "Submit",
+      session_id: 'session-1',
+      kind: 'role',
+      role: 'button',
+      name: 'Submit',
     },
     successEnvelope: {
       ok: true,
       result: {
-        matches: [{ ref: "@e1", role: "button", name: "Submit" }],
+        matches: [{ ref: '@e1', role: 'button', name: 'Submit' }],
       },
     },
   },
   {
-    name: "inspect.extract_content",
-    corePath: "/inspect/extract_content",
-    input: { session_id: "session-1", format: "markdown" },
+    name: 'inspect.extract_content',
+    corePath: '/inspect/extract_content',
+    input: { session_id: 'session-1', format: 'markdown' },
     successEnvelope: {
       ok: true,
       result: {
-        content: "# Example",
-        title: "Example",
-        excerpt: "Example excerpt.",
+        content: '# Example',
+        title: 'Example',
+        excerpt: 'Example excerpt.',
       },
     },
   },
   {
-    name: "inspect.page_state",
-    corePath: "/inspect/page_state",
-    input: { session_id: "session-1" },
+    name: 'inspect.page_state',
+    corePath: '/inspect/page_state',
+    input: { session_id: 'session-1' },
     successEnvelope: {
       ok: true,
       result: {
@@ -447,9 +447,9 @@ export const MCP_TOOL_FIXTURES: ToolFixture[] = [
     },
   },
   {
-    name: "inspect.console_list",
-    corePath: "/inspect/console_list",
-    input: { session_id: "session-1" },
+    name: 'inspect.console_list',
+    corePath: '/inspect/console_list',
+    input: { session_id: 'session-1' },
     successEnvelope: {
       ok: true,
       result: {
@@ -458,24 +458,24 @@ export const MCP_TOOL_FIXTURES: ToolFixture[] = [
     },
   },
   {
-    name: "inspect.network_har",
-    corePath: "/inspect/network_har",
-    input: { session_id: "session-1" },
+    name: 'inspect.network_har',
+    corePath: '/inspect/network_har',
+    input: { session_id: 'session-1' },
     successEnvelope: {
       ok: true,
       result: {
-        artifact_id: "artifact-1",
-        path: "/tmp/network.har",
-        mime: "application/json",
+        artifact_id: 'artifact-1',
+        path: '/tmp/network.har',
+        mime: 'application/json',
       },
     },
   },
   {
-    name: "inspect.evaluate",
-    corePath: "/inspect/evaluate",
+    name: 'inspect.evaluate',
+    corePath: '/inspect/evaluate',
     input: {
-      session_id: "session-1",
-      expression: "1 + 1",
+      session_id: 'session-1',
+      expression: '1 + 1',
     },
     successEnvelope: {
       ok: true,
@@ -485,15 +485,15 @@ export const MCP_TOOL_FIXTURES: ToolFixture[] = [
     },
   },
   {
-    name: "inspect.performance_metrics",
-    corePath: "/inspect/performance_metrics",
-    input: { session_id: "session-1" },
+    name: 'inspect.performance_metrics',
+    corePath: '/inspect/performance_metrics',
+    input: { session_id: 'session-1' },
     successEnvelope: {
       ok: true,
       result: {
         metrics: [
           {
-            name: "FirstContentfulPaint",
+            name: 'FirstContentfulPaint',
             value: 123.4,
           },
         ],
@@ -501,33 +501,33 @@ export const MCP_TOOL_FIXTURES: ToolFixture[] = [
     },
   },
   {
-    name: "artifacts.screenshot",
-    corePath: "/artifacts/screenshot",
+    name: 'artifacts.screenshot',
+    corePath: '/artifacts/screenshot',
     input: {
-      session_id: "session-1",
-      target: "viewport",
+      session_id: 'session-1',
+      target: 'viewport',
     },
     successEnvelope: {
       ok: true,
       result: {
-        artifact_id: "artifact-1",
-        path: "/tmp/screenshot.png",
-        mime: "image/png",
+        artifact_id: 'artifact-1',
+        path: '/tmp/screenshot.png',
+        mime: 'image/png',
       },
     },
   },
   {
-    name: "diagnostics.doctor",
-    corePath: "/diagnostics/doctor",
-    input: { session_id: "session-1" },
+    name: 'diagnostics.doctor',
+    corePath: '/diagnostics/doctor',
+    input: { session_id: 'session-1' },
     successEnvelope: {
       ok: true,
       result: {
         ok: true,
-        session_id: "session-1",
+        session_id: 'session-1',
         checks: [
           {
-            name: "extension",
+            name: 'extension',
             ok: true,
           },
         ],
@@ -536,13 +536,12 @@ export const MCP_TOOL_FIXTURES: ToolFixture[] = [
   },
 ];
 
-export const MCP_TOOL_COVERAGE_MATRIX: ToolCoverageRow[] = MCP_TOOL_FIXTURES.map(
-  (fixture) => ({
+export const MCP_TOOL_COVERAGE_MATRIX: ToolCoverageRow[] =
+  MCP_TOOL_FIXTURES.map((fixture) => ({
     name: fixture.name,
-    fixture: "covered",
-    contract: "covered",
-    wiring: "covered",
-    integration: "covered",
-    e2e: "optional",
-  })
-);
+    fixture: 'covered',
+    contract: 'covered',
+    wiring: 'covered',
+    integration: 'covered',
+    e2e: 'optional',
+  }));

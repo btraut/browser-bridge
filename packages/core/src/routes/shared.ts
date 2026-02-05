@@ -1,5 +1,5 @@
-import type { DriveTabInfo } from "../drive-protocol";
-import type { TargetHint } from "../target-matching";
+import type { DriveTabInfo } from '../drive-protocol';
+import type { TargetHint } from '../target-matching';
 
 export type ResponseLike = {
   status: (code: number) => ResponseLike;
@@ -13,7 +13,11 @@ export type ErrorInfo = {
   details?: Record<string, unknown>;
 };
 
-export const sendError = (res: ResponseLike, status: number, error: ErrorInfo): void => {
+export const sendError = (
+  res: ResponseLike,
+  status: number,
+  error: ErrorInfo
+): void => {
   res.status(status).json({ ok: false, error });
 };
 
@@ -22,36 +26,38 @@ export const sendResult = <T>(res: ResponseLike, result: T): void => {
 };
 
 export const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
+  typeof value === 'object' && value !== null && !Array.isArray(value);
 
 export const errorStatus = (code: string): number => {
   switch (code) {
-    case "INVALID_ARGUMENT":
+    case 'INVALID_ARGUMENT':
       return 400;
-    case "SESSION_NOT_FOUND":
-    case "TAB_NOT_FOUND":
-    case "LOCATOR_NOT_FOUND":
+    case 'SESSION_NOT_FOUND':
+    case 'TAB_NOT_FOUND':
+    case 'LOCATOR_NOT_FOUND':
       return 404;
-    case "SESSION_CLOSED":
-    case "FAILED_PRECONDITION":
-    case "DEBUGGER_IN_USE":
+    case 'SESSION_CLOSED':
+    case 'FAILED_PRECONDITION':
+    case 'DEBUGGER_IN_USE':
       return 409;
-    case "ATTACH_DENIED":
+    case 'ATTACH_DENIED':
       return 403;
-    case "NOT_SUPPORTED":
-    case "NOT_IMPLEMENTED":
+    case 'NOT_SUPPORTED':
+    case 'NOT_IMPLEMENTED':
       return 501;
-    case "EXTENSION_DISCONNECTED":
-    case "INSPECT_UNAVAILABLE":
+    case 'EXTENSION_DISCONNECTED':
+    case 'INSPECT_UNAVAILABLE':
       return 503;
-    case "TIMEOUT":
+    case 'TIMEOUT':
       return 504;
     default:
       return 500;
   }
 };
 
-export const deriveHintFromTabs = (tabs: DriveTabInfo[]): TargetHint | undefined => {
+export const deriveHintFromTabs = (
+  tabs: DriveTabInfo[]
+): TargetHint | undefined => {
   if (!Array.isArray(tabs) || tabs.length === 0) {
     return undefined;
   }
