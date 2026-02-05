@@ -237,6 +237,33 @@ export const MCP_TOOL_FIXTURES: ToolFixture[] = [
     },
   },
   {
+    name: "dialog.accept",
+    corePath: "/dialog/accept",
+    input: {
+      session_id: "session-1",
+      promptText: "confirm",
+    },
+    successEnvelope: {
+      ok: true,
+      result: {
+        ok: true,
+      },
+    },
+  },
+  {
+    name: "dialog.dismiss",
+    corePath: "/dialog/dismiss",
+    input: {
+      session_id: "session-1",
+    },
+    successEnvelope: {
+      ok: true,
+      result: {
+        ok: true,
+      },
+    },
+  },
+  {
     name: "drive.key",
     corePath: "/drive/key",
     input: {

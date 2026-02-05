@@ -4,6 +4,8 @@ import {
   ArtifactsScreenshotInputSchema,
   DiagnosticsDoctorInputSchema,
   DiagnosticReportSchema,
+  DialogAcceptInputSchema,
+  DialogDismissInputSchema,
   DriveClickInputSchema,
   DriveDragInputSchema,
   DriveFillFormInputSchema,
@@ -147,6 +149,22 @@ describe('shared schemas', () => {
       promptText: 'ok',
     });
     expect(parsed.action).toBe('accept');
+  });
+
+  it('parses dialog accept input', () => {
+    const parsed = DialogAcceptInputSchema.parse({
+      session_id: 'session-1',
+      promptText: 'hello',
+    });
+    expect(parsed.promptText).toBe('hello');
+  });
+
+  it('parses dialog dismiss input', () => {
+    const parsed = DialogDismissInputSchema.parse({
+      session_id: 'session-1',
+      tab_id: 2,
+    });
+    expect(parsed.tab_id).toBe(2);
   });
 
   it('parses locator ref input', () => {

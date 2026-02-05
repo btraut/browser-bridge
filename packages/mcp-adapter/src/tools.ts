@@ -4,6 +4,10 @@ import {
   ArtifactsScreenshotOutputSchema,
   DiagnosticsDoctorInputSchema,
   DiagnosticsDoctorOutputSchema,
+  DialogAcceptInputSchema,
+  DialogAcceptOutputSchema,
+  DialogDismissInputSchema,
+  DialogDismissOutputSchema,
   ErrorEnvelopeSchema,
   DriveClickInputSchema,
   DriveClickOutputSchema,
@@ -276,6 +280,26 @@ export const TOOL_DEFINITIONS: Array<{ name: string; config: ToolConfig }> = [
       inputSchema: DriveHandleDialogInputSchema,
       outputSchema: envelope(DriveHandleDialogOutputSchema),
       corePath: '/drive/handle_dialog',
+    },
+  },
+  {
+    name: 'dialog.accept',
+    config: {
+      title: 'Dialog Accept',
+      description: 'Accept a JavaScript dialog.',
+      inputSchema: DialogAcceptInputSchema,
+      outputSchema: envelope(DialogAcceptOutputSchema),
+      corePath: '/dialog/accept',
+    },
+  },
+  {
+    name: 'dialog.dismiss',
+    config: {
+      title: 'Dialog Dismiss',
+      description: 'Dismiss a JavaScript dialog.',
+      inputSchema: DialogDismissInputSchema,
+      outputSchema: envelope(DialogDismissOutputSchema),
+      corePath: '/dialog/dismiss',
     },
   },
   {

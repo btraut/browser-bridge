@@ -9,6 +9,10 @@ import {
   DiagnosticReportSchema,
   DiagnosticsDoctorInputSchema,
   DiagnosticsDoctorOutputSchema,
+  DialogAcceptInputSchema,
+  DialogAcceptOutputSchema,
+  DialogDismissInputSchema,
+  DialogDismissOutputSchema,
   DomSnapshotSchema,
   DomDiffResultSchema,
   DriveClickInputSchema,
@@ -154,6 +158,10 @@ export type DriveDragInput = z.infer<typeof DriveDragInputSchema>;
 export type DriveDragOutput = z.infer<typeof DriveDragOutputSchema>;
 export type DriveHandleDialogInput = z.infer<typeof DriveHandleDialogInputSchema>;
 export type DriveHandleDialogOutput = z.infer<typeof DriveHandleDialogOutputSchema>;
+export type DialogAcceptInput = z.infer<typeof DialogAcceptInputSchema>;
+export type DialogAcceptOutput = z.infer<typeof DialogAcceptOutputSchema>;
+export type DialogDismissInput = z.infer<typeof DialogDismissInputSchema>;
+export type DialogDismissOutput = z.infer<typeof DialogDismissOutputSchema>;
 export type DriveKeyModifiers = z.infer<typeof DriveKeyModifiersSchema>;
 export type DriveKeyPressInput = z.infer<typeof DriveKeyPressInputSchema>;
 export type DriveKeyPressOutput = z.infer<typeof DriveKeyPressOutputSchema>;

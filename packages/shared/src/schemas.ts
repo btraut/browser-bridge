@@ -267,6 +267,17 @@ export const DriveHandleDialogInputSchema = z.object({
 });
 export const DriveHandleDialogOutputSchema = OpResultSchema;
 
+export const DialogAcceptInputSchema = SessionIdSchema.extend({
+  promptText: z.string().optional(),
+  tab_id: z.number().finite().optional(),
+});
+export const DialogAcceptOutputSchema = OpResultSchema;
+
+export const DialogDismissInputSchema = SessionIdSchema.extend({
+  tab_id: z.number().finite().optional(),
+});
+export const DialogDismissOutputSchema = OpResultSchema;
+
 export const DriveKeyModifiersSchema = z.object({
   ctrl: z.boolean().optional(),
   alt: z.boolean().optional(),
