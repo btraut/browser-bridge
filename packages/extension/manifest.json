@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "Browser Bridge Drive",
+  "name": "Browser Bridge",
   "version": "0.1.0",
   "description": "Drive plane extension for local browser control.",
   "icons": {

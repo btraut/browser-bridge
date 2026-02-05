@@ -7,6 +7,7 @@ import eslintConfigPrettier from 'eslint-config-prettier';
 export default [
   {
     ignores: [
+      '.worktrees/**',
       '**/dist/**',
       '**/node_modules/**',
       'packages/shared/src/**/*.js',
