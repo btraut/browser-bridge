@@ -148,6 +148,14 @@ describe('shared schemas', () => {
     expect(parsed.action).toBe('accept');
   });
 
+  it('parses locator ref input', () => {
+    const parsed = DriveClickInputSchema.parse({
+      session_id: 'session-1',
+      locator: { ref: '@e1' },
+    });
+    expect(parsed.locator.ref).toBe('@e1');
+  });
+
   it('parses hover input', () => {
     const parsed = DriveHoverInputSchema.parse({
       session_id: 'session-1',

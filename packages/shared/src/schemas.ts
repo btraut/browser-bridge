@@ -8,13 +8,15 @@ export const LocatorRoleSchema = z.object({
 
 export const LocatorSchema = z
   .object({
+    ref: z.string().min(1).optional(),
     testid: z.string().min(1).optional(),
     css: z.string().min(1).optional(),
     text: z.string().min(1).optional(),
     role: LocatorRoleSchema.optional(),
   })
   .refine(
-    (value) => Boolean(value.testid || value.css || value.text || value.role),
+    (value) =>
+      Boolean(value.ref || value.testid || value.css || value.text || value.role),
     {
       message: 'Locator must include at least one selector.',
     }

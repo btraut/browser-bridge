@@ -53,6 +53,17 @@ export type DomSnapshotResult = {
   warnings?: string[];
 };
 
+type AxNodeRecord = {
+  nodeId?: string;
+  backendDOMNodeId?: number;
+  role?: { value?: string } | string;
+  name?: { value?: string } | string;
+  childIds?: string[];
+  ignored?: boolean;
+  properties?: Array<{ name?: string; value?: { value?: unknown } }>;
+  ref?: string;
+};
+
 type SnapshotRecord = {
   sessionId: string;
   format: "ax" | "html";
@@ -137,6 +148,9 @@ export type InspectServiceOptions = {
 
 const DEFAULT_MAX_SNAPSHOTS_PER_SESSION = 20;
 const DEFAULT_MAX_SNAPSHOT_HISTORY = 100;
+const SNAPSHOT_REF_ATTRIBUTE = "data-bv-ref";
+const MAX_REF_ASSIGNMENTS = 500;
+const MAX_REF_WARNINGS = 5;
 
 export class InspectService {
   private readonly registry: SessionRegistry;
@@ -234,10 +248,19 @@ export class InspectService {
           "Accessibility.getFullAXTree",
           {}
         );
+        const refMap = this.assignRefsToAxSnapshot(result);
+        const refWarnings = await this.applySnapshotRefs(
+          selection.tabId,
+          refMap
+        );
+        const warnings = [
+          ...(selection.warnings ?? []),
+          ...(refWarnings ?? []),
+        ];
         return {
           format: "ax",
           snapshot: result,
-          warnings: selection.warnings,
+          ...(warnings.length > 0 ? { warnings } : {}),
         };
       } catch (error) {
         if (error instanceof InspectError) {
@@ -761,6 +784,13 @@ export class InspectService {
     return null;
   }
 
+  private getAxNodes(snapshot: unknown): AxNodeRecord[] {
+    const nodes = Array.isArray(snapshot)
+      ? snapshot
+      : (snapshot as { nodes?: unknown[] })?.nodes;
+    return Array.isArray(nodes) ? (nodes as AxNodeRecord[]) : [];
+  }
+
   private collectHtmlEntries(html: string): Map<string, string> {
     const entries = new Map<string, string>();
     const tagPattern = /<([a-zA-Z0-9-]+)([^>]*)>/g;
@@ -789,10 +819,8 @@ export class InspectService {
 
   private collectAxEntries(snapshot: unknown): Map<string, string> {
     const entries = new Map<string, string>();
-    const nodes = Array.isArray(snapshot)
-      ? snapshot
-      : (snapshot as { nodes?: unknown[] })?.nodes;
-    if (!Array.isArray(nodes)) {
+    const nodes = this.getAxNodes(snapshot);
+    if (nodes.length === 0) {
       return entries;
     }
     nodes.forEach((node, index) => {
@@ -820,6 +848,90 @@ export class InspectService {
       entries.set(key, `${role}:${name}`);
     });
     return entries;
+  }
+
+  private assignRefsToAxSnapshot(snapshot: unknown): Map<number, string> {
+    const nodes = this.getAxNodes(snapshot);
+    const refs = new Map<number, string>();
+    let index = 1;
+    for (const node of nodes) {
+      if (!node || typeof node !== "object") {
+        continue;
+      }
+      if (node.ignored) {
+        continue;
+      }
+      const backendId = node.backendDOMNodeId;
+      if (typeof backendId !== "number") {
+        continue;
+      }
+      const ref = `@e${index}`;
+      index += 1;
+      node.ref = ref;
+      refs.set(backendId, ref);
+    }
+    return refs;
+  }
+
+  private async applySnapshotRefs(
+    tabId: number,
+    refs: Map<number, string>
+  ): Promise<string[]> {
+    const warnings: string[] = [];
+    if (refs.size === 0) {
+      return warnings;
+    }
+
+    await this.debuggerCommand(tabId, "DOM.enable", {});
+    await this.debuggerCommand(tabId, "Runtime.enable", {});
+
+    try {
+      await this.clearSnapshotRefs(tabId);
+    } catch {
+      warnings.push("Failed to clear prior snapshot refs.");
+    }
+
+    let applied = 0;
+    for (const [backendNodeId, ref] of refs) {
+      if (applied >= MAX_REF_ASSIGNMENTS) {
+        warnings.push(
+          `Snapshot refs truncated at ${MAX_REF_ASSIGNMENTS} elements.`
+        );
+        break;
+      }
+      try {
+        const described = await this.debuggerCommand(tabId, "DOM.describeNode", {
+          backendNodeId,
+        });
+        const node = (described as { node?: { nodeId?: number; nodeType?: number } })
+          .node;
+        if (!node || node.nodeType !== 1 || typeof node.nodeId !== "number") {
+          if (warnings.length < MAX_REF_WARNINGS) {
+            warnings.push(`Ref ${ref} could not be applied to a DOM element.`);
+          }
+          continue;
+        }
+        await this.debuggerCommand(tabId, "DOM.setAttributeValue", {
+          nodeId: node.nodeId,
+          name: SNAPSHOT_REF_ATTRIBUTE,
+          value: ref,
+        });
+        applied += 1;
+      } catch {
+        if (warnings.length < MAX_REF_WARNINGS) {
+          warnings.push(`Ref ${ref} could not be applied.`);
+        }
+      }
+    }
+    return warnings;
+  }
+
+  private async clearSnapshotRefs(tabId: number): Promise<void> {
+    await this.debuggerCommand(tabId, "Runtime.evaluate", {
+      expression: `document.querySelectorAll('[${SNAPSHOT_REF_ATTRIBUTE}]').forEach((el) => el.removeAttribute('${SNAPSHOT_REF_ATTRIBUTE}'))`,
+      returnByValue: true,
+      awaitPromise: true,
+    });
   }
 
   private async captureHtml(tabId: number): Promise<string> {

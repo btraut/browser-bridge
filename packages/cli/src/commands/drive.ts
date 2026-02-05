@@ -124,6 +124,7 @@ export const registerDriveCommands = (program: Command): void => {
     .command('click')
     .description('Click an element')
     .requiredOption('--session-id <id>', 'Session identifier')
+    .option('--locator-ref <ref>', 'Locator ref (e.g., @e1)')
     .option('--locator-testid <id>', 'Locator test id')
     .option('--locator-css <selector>', 'Locator CSS selector')
     .option('--locator-text <text>', 'Locator text')
@@ -133,6 +134,7 @@ export const registerDriveCommands = (program: Command): void => {
     .action(async (options, command) => {
       await runCommand(command, (client) => {
         const locator = requireLocator({
+          locatorRef: options.locatorRef,
           locatorTestid: options.locatorTestid,
           locatorCss: options.locatorCss,
           locatorText: options.locatorText,
@@ -152,6 +154,7 @@ export const registerDriveCommands = (program: Command): void => {
     .command('hover')
     .description('Hover over an element')
     .requiredOption('--session-id <id>', 'Session identifier')
+    .option('--locator-ref <ref>', 'Locator ref (e.g., @e1)')
     .option('--locator-testid <id>', 'Locator test id')
     .option('--locator-css <selector>', 'Locator CSS selector')
     .option('--locator-text <text>', 'Locator text')
@@ -161,6 +164,7 @@ export const registerDriveCommands = (program: Command): void => {
     .action(async (options, command) => {
       await runCommand(command, (client) => {
         const locator = requireLocator({
+          locatorRef: options.locatorRef,
           locatorTestid: options.locatorTestid,
           locatorCss: options.locatorCss,
           locatorText: options.locatorText,
@@ -180,6 +184,7 @@ export const registerDriveCommands = (program: Command): void => {
     .command('select')
     .description('Select an option in a dropdown')
     .requiredOption('--session-id <id>', 'Session identifier')
+    .option('--locator-ref <ref>', 'Locator ref (e.g., @e1)')
     .option('--locator-testid <id>', 'Locator test id')
     .option('--locator-css <selector>', 'Locator CSS selector')
     .option('--locator-text <text>', 'Locator text')
@@ -191,6 +196,7 @@ export const registerDriveCommands = (program: Command): void => {
     .action(async (options, command) => {
       await runCommand(command, (client) => {
         const locator = requireLocator({
+          locatorRef: options.locatorRef,
           locatorTestid: options.locatorTestid,
           locatorCss: options.locatorCss,
           locatorText: options.locatorText,
@@ -213,6 +219,7 @@ export const registerDriveCommands = (program: Command): void => {
     .description('Type into a field')
     .requiredOption('--session-id <id>', 'Session identifier')
     .requiredOption('--text <text>', 'Text to enter')
+    .option('--locator-ref <ref>', 'Locator ref (e.g., @e1)')
     .option('--locator-testid <id>', 'Locator test id')
     .option('--locator-css <selector>', 'Locator CSS selector')
     .option('--locator-text <text>', 'Locator text')
@@ -223,6 +230,7 @@ export const registerDriveCommands = (program: Command): void => {
     .action(async (options, command) => {
       await runCommand(command, (client) => {
         const locator = buildLocator({
+          locatorRef: options.locatorRef,
           locatorTestid: options.locatorTestid,
           locatorCss: options.locatorCss,
           locatorText: options.locatorText,
@@ -262,11 +270,13 @@ export const registerDriveCommands = (program: Command): void => {
     .command('drag')
     .description('Drag an element to a target')
     .requiredOption('--session-id <id>', 'Session identifier')
+    .option('--from-locator-ref <ref>', 'Source locator ref (e.g., @e1)')
     .option('--from-locator-testid <id>', 'Source locator test id')
     .option('--from-locator-css <selector>', 'Source locator CSS selector')
     .option('--from-locator-text <text>', 'Source locator text')
     .option('--from-locator-role <role>', 'Source locator role name')
     .option('--from-locator-role-value <value>', 'Source locator role value')
+    .option('--to-locator-ref <ref>', 'Target locator ref (e.g., @e1)')
     .option('--to-locator-testid <id>', 'Target locator test id')
     .option('--to-locator-css <selector>', 'Target locator CSS selector')
     .option('--to-locator-text <text>', 'Target locator text')
@@ -277,6 +287,7 @@ export const registerDriveCommands = (program: Command): void => {
     .action(async (options, command) => {
       await runCommand(command, (client) => {
         const from = requireLocator({
+          locatorRef: options.fromLocatorRef,
           locatorTestid: options.fromLocatorTestid,
           locatorCss: options.fromLocatorCss,
           locatorText: options.fromLocatorText,
@@ -284,6 +295,7 @@ export const registerDriveCommands = (program: Command): void => {
           locatorRoleValue: options.fromLocatorRoleValue,
         });
         const to = requireLocator({
+          locatorRef: options.toLocatorRef,
           locatorTestid: options.toLocatorTestid,
           locatorCss: options.toLocatorCss,
           locatorText: options.toLocatorText,

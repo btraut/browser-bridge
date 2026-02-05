@@ -156,6 +156,15 @@ export const runDriveAction = async (
     if (!locator) {
       return null;
     }
+    const ref = locator.ref;
+    if (typeof ref === 'string' && ref.length > 0) {
+      const normalized = ref.startsWith('@') ? ref : `@${ref}`;
+      const selector = `[data-bv-ref="${escapeSelector(normalized)}"]`;
+      const found = document.querySelector(selector);
+      if (found) {
+        return found;
+      }
+    }
     const testid = locator.testid;
     if (typeof testid === 'string' && testid.length > 0) {
       const selector = `[data-testid="${escapeSelector(testid)}"]`;
