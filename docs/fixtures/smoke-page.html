@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Browser Vision Smoke</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 24px;
+      }
+      .row {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-bottom: 16px;
+      }
+      #drag-source,
+      #drag-target {
+        border: 1px dashed #666;
+        padding: 12px;
+        width: 160px;
+        text-align: center;
+      }
+      #scroll-area {
+        border: 1px solid #999;
+        height: 120px;
+        overflow: auto;
+        padding: 8px;
+        width: 320px;
+      }
+      .spacer {
+        height: 400px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1 id="smoke-title">Smoke Ready</h1>
+
+    <div class="row">
+      <button id="click-target">Click Target</button>
+      <button id="hover-target">Hover Target</button>
+      <button id="open-alert">Open Alert</button>
+      <button id="open-confirm">Open Confirm</button>
+      <button id="open-prompt">Open Prompt</button>
+    </div>
+
+    <div class="row">
+      <label for="text-input">Text Input</label>
+      <input id="text-input" name="email" placeholder="Email" />
+    </div>
+
+    <div class="row">
+      <label for="select-input">Select Input</label>
+      <select id="select-input">
+        <option value="alpha">Alpha</option>
+        <option value="beta">Beta</option>
+      </select>
+    </div>
+
+    <div class="row">
+      <div id="drag-source" draggable="true">Drag Source</div>
+      <div id="drag-target">Drop Target</div>
+    </div>
+
+    <div id="scroll-area">
+      <div>Scroll Area</div>
+      <div class="spacer"></div>
+      <div>Bottom</div>
+    </div>
+
+    <script>
+      const dragSource = document.getElementById('drag-source');
+      const dragTarget = document.getElementById('drag-target');
+
+      dragSource.addEventListener('dragstart', (event) => {
+        event.dataTransfer.setData('text/plain', 'drag');
+      });
+
+      dragTarget.addEventListener('dragover', (event) => {
+        event.preventDefault();
+      });
+
+      dragTarget.addEventListener('drop', (event) => {
+        event.preventDefault();
+        dragTarget.textContent = 'Dropped';
+      });
+
+      document.getElementById('open-alert').addEventListener('click', () => {
+        alert('Smoke alert');
+      });
+
+      document.getElementById('open-confirm').addEventListener('click', () => {
+        confirm('Smoke confirm');
+      });
+
+      document.getElementById('open-prompt').addEventListener('click', () => {
+        prompt('Smoke prompt', '');
+      });
+    </script>
+  </body>
+</html>
