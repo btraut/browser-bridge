@@ -591,7 +591,7 @@ export const CLI_TOOL_COVERAGE_MATRIX: CliCoverageRow[] = CLI_TOOL_FIXTURES.map(
     fixture: 'covered',
     contract: 'covered',
     unit: 'covered',
-    integration: 'covered',
+    integration: fixture.kind === 'core' ? 'covered' : 'not_planned',
     e2e: fixture.kind === 'local' ? 'optional' : 'optional',
   })
 );
