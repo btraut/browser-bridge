@@ -1,5 +1,5 @@
 {
-  "name": "browser-vision",
+  "name": "browser-bridge",
   "version": "0.1.0",
   "license": "MIT",
   "private": true,
@@ -7,7 +7,7 @@
     "packages/*"
   ],
   "scripts": {
-    "start": "node -e \"require('@browser-vision/core').startCoreServer().catch((err) => { console.error(err); process.exit(1); });\"",
+    "start": "node -e \"require('@btraut/browser-bridge').startCoreServer().catch((err) => { console.error(err); process.exit(1); });\"",
     "build": "tsc -b",
     "lint": "eslint . --max-warnings=0",
     "lint:fix": "eslint . --max-warnings=0 --fix",

@@ -1,5 +1,5 @@
 import { Command } from 'commander';
-import { ApiEnvelope } from '@browser-vision/shared';
+import { ApiEnvelope } from '@btraut/browser-bridge-shared';
 import { createCoreClient, CoreClient } from './core-client';
 import { outputEnvelope, outputError } from './cli-output';
 

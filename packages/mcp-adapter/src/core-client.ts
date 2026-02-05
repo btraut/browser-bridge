@@ -1,4 +1,4 @@
-import { ApiEnvelope } from '@browser-vision/shared';
+import { ApiEnvelope } from '@btraut/browser-bridge-shared';
 
 type FetchLike = typeof fetch;
 
@@ -19,7 +19,10 @@ const DEFAULT_PORT = 3210;
 const DEFAULT_TIMEOUT_MS = 4000;
 
 const resolveHost = (host?: string): string => {
-  const candidate = host?.trim() || process.env.BROWSER_VISION_CORE_HOST;
+  const candidate =
+    host?.trim() ||
+    process.env.BROWSER_BRIDGE_CORE_HOST ||
+    process.env.BROWSER_VISION_CORE_HOST;
   if (candidate && candidate.length > 0) {
     return candidate;
   }
@@ -29,9 +32,11 @@ const resolveHost = (host?: string): string => {
 const resolvePort = (port?: number | string): number => {
   const candidate =
     port ??
-    (process.env.BROWSER_VISION_CORE_PORT
-      ? Number.parseInt(process.env.BROWSER_VISION_CORE_PORT, 10)
-      : undefined);
+    (process.env.BROWSER_BRIDGE_CORE_PORT
+      ? Number.parseInt(process.env.BROWSER_BRIDGE_CORE_PORT, 10)
+      : process.env.BROWSER_VISION_CORE_PORT
+        ? Number.parseInt(process.env.BROWSER_VISION_CORE_PORT, 10)
+        : undefined);
 
   if (candidate === undefined || candidate === null) {
     return DEFAULT_PORT;

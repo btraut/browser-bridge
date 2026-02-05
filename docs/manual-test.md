@@ -6,7 +6,9 @@ This checklist validates the Drive + Inspect planes and artifact handling end-to
 
 1. Install dependencies: `npm install`.
 2. Build the workspace: `npm run build`.
-3. Load the extension from `packages/extension` in `chrome://extensions`.
+3. Load the extension from `packages/extension` (repo) or
+   `node_modules/@btraut/browser-bridge-extension` (npm install) in
+   `chrome://extensions`.
 4. Open a Chrome tab to a real page (example: `https://example.com`).
 5. Ensure DevTools is closed on the target tab (the debugger cannot attach while DevTools is open).
 
@@ -22,7 +24,7 @@ This checklist validates the Drive + Inspect planes and artifact handling end-to
 5. Confirm drive plane connectivity:
    `node packages/cli/dist/index.js drive tab-list --session-id <id>`
 6. Inspect the DOM (requires the debugger-based inspect bridge):
-   `node packages/cli/dist/index.js inspect dom-snapshot --session-id <id> --format html --consistency best_effort --json > /tmp/browser-vision-dom.json`
+   `node packages/cli/dist/index.js inspect dom-snapshot --session-id <id> --format html --consistency best_effort --json > /tmp/browser-bridge-dom.json`
 7. Inspect console logs:
    `node packages/cli/dist/index.js inspect console-list --session-id <id>`
 8. Capture a screenshot artifact:
@@ -35,7 +37,7 @@ This checklist validates the Drive + Inspect planes and artifact handling end-to
 ## MCP Adapter Sanity Check
 
 1. Start the MCP adapter (stdio transport):
-   `node -e "require('@browser-vision/mcp-adapter').startMcpServer()"`
+   `node -e "require('@btraut/browser-bridge').startMcpServer()"`
 2. Connect with your MCP client and run `tools/list` to confirm `session.*`, `drive.*`, `inspect.*`, `artifacts.*`, `diagnostics.*`.
 3. Run `session.create` to verify end-to-end Core routing.
 

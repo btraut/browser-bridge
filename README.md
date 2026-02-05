@@ -1,4 +1,4 @@
-# Browser Vision
+# Browser Bridge
 
 Hybrid Browser Control MCP (Drive + Inspect) for a local developer feedback loop. The system controls a real Chrome instance for reliable drive actions and provides read-only inspection via the extension debugger bridge.
 
@@ -7,6 +7,12 @@ Hybrid Browser Control MCP (Drive + Inspect) for a local developer feedback loop
 - Node.js 20+
 - Chrome (stable)
 - Local-only usage (all services bind to 127.0.0.1)
+
+## Install
+
+- Global install: `npm i -g @btraut/browser-bridge`
+- Verify: `browser-bridge --help`
+- This package bundles the Core server, MCP adapter, and extension assets.
 
 ## Security Model (v1)
 
@@ -37,7 +43,7 @@ Enable it in your clone (applies to worktrees) with:
 
 The MCP adapter runs over stdio and forwards tool calls to Core.
 
-- Start the adapter: `node -e "require('@browser-vision/mcp-adapter').startMcpServer()"`
+- Start the adapter: `node -e "require('@btraut/browser-bridge').startMcpServer()"`
 - Use your MCP client to call `tools/list`, then `session.create`
 
 ## API Notes
@@ -54,14 +60,15 @@ The MCP adapter runs over stdio and forwards tool calls to Core.
 
 1. Open Chrome and navigate to `chrome://extensions`.
 2. Enable **Developer mode**.
-3. Click **Load unpacked** and select `packages/extension`.
+3. Click **Load unpacked** and select `packages/extension` (repo) or
+   `node_modules/@btraut/browser-bridge-extension` (npm install).
 4. Confirm the extension's background service worker is running.
 5. Start the Core daemon (or CLI) so the extension can connect to `127.0.0.1`.
 
 ## Drive Plane Manual Check
 
 1. Build the workspace: `npm run build`.
-2. Start Core (default `127.0.0.1:3210`, override with `BROWSER_VISION_CORE_PORT`).
+2. Start Core (default `127.0.0.1:3210`, override with `BROWSER_BRIDGE_CORE_PORT`).
 3. Load the extension as above and open any page.
 4. Create a session: `curl -s localhost:3210/session/create -X POST -H 'content-type: application/json' -d '{}'`.
 5. Call a drive route (for example `drive.tab_list`) and verify a tab list is returned.

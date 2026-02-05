@@ -1,5 +1,5 @@
 {
-  "name": "@browser-vision/mcp-adapter",
+  "name": "@btraut/browser-bridge-mcp-adapter",
   "version": "0.1.0",
   "license": "MIT",
   "private": true,
@@ -9,7 +9,7 @@
     "dist"
   ],
   "dependencies": {
-    "@browser-vision/shared": "file:../shared",
+    "@btraut/browser-bridge-shared": "file:../shared",
     "@modelcontextprotocol/sdk": "^1.25.3"
   }
 }

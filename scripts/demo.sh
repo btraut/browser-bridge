@@ -10,7 +10,7 @@ if [ ! -f "${ROOT_DIR}/packages/cli/dist/index.js" ]; then
   exit 1
 fi
 
-echo "Browser Vision demo"
+echo "Browser Bridge demo"
 echo "- Ensure Chrome is open with the extension loaded."
 echo "- Focus a tab you want to drive."
 read -r -p "Press Enter to continue..." _
@@ -30,7 +30,7 @@ ${CLI} drive navigate --session-id "${SESSION_ID}" --url "${TARGET_URL}"
 ${CLI} drive tab-list --session-id "${SESSION_ID}"
 ${CLI} drive scroll --session-id "${SESSION_ID}" --delta-y 600
 
-SNAPSHOT_PATH="${TMPDIR:-/tmp}/browser-vision-dom-${SESSION_ID}.json"
+SNAPSHOT_PATH="${TMPDIR:-/tmp}/browser-bridge-dom-${SESSION_ID}.json"
 ${CLI} inspect dom-snapshot --session-id "${SESSION_ID}" --format html --consistency best_effort --json > "${SNAPSHOT_PATH}"
 echo "DOM snapshot written to ${SNAPSHOT_PATH}"
 

@@ -1,6 +1,6 @@
 import { Command } from 'commander';
-import { ensureArtifactRootDir } from '@browser-vision/core';
-import { SessionIdSchema } from '@browser-vision/shared';
+import { ensureArtifactRootDir } from '@btraut/browser-bridge-core';
+import { SessionIdSchema } from '@btraut/browser-bridge-shared';
 import { parseInput } from '../cli-output';
 import { runLocal } from '../cli-runtime';
 import { openPath } from '../open-path';

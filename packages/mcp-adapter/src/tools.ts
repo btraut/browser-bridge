@@ -73,7 +73,7 @@ import {
   SessionRecoverOutputSchema,
   SessionStatusInputSchema,
   SessionStatusOutputSchema,
-} from '@browser-vision/shared';
+} from '@btraut/browser-bridge-shared';
 import type {
   AnySchema,
   ZodRawShapeCompat,
