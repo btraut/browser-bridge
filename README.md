@@ -5,8 +5,9 @@
 # Browser Bridge
 
 Local Chrome control for coding agents. Browser Bridge provides a CLI and an
-optional MCP server that drive a real Chrome instance and read page state
-through a Chrome extension.
+optional MCP server that drive your real, local Chrome (not headless) and read
+page state through a Chrome extension. This keeps you in the loop, with your
+existing tabs and login state.
 
 ## Requirements
 
