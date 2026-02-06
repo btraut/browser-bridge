@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="packages/extension/assets/store-listing.png" alt="Browser Bridge store listing" width="720" />
+</p>
+
 # Browser Bridge
 
 Local Chrome control for coding agents. Browser Bridge provides a CLI and an
