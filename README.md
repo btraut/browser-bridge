@@ -12,7 +12,7 @@ through a Chrome extension.
 
 - Node.js 20+
 - Chrome (stable)
-- Browser Bridge extension (Chrome Web Store; listing coming soon)
+- Browser Bridge extension (Chrome Web Store listing pending; see manual install below)
 - Local-only usage (all services bind to 127.0.0.1)
 
 ## Install
@@ -22,12 +22,25 @@ npm i -g @btraut/browser-bridge
 browser-bridge --help
 ```
 
+## Chrome Extension (Manual Install)
+
+Chrome Web Store listing is pending. For now, install the extension manually:
+
+1. Clone this repo.
+2. Install deps and build:
+
+```bash
+npm install
+npm run build
+```
+
+3. Open Chrome and navigate to `chrome://extensions`.
+4. Enable **Developer mode**, click **Load unpacked**, and select
+   `packages/extension` (the folder with `manifest.json`).
+
 ## Quickstart
 
-1. Install the Chrome Web Store extension (listing coming soon). For local
-   testing without the store, you can load unpacked from:
-   - this repo: `packages/extension`
-   - npm install: `$(npm root -g)/@btraut/browser-bridge/extension`
+1. Install the extension (see "Chrome Extension (Manual Install)" above).
 2. Install the Browser Bridge skill (see below).
 3. (Optional) Add Browser Bridge to your MCP client (Codex or Claude Code below).
 4. Run a quick CLI check:
