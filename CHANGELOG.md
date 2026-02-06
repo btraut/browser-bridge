@@ -6,6 +6,16 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-02-06
+
+### Added
+
+- `browser-bridge install` interactive installer for skills and MCP.
+- `browser-bridge skill install` and `browser-bridge skill status`.
+- `browser-bridge mcp install` for Codex, Claude, and Cursor.
+- Skill version manifest (`skill.json`) to detect out-of-date installs.
+- `browser-bridge mcp serve` (while keeping `browser-bridge mcp` working).
+
 ## [0.2.0] - 2026-02-05
 
 ### Added
