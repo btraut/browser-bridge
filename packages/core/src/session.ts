@@ -11,6 +11,7 @@ export type SessionRecord = {
   state: SessionState;
   createdAt: Date;
   updatedAt: Date;
+  lastAccessedAt: Date;
 };
 
 export type RecoverResult = {
@@ -43,6 +44,7 @@ export class SessionRegistry {
       state: SessionState.INIT,
       createdAt: now,
       updatedAt: now,
+      lastAccessedAt: now,
     };
 
     this.sessions.set(id, session);
@@ -66,7 +68,24 @@ export class SessionRegistry {
       );
     }
 
+    session.lastAccessedAt = new Date();
     return session;
+  }
+
+  cleanupIdleSessions(ttlMs: number, now = new Date()): number {
+    if (!Number.isFinite(ttlMs) || ttlMs <= 0) {
+      return 0;
+    }
+
+    let removed = 0;
+    for (const [id, session] of this.sessions.entries()) {
+      const idleMs = now.getTime() - session.lastAccessedAt.getTime();
+      if (idleMs > ttlMs) {
+        this.sessions.delete(id);
+        removed += 1;
+      }
+    }
+    return removed;
   }
 
   apply(sessionId: string, event: SessionEvent): SessionRecord {

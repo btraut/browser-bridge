@@ -67,4 +67,19 @@ describe('buildDiagnosticReport', () => {
     expect(report.recovery?.success_count).toBe(1);
     expect(report.recovery?.attempts?.length).toBe(1);
   });
+
+  it('includes session summary when provided', () => {
+    const report = buildDiagnosticReport(undefined, {
+      sessions: {
+        count: 2,
+        maxAgeMs: 1234,
+        maxIdleMs: 5678,
+      },
+    });
+
+    const parsed = DiagnosticReportSchema.parse(report);
+    expect(parsed.sessions?.count).toBe(2);
+    expect(parsed.sessions?.max_age_ms).toBe(1234);
+    expect(parsed.sessions?.max_idle_ms).toBe(5678);
+  });
 });

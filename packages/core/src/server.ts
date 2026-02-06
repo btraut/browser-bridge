@@ -116,6 +116,35 @@ const resolveCorePort = (portOverride?: number): number => {
   return 3210;
 };
 
+const resolveSessionTtlMs = (): number => {
+  const env =
+    process.env.BROWSER_BRIDGE_SESSION_TTL_MS ||
+    process.env.BROWSER_VISION_SESSION_TTL_MS;
+  if (env) {
+    const parsed = Number(env);
+    if (Number.isFinite(parsed) && parsed >= 0) {
+      return parsed;
+    }
+  }
+  return 60 * 60 * 1000;
+};
+
+const resolveSessionCleanupIntervalMs = (ttlMs: number): number => {
+  const env =
+    process.env.BROWSER_BRIDGE_SESSION_CLEANUP_INTERVAL_MS ||
+    process.env.BROWSER_VISION_SESSION_CLEANUP_INTERVAL_MS;
+  if (env) {
+    const parsed = Number(env);
+    if (Number.isFinite(parsed) && parsed > 0) {
+      return parsed;
+    }
+  }
+  if (!Number.isFinite(ttlMs) || ttlMs <= 0) {
+    return 60 * 1000;
+  }
+  return Math.min(60 * 1000, Math.max(1000, Math.floor(ttlMs / 2)));
+};
+
 export const startCoreServer = (
   options: CoreServerStartOptions = {}
 ): Promise<CoreServerHandle> => {
@@ -132,6 +161,21 @@ export const startCoreServer = (
       const address = server.address();
       const resolvedPort =
         typeof address === 'object' && address !== null ? address.port : port;
+
+      const ttlMs = resolveSessionTtlMs();
+      if (ttlMs > 0) {
+        const intervalMs = resolveSessionCleanupIntervalMs(ttlMs);
+        const timer = setInterval(() => {
+          try {
+            registry.cleanupIdleSessions(ttlMs);
+          } catch (error) {
+            console.warn('Session cleanup failed:', error);
+          }
+        }, intervalMs);
+        timer.unref();
+        server.on('close', () => clearInterval(timer));
+      }
+
       resolve({ app, registry, server, host, port: resolvedPort });
     });
 

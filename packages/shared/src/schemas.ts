@@ -79,6 +79,13 @@ export const DiagnosticReportSchema = z.object({
   ok: z.boolean(),
   session_id: z.string().optional(),
   checks: z.array(DiagnosticCheckSchema).optional(),
+  sessions: z
+    .object({
+      count: z.number().finite().optional(),
+      max_age_ms: z.number().finite().optional(),
+      max_idle_ms: z.number().finite().optional(),
+    })
+    .optional(),
   extension: z
     .object({
       connected: z.boolean().optional(),

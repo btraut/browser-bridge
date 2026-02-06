@@ -66,6 +66,27 @@ export const registerDiagnosticsRoutes = (
         }
       }
 
+      if (options.registry) {
+        const now = Date.now();
+        const sessions = options.registry.list();
+        let maxAgeMs = 0;
+        let maxIdleMs = 0;
+        for (const session of sessions) {
+          const ageMs = now - session.createdAt.getTime();
+          const idleMs = now - session.lastAccessedAt.getTime();
+          if (ageMs > maxAgeMs) {
+            maxAgeMs = ageMs;
+          }
+          if (idleMs > maxIdleMs) {
+            maxIdleMs = idleMs;
+          }
+        }
+        context.sessions = {
+          count: sessions.length,
+          ...(sessions.length > 0 ? { maxAgeMs, maxIdleMs } : {}),
+        };
+      }
+
       if (options.extensionBridge) {
         const status = options.extensionBridge.getStatus();
         context.extension = {

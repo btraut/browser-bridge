@@ -38,6 +38,7 @@ This project uses **bd (beads)** for issue tracking. Run `bd onboard` to get sta
 
 - If I say "commit your changes" or "commit", commit only your session's changes and ignore everything else.
 - Before committing, ensure no unrelated changes are staged (unstage anything you did not touch).
+- Any time you implement a new feature or fix a bug, add an entry to `CHANGELOG.md` under `[Unreleased]`.
 - If I tell you to commit and push, I mean: commit to local `main`, then push `main` to `origin/main`.
 - If I tell you to "ship it", I mean: commit to local `main`, then push `main` to `origin/main`.
 

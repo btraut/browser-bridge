@@ -12,6 +12,11 @@ export type DiagnosticReport = {
   ok: boolean;
   session_id?: string;
   checks?: DiagnosticCheck[];
+  sessions?: {
+    count?: number;
+    max_age_ms?: number;
+    max_idle_ms?: number;
+  };
   extension?: {
     connected?: boolean;
     version?: string;
@@ -59,6 +64,11 @@ export type DiagnosticReport = {
 
 export type DiagnosticsContext = {
   sessionState?: string;
+  sessions?: {
+    count: number;
+    maxAgeMs?: number;
+    maxIdleMs?: number;
+  };
   extension?: {
     connected: boolean;
     lastSeenAt?: string;
@@ -184,6 +194,13 @@ export const buildDiagnosticReport = (
     ok: checks.every((check) => check.ok),
     session_id: sessionId,
     checks,
+    sessions: context.sessions
+      ? {
+          count: context.sessions.count,
+          max_age_ms: context.sessions.maxAgeMs,
+          max_idle_ms: context.sessions.maxIdleMs,
+        }
+      : undefined,
     extension: {
       connected: extensionConnected,
       last_seen_at: context.extension?.lastSeenAt,

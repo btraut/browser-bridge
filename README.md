@@ -128,6 +128,13 @@ claude mcp add --transport stdio browser-bridge \
 - CLI: `browser-bridge diagnostics doctor --session-id <id>`
 - Reports extension and debugger status alongside session state.
 
+## Session TTL (Core Daemon)
+
+The Core daemon keeps sessions in memory. By default, it automatically cleans up idle sessions after 1 hour.
+
+- `BROWSER_BRIDGE_SESSION_TTL_MS`: Idle session TTL in milliseconds. Set to `0` to disable cleanup.
+- `BROWSER_BRIDGE_SESSION_CLEANUP_INTERVAL_MS`: Cleanup interval in milliseconds. Defaults to a small value relative to the TTL.
+
 ## Changelog
 
 See `CHANGELOG.md`.

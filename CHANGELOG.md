@@ -6,6 +6,11 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 
 ## [Unreleased]
 
+### Added
+
+- Core idle session TTL cleanup (configurable via `BROWSER_BRIDGE_SESSION_TTL_MS`).
+- Diagnostics now include a session summary (count and max age/idle time).
+
 ## [0.3.0] - 2026-02-06
 
 ### Added
