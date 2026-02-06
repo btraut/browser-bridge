@@ -59,7 +59,7 @@ Browser Bridge is intended for developer workflows. Like any developer tool with
 
 Questions or concerns:
 
-- GitHub issues: https://github.com/btraut/browser-vision/issues
+- GitHub issues: https://github.com/btraut/browser-bridge/issues
 
 ## Changes to This Policy
 
