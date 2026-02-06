@@ -14,6 +14,8 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 ### Fixed
 
 - Sanitize Chrome extension error messages before forwarding them to clients (remove file paths and redact URLs to origin).
+- Share the core <-> extension protocol types via `@btraut/browser-bridge-shared` (remove manual sync).
+- Refactor InspectService internals into `packages/core/src/inspect/*` modules and expand unit test coverage (no API changes).
 
 ## [0.3.0] - 2026-02-06
 

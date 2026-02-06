@@ -3,6 +3,9 @@
   "version": "0.3.0",
   "license": "MIT",
   "private": true,
+  "dependencies": {
+    "@btraut/browser-bridge-shared": "file:../shared"
+  },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
