@@ -1,4 +1,4 @@
-<img src="packages/extension/assets/store-listing.png" alt="Browser Bridge store listing" width="240" />
+<img src="docs/assets/readme-header.png" alt="Browser Bridge header graphic" width="240" />
 
 [![npm version](https://img.shields.io/npm/v/@btraut/browser-bridge.svg)](https://www.npmjs.com/package/@btraut/browser-bridge) [![CI](https://github.com/btraut/browser-bridge/actions/workflows/ci.yml/badge.svg)](https://github.com/btraut/browser-bridge/actions/workflows/ci.yml) [![License](https://img.shields.io/github/license/btraut/browser-bridge.svg)](LICENSE)
 
