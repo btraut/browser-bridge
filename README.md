@@ -37,8 +37,8 @@ npm run build
 
 ## Quickstart
 
-1. Install the extension (see "Chrome Extension (Manual Install)" above).
-2. Install the Browser Bridge skill (and optionally MCP) using the installer (see below).
+1. Install the extension.
+2. Run `browser-bridge install` (skill + optional MCP).
 3. Run a quick CLI check:
 
 ```bash
