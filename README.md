@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="packages/extension/assets/store-listing.png" alt="Browser Bridge store listing" width="720" />
+  <img src="packages/extension/assets/store-listing.png" alt="Browser Bridge store listing" width="240" />
 </p>
 
 # Browser Bridge
