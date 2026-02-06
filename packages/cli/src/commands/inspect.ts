@@ -24,6 +24,7 @@ export const registerInspectCommands = (program: Command): void => {
     .option('--consistency <mode>', 'Consistency mode (best_effort, quiesce)')
     .option('-i, --interactive', 'Only include interactive elements')
     .option('-c, --compact', 'Remove empty/decorative nodes')
+    .option('--max-nodes <n>', 'Limit AX snapshot to at most n nodes')
     .option('-s, --selector <selector>', 'Limit snapshot to selector')
     .action(async (options, command) => {
       await runCommand(command, (client) => {
@@ -33,6 +34,7 @@ export const registerInspectCommands = (program: Command): void => {
           consistency: options.consistency,
           interactive: options.interactive,
           compact: options.compact,
+          max_nodes: options.maxNodes,
           selector: options.selector,
         });
         return client.post('/inspect/dom_snapshot', payload);

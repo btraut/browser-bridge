@@ -46,9 +46,13 @@ npm run build
 browser-bridge session create
 # Use the session_id from the output for the next commands.
 browser-bridge drive navigate --session-id <id> --url https://example.com
-browser-bridge inspect dom-snapshot --session-id <id>
+browser-bridge inspect dom-snapshot --session-id <id> --max-nodes 2000
 browser-bridge session close --session-id <id>
 ```
+
+Notes:
+
+- `inspect dom-snapshot` defaults to `--format ax`; `--max-nodes` is only supported for AX snapshots.
 
 ## Skills (Codex + Claude Code)
 

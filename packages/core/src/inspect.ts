@@ -51,6 +51,7 @@ export type DomSnapshotResult = {
   format: 'ax' | 'html';
   snapshot: unknown;
   warnings?: string[];
+  truncated?: boolean;
 };
 
 type AxNodeRecord = {
@@ -279,6 +280,7 @@ export class InspectService {
     consistency: 'best_effort' | 'quiesce';
     interactive?: boolean;
     compact?: boolean;
+    maxNodes?: number;
     selector?: string;
     targetHint?: TargetHint;
   }): Promise<DomSnapshotResult> {
@@ -296,6 +298,9 @@ export class InspectService {
         }
         if (input.compact) {
           warnings.push('Compact filter is only supported for AX snapshots.');
+        }
+        if (input.maxNodes !== undefined) {
+          warnings.push('max_nodes is only supported for AX snapshots.');
         }
         if (input.selector && html === '') {
           warnings.push(`Selector not found: ${input.selector}`);
@@ -350,13 +355,28 @@ export class InspectService {
             {}
           );
         }
-        const snapshot =
+        let snapshot =
           input.interactive || input.compact
             ? this.applyAxSnapshotFilters(result, {
                 interactiveOnly: input.interactive,
                 compact: input.compact,
               })
             : result;
+        let truncated = false;
+        const truncationWarnings: string[] = [];
+        if (input.maxNodes !== undefined) {
+          const truncatedResult = this.truncateAxSnapshot(
+            snapshot,
+            input.maxNodes
+          );
+          snapshot = truncatedResult.snapshot;
+          truncated = truncatedResult.truncated;
+          if (truncated) {
+            truncationWarnings.push(
+              `AX snapshot truncated to ${input.maxNodes} nodes.`
+            );
+          }
+        }
         const refMap = this.assignRefsToAxSnapshot(snapshot);
         const refWarnings = await this.applySnapshotRefs(
           selection.tabId,
@@ -365,11 +385,13 @@ export class InspectService {
         const warnings = [
           ...(selection.warnings ?? []),
           ...selectorWarnings,
+          ...truncationWarnings,
           ...(refWarnings ?? []),
         ];
         return {
           format: 'ax',
           snapshot,
+          ...(truncated ? { truncated: true } : {}),
           ...(warnings.length > 0 ? { warnings } : {}),
         };
       } catch (error) {
@@ -386,6 +408,9 @@ export class InspectService {
           const warnings = [
             ...(selection.warnings ?? []),
             'AX snapshot failed; returned HTML instead.',
+            ...(input.maxNodes !== undefined
+              ? ['max_nodes is only supported for AX snapshots.']
+              : []),
             ...(input.interactive
               ? ['Interactive filter is only supported for AX snapshots.']
               : []),
@@ -1027,6 +1052,124 @@ export class InspectService {
       );
     }
     return filtered;
+  }
+
+  private truncateAxSnapshot(
+    snapshot: unknown,
+    maxNodes: number
+  ): { snapshot: unknown; truncated: boolean } {
+    const nodes = this.getAxNodes(snapshot);
+    if (!Number.isFinite(maxNodes) || maxNodes <= 0) {
+      return { snapshot, truncated: false };
+    }
+    if (nodes.length === 0 || nodes.length <= maxNodes) {
+      return { snapshot, truncated: false };
+    }
+
+    const nodeById = new Map<string, AxNodeRecord>();
+    const parentCount = new Map<string, number>();
+    for (const node of nodes) {
+      if (
+        !node ||
+        typeof node !== 'object' ||
+        typeof node.nodeId !== 'string'
+      ) {
+        continue;
+      }
+      nodeById.set(node.nodeId, node);
+      parentCount.set(node.nodeId, parentCount.get(node.nodeId) ?? 0);
+    }
+
+    // If the snapshot doesn't have stable node ids, fall back to a hard slice.
+    if (nodeById.size === 0) {
+      const sliced = nodes.slice(0, maxNodes);
+      for (const node of sliced) {
+        if (node && typeof node === 'object' && Array.isArray(node.childIds)) {
+          node.childIds = [];
+        }
+      }
+      return {
+        snapshot: this.replaceAxNodes(snapshot, sliced),
+        truncated: true,
+      };
+    }
+
+    for (const node of nodes) {
+      if (!node || typeof node !== 'object' || !Array.isArray(node.childIds)) {
+        continue;
+      }
+      for (const childId of node.childIds) {
+        if (typeof childId !== 'string') {
+          continue;
+        }
+        parentCount.set(childId, (parentCount.get(childId) ?? 0) + 1);
+      }
+    }
+
+    let roots = Array.from(nodeById.keys()).filter(
+      (id) => (parentCount.get(id) ?? 0) === 0
+    );
+    if (roots.length === 0) {
+      const first = nodes.find(
+        (node) => node && typeof node.nodeId === 'string'
+      )?.nodeId;
+      if (first) {
+        roots = [first];
+      }
+    }
+
+    const kept = new Set<string>();
+    const visited = new Set<string>();
+    const queue: string[] = [...roots];
+    while (queue.length > 0 && kept.size < maxNodes) {
+      const id = queue.shift();
+      if (!id || visited.has(id)) {
+        continue;
+      }
+      visited.add(id);
+      const node = nodeById.get(id);
+      if (!node) {
+        continue;
+      }
+      kept.add(id);
+      if (Array.isArray(node.childIds)) {
+        for (const childId of node.childIds) {
+          if (typeof childId === 'string' && !visited.has(childId)) {
+            queue.push(childId);
+          }
+        }
+      }
+    }
+
+    // As a last resort, keep the first n nodes that have ids.
+    if (kept.size === 0) {
+      const fallback: string[] = [];
+      for (const node of nodes) {
+        if (fallback.length >= maxNodes) {
+          break;
+        }
+        if (node && typeof node.nodeId === 'string') {
+          fallback.push(node.nodeId);
+        }
+      }
+      fallback.forEach((id) => kept.add(id));
+    }
+
+    const filtered = nodes.filter(
+      (node) => node && typeof node.nodeId === 'string' && kept.has(node.nodeId)
+    );
+    for (const node of filtered) {
+      if (Array.isArray(node.childIds)) {
+        node.childIds = node.childIds.filter(
+          (id) => typeof id === 'string' && kept.has(id)
+        );
+      }
+    }
+
+    return {
+      snapshot: this.replaceAxNodes(snapshot, filtered),
+      truncated: true,
+    };
   }
 
   private filterAxSnapshot(

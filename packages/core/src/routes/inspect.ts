@@ -194,6 +194,7 @@ export const registerInspectRoutes = (
         consistency: body.consistency,
         interactive: body.interactive,
         compact: body.compact,
+        maxNodes: body.max_nodes,
         selector: body.selector,
         targetHint: resolveTargetHint(body.target, options),
       });
