@@ -129,4 +129,128 @@ describe('InspectService', () => {
       column: 10,
     });
   });
+
+  it('truncates AX snapshots with maxNodes and keeps childIds consistent', async () => {
+    const registry = new SessionRegistry();
+    const session = registry.create();
+
+    const axNodes = [
+      { nodeId: '1', role: 'root', name: '', childIds: ['2', '3'] },
+      { nodeId: '2', role: 'group', name: '', childIds: ['4'] },
+      { nodeId: '3', role: 'button', name: 'Ok', childIds: [] },
+      { nodeId: '4', role: 'text', name: 'Hidden', childIds: [] },
+    ];
+
+    const debuggerBridge = {
+      hasAttachments: () => true,
+      getLastError: () => undefined,
+      command: async (_tabId: number, method: string) => {
+        if (method === 'Accessibility.getFullAXTree') {
+          return { ok: true, result: { nodes: axNodes } };
+        }
+        if (method === 'Runtime.evaluate') {
+          return { ok: true, result: { result: { value: '<html></html>' } } };
+        }
+        return { ok: true, result: {} };
+      },
+    } as unknown as DebuggerBridge;
+
+    const service = new InspectService({
+      registry,
+      extensionBridge: {
+        isConnected: () => true,
+        getStatus: () => ({
+          tabs: [
+            {
+              tab_id: 1,
+              url: 'https://example.com',
+              title: 'Example',
+              window_id: 1,
+              last_active_at: '2026-02-05T00:00:00Z',
+            },
+          ],
+        }),
+      },
+      debuggerBridge,
+    });
+
+    const result = await service.domSnapshot({
+      sessionId: session.id,
+      format: 'ax',
+      consistency: 'best_effort',
+      maxNodes: 3,
+    });
+
+    expect(result.format).toBe('ax');
+    expect(result.truncated).toBe(true);
+    expect(result.warnings).toContain('AX snapshot truncated to 3 nodes.');
+
+    const nodes = Array.isArray(result.snapshot)
+      ? result.snapshot
+      : (result.snapshot as { nodes?: unknown[] }).nodes;
+    expect(Array.isArray(nodes)).toBe(true);
+    const typedNodes = (nodes ?? []) as Array<{
+      nodeId?: string;
+      childIds?: string[];
+    }>;
+    expect(typedNodes.length).toBeLessThanOrEqual(3);
+
+    const keptIds = new Set(
+      typedNodes
+        .map((node) => (typeof node.nodeId === 'string' ? node.nodeId : null))
+        .filter((id): id is string => Boolean(id))
+    );
+    for (const node of typedNodes) {
+      for (const childId of node.childIds ?? []) {
+        expect(keptIds.has(childId)).toBe(true);
+      }
+    }
+  });
+
+  it('warns when maxNodes is provided for HTML snapshots', async () => {
+    const registry = new SessionRegistry();
+    const session = registry.create();
+
+    const debuggerBridge = {
+      hasAttachments: () => true,
+      getLastError: () => undefined,
+      command: async (_tabId: number, method: string) => {
+        if (method === 'Runtime.evaluate') {
+          return { ok: true, result: { result: { value: '<html></html>' } } };
+        }
+        return { ok: true, result: {} };
+      },
+    } as unknown as DebuggerBridge;
+
+    const service = new InspectService({
+      registry,
+      extensionBridge: {
+        isConnected: () => true,
+        getStatus: () => ({
+          tabs: [
+            {
+              tab_id: 1,
+              url: 'https://example.com',
+              title: 'Example',
+              window_id: 1,
+              last_active_at: '2026-02-05T00:00:00Z',
+            },
+          ],
+        }),
+      },
+      debuggerBridge,
+    });
+
+    const result = await service.domSnapshot({
+      sessionId: session.id,
+      format: 'html',
+      consistency: 'best_effort',
+      maxNodes: 10,
+    });
+
+    expect(result.format).toBe('html');
+    expect(result.warnings).toContain(
+      'max_nodes is only supported for AX snapshots.'
+    );
+  });
 });

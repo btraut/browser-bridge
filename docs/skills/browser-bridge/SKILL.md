@@ -35,7 +35,7 @@ browser-bridge session create
 browser-bridge drive navigate --session-id <id> --url https://example.com
 browser-bridge drive wait-for --session-id <id> --kind url_matches --value example.com
 
-browser-bridge inspect dom-snapshot --session-id <id> --format ax --interactive --compact
+browser-bridge inspect dom-snapshot --session-id <id> --format ax --interactive --compact --max-nodes 2000
 browser-bridge artifacts screenshot --session-id <id> --full-page --format png
 
 browser-bridge diagnostics doctor --session-id <id>
@@ -43,6 +43,10 @@ browser-bridge open-artifacts --session-id <id>
 
 browser-bridge session close --session-id <id>
 ```
+
+Notes:
+
+- `--max-nodes` only applies to `--format ax` snapshots. For `--format html`, the snapshot succeeds and the flag is ignored with a warning.
 
 Element targeting:
 

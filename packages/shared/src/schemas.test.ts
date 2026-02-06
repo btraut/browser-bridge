@@ -238,6 +238,28 @@ describe('shared schemas', () => {
     expect(parsed.selector).toBe('#main-content');
   });
 
+  it('parses dom snapshot max_nodes', () => {
+    const parsed = InspectDomSnapshotInputSchema.parse({
+      session_id: 'session-1',
+      max_nodes: '123',
+    });
+    expect(parsed.max_nodes).toBe(123);
+
+    expect(() =>
+      InspectDomSnapshotInputSchema.parse({
+        session_id: 'session-1',
+        max_nodes: '0',
+      })
+    ).toThrow();
+
+    expect(() =>
+      InspectDomSnapshotInputSchema.parse({
+        session_id: 'session-1',
+        max_nodes: '50001',
+      })
+    ).toThrow();
+  });
+
   it('parses inspect find role input', () => {
     const parsed = InspectFindInputSchema.parse({
       session_id: 'session-1',

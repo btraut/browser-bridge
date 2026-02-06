@@ -413,6 +413,9 @@ export const InspectDomSnapshotInputSchema = z.object({
   consistency: InspectConsistencySchema.default('best_effort'),
   interactive: z.boolean().default(false),
   compact: z.boolean().default(false),
+  // Used primarily to bound large AX trees for LLM/agent consumption.
+  // CLI passes this as a string, so coerce for convenience.
+  max_nodes: z.coerce.number().int().positive().max(50000).optional(),
   selector: z.string().min(1).optional(),
   target: TargetHintSchema.optional(),
 });
