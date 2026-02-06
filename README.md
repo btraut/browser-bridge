@@ -56,7 +56,13 @@ Notes:
 
 ## Skills (Codex + Claude Code)
 
-Copy the Browser Bridge skill into your agent skills directory:
+Easiest option (recommended):
+
+```bash
+browser-bridge install
+```
+
+Or copy the Browser Bridge skill into your agent skills directory:
 
 ```bash
 # From this repo:

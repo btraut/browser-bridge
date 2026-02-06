@@ -9,6 +9,9 @@ const __dirname = path.dirname(__filename);
 
 const cliRoot = path.resolve(__dirname, '..');
 const repoRoot = path.resolve(cliRoot, '..', '..');
+const cliPkg = JSON.parse(
+  await fs.readFile(path.join(cliRoot, 'package.json'), 'utf8')
+);
 
 const run = async (cmd, args, options = {}) => {
   await new Promise((resolve, reject) => {
@@ -72,3 +75,11 @@ await mkdirp(stagedSkillsRoot);
 const skillSrc = path.join(repoRoot, 'docs', 'skills', 'browser-bridge');
 const skillDst = path.join(stagedSkillsRoot, 'browser-bridge');
 await fs.cp(skillSrc, skillDst, { recursive: true });
+
+// Include a version marker in the staged skill so installs and status checks
+// can detect drift between the CLI and installed copies.
+await fs.writeFile(
+  path.join(skillDst, 'skill.json'),
+  JSON.stringify({ name: 'browser-bridge', version: cliPkg.version }, null, 2) +
+    '\n'
+);

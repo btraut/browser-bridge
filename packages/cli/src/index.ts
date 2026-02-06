@@ -7,6 +7,8 @@ import { registerInspectCommands } from './commands/inspect';
 import { registerMcpCommand } from './commands/mcp';
 import { registerOpenArtifactsCommand } from './commands/open-artifacts';
 import { registerSessionCommands } from './commands/session';
+import { registerSkillCommands } from './commands/skill';
+import { registerInstallCommand } from './commands/install';
 
 const program = new Command();
 
@@ -26,5 +28,7 @@ registerDiagnosticsCommands(program);
 registerDialogCommands(program);
 registerOpenArtifactsCommand(program);
 registerMcpCommand(program);
+registerSkillCommands(program);
+registerInstallCommand(program);
 
 void program.parseAsync(process.argv);

@@ -9,11 +9,14 @@ import { registerInspectCommands } from './inspect';
 import { registerMcpCommand } from './mcp';
 import { registerOpenArtifactsCommand } from './open-artifacts';
 import { registerSessionCommands } from './session';
+import { registerSkillCommands } from './skill';
+import { registerInstallCommand } from './install';
 import { runCommand } from '../cli-runtime';
 import type { CoreClient } from '../core-client';
 
 vi.mock('../cli-runtime', () => ({
   runCommand: vi.fn(),
+  runLocal: vi.fn(),
   getGlobalOptions: vi.fn(() => ({})),
 }));
 
@@ -33,6 +36,8 @@ const buildProgram = (): Command => {
   registerDialogCommands(program);
   registerOpenArtifactsCommand(program);
   registerMcpCommand(program);
+  registerSkillCommands(program);
+  registerInstallCommand(program);
 
   program.exitOverride();
 
