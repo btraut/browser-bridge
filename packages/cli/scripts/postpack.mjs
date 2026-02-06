@@ -16,3 +16,4 @@ await rmrf(path.join(cliRoot, 'skills'));
 // README and the tarball includes a top-level LICENSE.
 await rmrf(path.join(cliRoot, 'README.md'));
 await rmrf(path.join(cliRoot, 'LICENSE'));
+await rmrf(path.join(cliRoot, 'CHANGELOG.md'));

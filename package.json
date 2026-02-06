@@ -9,6 +9,10 @@
   "scripts": {
     "start": "node -e \"require('@btraut/browser-bridge').startCoreServer().catch((err) => { console.error(err); process.exit(1); });\"",
     "build": "node scripts/build-cli.mjs && node scripts/build-extension.mjs",
+    "bump:patch": "node scripts/bump-version.mjs patch && npm install",
+    "bump:minor": "node scripts/bump-version.mjs minor && npm install",
+    "bump:major": "node scripts/bump-version.mjs major && npm install",
+    "tag:version": "node scripts/tag-release.mjs",
     "lint": "eslint . --max-warnings=0",
     "lint:fix": "eslint . --max-warnings=0 --fix",
     "typecheck": "tsc -b --pretty false --force",

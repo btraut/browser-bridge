@@ -43,6 +43,10 @@ await fs.copyFile(
   path.join(repoRoot, 'LICENSE'),
   path.join(cliRoot, 'LICENSE')
 );
+await fs.copyFile(
+  path.join(repoRoot, 'CHANGELOG.md'),
+  path.join(cliRoot, 'CHANGELOG.md')
+);
 
 // 3) Stage extension assets so users can load unpacked from node_modules.
 const stagedExtensionRoot = path.join(cliRoot, 'extension');

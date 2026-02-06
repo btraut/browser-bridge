@@ -15,7 +15,8 @@
     "extension",
     "skills",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "CHANGELOG.md"
   ],
   "bin": {
     "browser-bridge": "dist/index.js"

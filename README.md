@@ -113,6 +113,14 @@ claude mcp add --transport stdio browser-bridge \
 - CLI: `browser-bridge diagnostics doctor --session-id <id>`
 - Reports extension and debugger status alongside session state.
 
+## Changelog
+
+See `CHANGELOG.md`.
+
+## Releasing
+
+See `docs/releasing.md`.
+
 ## Security Model (v1)
 
 - Extension <-> Core WebSocket has no authentication; trust local machine only.
