@@ -14,17 +14,13 @@
 
 ---
 
-**Context and Goal**
-Build a local, developer-focused browser control system used by coding agents (via MCP and CLI) for a development feedback loop. The system must control a real Chrome browser to navigate, click, type, log in, and submit forms, and it must also inspect DOM state, console errors, network requests, and performance to verify changes.
+**Context and Goal** Build a local, developer-focused browser control system used by coding agents (via MCP and CLI) for a development feedback loop. The system must control a real Chrome browser to navigate, click, type, log in, and submit forms, and it must also inspect DOM state, console errors, network requests, and performance to verify changes.
 
-**Non-Goals**
-This is not production automation, scraping, or cross-machine control. It is dev-only and local.
+**Non-Goals** This is not production automation, scraping, or cross-machine control. It is dev-only and local.
 
-**Priority**
-Reliability is the #1 priority. Speed and elegance are secondary.
+**Priority** Reliability is the #1 priority. Speed and elegance are secondary.
 
-**High-Level Design (Non-Negotiable)**
-The system is a hybrid, two-plane browser controller operating against the same Chrome instance and tab.
+**High-Level Design (Non-Negotiable)** The system is a hybrid, two-plane browser controller operating against the same Chrome instance and tab.
 
 Drive Plane (Human-Centric Control)
 
@@ -41,8 +37,7 @@ Inspect Plane (Diagnostic / Introspection)
 - Read-only by default.
 - Can run in parallel with drive plane.
 
-**Architecture Overview**
-Required components:
+**Architecture Overview** Required components:
 
 1. Core Daemon (TypeScript, Node 20+)
 
@@ -151,8 +146,7 @@ browser-agent/
     shared/        # schemas, types, zod, constants
 ```
 
-**Session State Machine (Required)**
-States
+**Session State Machine (Required)** States
 
 ```
 enum SessionState {
@@ -184,8 +178,7 @@ Retry Rules
 - Inspect op failure: retry once if debugger reconnect succeeds.
 - Never infinite retry.
 
-**MCP Tool Schema (Zod)**
-Common types
+**MCP Tool Schema (Zod)** Common types
 
 ```ts
 const Locator = z.object({

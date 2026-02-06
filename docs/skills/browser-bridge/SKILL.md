@@ -1,15 +1,12 @@
 ---
 name: browser-bridge
 description: >
-  Local Chrome control via Browser Bridge (CLI + optional MCP). Use when the
-  task needs real browser interaction, reliable DOM inspection, or screenshots.
+  Local Chrome control via Browser Bridge (CLI + optional MCP). Use when the task needs real browser interaction, reliable DOM inspection, or screenshots.
 ---
 
 # Browser Bridge (CLI + MCP)
 
-Browser Bridge drives and inspects a real local Chrome instance. You can use it
-either via the CLI (works everywhere) or via MCP (optional, for MCP-capable
-clients).
+Browser Bridge drives and inspects a real local Chrome instance. You can use it either via the CLI (works everywhere) or via MCP (optional, for MCP-capable clients).
 
 ## Prerequisites
 
@@ -73,11 +70,9 @@ If your agent client supports MCP, configure it to launch:
 browser-bridge mcp
 ```
 
-The MCP server runs over stdio. MCP clients usually launch it automatically;
-you only run it manually for debugging.
+The MCP server runs over stdio. MCP clients usually launch it automatically; you only run it manually for debugging.
 
-Note: MCP still requires `browser-bridge` to be on PATH, since the client
-invokes `browser-bridge mcp`.
+Note: MCP still requires `browser-bridge` to be on PATH, since the client invokes `browser-bridge mcp`.
 
 ## Tool Groups (MCP)
 

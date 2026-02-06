@@ -1,14 +1,12 @@
 # Tool Coverage Strategy
 
-This repo keeps MCP and CLI tool coverage synchronized through shared fixtures,
-contract checks, and optional E2E smoke flows.
+This repo keeps MCP and CLI tool coverage synchronized through shared fixtures, contract checks, and optional E2E smoke flows.
 
 ## Source of Truth
 
 - MCP tool list: `packages/shared/src/tooling.ts`
 
-When adding or removing tools, update the shared list first, then keep the
-adapter and CLI fixtures aligned.
+When adding or removing tools, update the shared list first, then keep the adapter and CLI fixtures aligned.
 
 ## MCP Adapter Coverage
 
@@ -25,8 +23,7 @@ These ensure every MCP tool has a fixture, valid schemas, and tracked coverage.
 - Integration tests (mock Core): `packages/cli/src/commands/commands.integration.test.ts`
 - Local helper test: `packages/cli/src/commands/open-artifacts.test.ts`
 
-The CLI fixture list mirrors the shared MCP tool list and also includes the
-local-only `open-artifacts` helper.
+The CLI fixture list mirrors the shared MCP tool list and also includes the local-only `open-artifacts` helper.
 
 ## Optional E2E Smoke
 

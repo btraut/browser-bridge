@@ -4,10 +4,7 @@
 
 # Browser Bridge
 
-Local Chrome control for coding agents. Browser Bridge provides a CLI and an
-optional MCP server that drive your real, local Chrome (not headless) and read
-page state through a Chrome extension. This keeps you in the loop, with your
-existing tabs and login state.
+Local Chrome control for coding agents. Browser Bridge provides a CLI and an optional MCP server that drive your real, local Chrome (not headless) and read page state through a Chrome extension. This keeps you in the loop, with your existing tabs and login state.
 
 ## Requirements
 
@@ -36,8 +33,7 @@ npm run build
 ```
 
 3. Open Chrome and navigate to `chrome://extensions`.
-4. Enable **Developer mode**, click **Load unpacked**, and select
-   `packages/extension` (the folder with `manifest.json`).
+4. Enable **Developer mode**, click **Load unpacked**, and select `packages/extension` (the folder with `manifest.json`).
 
 ## Quickstart
 
@@ -72,14 +68,11 @@ Restart your agent app if it does not pick up the new skill automatically.
 
 ## MCP Server (Optional)
 
-The MCP server runs over stdio and forwards tool calls to Core. It is optional,
-since you can use the CLI directly. MCP clients launch it automatically when
-needed, so you typically do not run it yourself.
+The MCP server runs over stdio and forwards tool calls to Core. It is optional, since you can use the CLI directly. MCP clients launch it automatically when needed, so you typically do not run it yourself.
 
 - Manual start (debugging): `browser-bridge mcp`
 - Use your MCP client to call `tools/list`, then `session.create`
-- Override Core host/port with `--host`, `--port`, or `BROWSER_BRIDGE_CORE_HOST` /
-  `BROWSER_BRIDGE_CORE_PORT`.
+- Override Core host/port with `--host`, `--port`, or `BROWSER_BRIDGE_CORE_HOST` / `BROWSER_BRIDGE_CORE_PORT`.
 
 ## Add MCP (Codex CLI)
 
@@ -129,7 +122,6 @@ If you are contributing locally, load the extension unpacked:
 2. Enable **Developer mode**.
 3. Click **Load unpacked** and select `packages/extension` (repo).
 4. Confirm the extension's background service worker is running.
-5. Start the Core daemon (or run `browser-bridge session create`) so the
-   extension can connect to `127.0.0.1`.
+5. Start the Core daemon (or run `browser-bridge session create`) so the extension can connect to `127.0.0.1`.
 
 Additional manual test flows live in `docs/manual-test.md`.
