@@ -20,6 +20,18 @@ npm i -g @btraut/browser-bridge
 browser-bridge --help
 ```
 
+Install this skill into your agent client:
+
+```bash
+browser-bridge skill install
+```
+
+Or use the guided installer (skill + optional MCP):
+
+```bash
+browser-bridge install
+```
+
 ## CLI Usage (No MCP Required)
 
 Global option (works on every command):

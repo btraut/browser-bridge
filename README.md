@@ -38,9 +38,8 @@ npm run build
 ## Quickstart
 
 1. Install the extension (see "Chrome Extension (Manual Install)" above).
-2. Install the Browser Bridge skill (see below).
-3. (Optional) Add Browser Bridge to your MCP client (Codex or Claude Code below).
-4. Run a quick CLI check:
+2. Install the Browser Bridge skill (and optionally MCP) using the installer (see below).
+3. Run a quick CLI check:
 
 ```bash
 browser-bridge session create
@@ -62,7 +61,14 @@ Easiest option (recommended):
 browser-bridge install
 ```
 
-Or copy the Browser Bridge skill into your agent skills directory:
+Skill only:
+
+```bash
+browser-bridge skill install
+browser-bridge skill status
+```
+
+Or copy the Browser Bridge skill into your agent skills directory (advanced):
 
 ```bash
 # From this repo:
@@ -80,11 +86,14 @@ Restart your agent app if it does not pick up the new skill automatically.
 
 The MCP server runs over stdio and forwards tool calls to Core. It is optional, since you can use the CLI directly. MCP clients launch it automatically when needed, so you typically do not run it yourself.
 
+- Easiest option: `browser-bridge mcp install`
 - Manual start (debugging): `browser-bridge mcp`
 - Use your MCP client to call `tools/list`, then `session.create`
 - Override Core host/port with `--host`, `--port`, or `BROWSER_BRIDGE_CORE_HOST` / `BROWSER_BRIDGE_CORE_PORT`.
 
-## Add MCP (Codex CLI)
+## Manual MCP Setup (Advanced)
+
+Codex:
 
 ```bash
 codex mcp add browser-bridge -- browser-bridge mcp
@@ -99,7 +108,7 @@ codex mcp add browser-bridge \
   -- browser-bridge mcp
 ```
 
-## Add MCP (Claude Code)
+Claude Code:
 
 ```bash
 claude mcp add --transport stdio browser-bridge -- browser-bridge mcp
