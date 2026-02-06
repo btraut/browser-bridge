@@ -66,6 +66,7 @@ export class ExtensionBridge {
   private connected = false;
   private lastSeenAt?: string;
   private tabs: DriveTabInfo[] = [];
+  private badMessageLogsRemaining = 3;
   private heartbeatInterval: ReturnType<typeof setInterval> | null = null;
   private awaitingHeartbeat = false;
   private readonly heartbeatIntervalMs: number;
@@ -235,7 +236,11 @@ export class ExtensionBridge {
     if (this.socket && this.socket.readyState === WebSocket.OPEN) {
       try {
         this.socket.terminate();
-      } catch {
+      } catch (error) {
+        console.debug(
+          'Extension socket terminate failed; falling back to close().',
+          error
+        );
         this.socket.close();
       }
     }
@@ -298,7 +303,11 @@ export class ExtensionBridge {
     let message: ExtensionMessage | null = null;
     try {
       message = JSON.parse(text) as ExtensionMessage;
-    } catch {
+    } catch (error) {
+      if (this.badMessageLogsRemaining > 0) {
+        this.badMessageLogsRemaining -= 1;
+        console.debug('Failed to parse extension message.', error);
+      }
       return;
     }
 

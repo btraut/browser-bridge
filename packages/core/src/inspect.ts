@@ -2146,12 +2146,6 @@ export class InspectService {
     );
   }
 
-  private throwUnavailable(): never {
-    const error = this.buildUnavailableError();
-    this.recordError(error);
-    throw error;
-  }
-
   private requireSession(sessionId: string): SessionRecord {
     try {
       return this.registry.require(sessionId);
