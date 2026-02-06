@@ -8,6 +8,16 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 
 ### Added
 
+_TBD_
+
+### Fixed
+
+_TBD_
+
+## [0.4.0] - 2026-02-06
+
+### Added
+
 - Core idle session TTL cleanup (configurable via `BROWSER_BRIDGE_SESSION_TTL_MS`).
 - Diagnostics now include a session summary (count and max age/idle time).
 
@@ -16,6 +26,7 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 - Sanitize Chrome extension error messages before forwarding them to clients (remove file paths and redact URLs to origin).
 - Share the core <-> extension protocol types via `@btraut/browser-bridge-shared` (remove manual sync).
 - Refactor InspectService internals into `packages/core/src/inspect/*` modules and expand unit test coverage (no API changes).
+- Stabilize `scripts/cli-full-tool-smoke.sh` dialog steps by refreshing debugger attachment before opening JS dialogs.
 
 ## [0.3.0] - 2026-02-06
 
