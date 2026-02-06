@@ -25,6 +25,7 @@ extract_tab_id_for_url() {
 }
 
 run_json() {
+  echo "+ ${cli_cmd[*]} --json $*" >&2
   "${cli_cmd[@]}" --json "$@"
 }
 
@@ -44,6 +45,12 @@ retry_json() {
     attempt=$((attempt + 1))
   done
   return 1
+}
+
+ensure_debugger_attached() {
+  # Keep the debugger attached right before opening blocking JS dialogs.
+  # Attaching after a dialog opens can race and lead to "No dialog is showing".
+  run_json inspect evaluate --session-id "$session_id" --expression "1" >/dev/null
 }
 
 session_id=${BV_SMOKE_SESSION_ID:-""}
@@ -68,8 +75,7 @@ run_json drive tab-activate --session-id "$session_id" --tab-id "$tab_id"
 run_json drive navigate --session-id "$session_id" --tab-id "$tab_id" --url "https://example.com" --wait domcontentloaded
 run_json drive navigate --session-id "$session_id" --tab-id "$tab_id" --url "$smoke_url" --wait domcontentloaded
 
-# Ensure the debugger is attached before triggering any blocking JS dialogs.
-# Attaching after a dialog opens can result in "No dialog is showing".
+# Ensure the debugger is attached early (and again right before dialogs).
 run_json inspect evaluate --session-id "$session_id" --expression "1"
 
 run_json drive go-back --session-id "$session_id" --tab-id "$tab_id"
@@ -89,14 +95,17 @@ run_json drive key --session-id "$session_id" --tab-id "$tab_id" --key Enter --m
 run_json drive scroll --session-id "$session_id" --tab-id "$tab_id" --delta-y 200 --behavior smooth
 run_json drive drag --session-id "$session_id" --tab-id "$tab_id" --from-locator-css "#drag-source" --to-locator-css "#drag-target" --steps 5
 
+ensure_debugger_attached
 run_json drive click --session-id "$session_id" --tab-id "$tab_id" --locator-css "#open-prompt"
 sleep 0.2
 retry_json 10 drive handle-dialog --session-id "$session_id" --tab-id "$tab_id" --action accept --prompt-text "ok"
 
+ensure_debugger_attached
 run_json drive click --session-id "$session_id" --tab-id "$tab_id" --locator-css "#open-prompt"
 sleep 0.2
 retry_json 10 dialog accept --session-id "$session_id" --tab-id "$tab_id" --prompt-text "yep"
 
+ensure_debugger_attached
 run_json drive click --session-id "$session_id" --tab-id "$tab_id" --locator-css "#open-confirm"
 sleep 0.2
 retry_json 10 dialog dismiss --session-id "$session_id" --tab-id "$tab_id"
