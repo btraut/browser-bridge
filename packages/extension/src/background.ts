@@ -12,6 +12,7 @@ import type {
   ExtensionMessage,
   ExtensionRequest,
 } from './protocol.js';
+import { sanitizeDriveErrorInfo } from './error-sanitizer.js';
 
 type ContentResult =
   | { ok: true; result?: unknown }
@@ -556,7 +557,7 @@ class DriveSocket {
         id: driveMessage.id,
         action: driveMessage.action,
         status: 'error',
-        error,
+        error: sanitizeDriveErrorInfo(error),
       };
       this.sendMessage(response);
     };
@@ -864,7 +865,7 @@ class DriveSocket {
         id: message.id,
         action: message.action,
         status: 'error',
-        error,
+        error: sanitizeDriveErrorInfo(error),
       });
     };
 

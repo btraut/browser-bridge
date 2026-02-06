@@ -11,6 +11,10 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 - Core idle session TTL cleanup (configurable via `BROWSER_BRIDGE_SESSION_TTL_MS`).
 - Diagnostics now include a session summary (count and max age/idle time).
 
+### Fixed
+
+- Sanitize Chrome extension error messages before forwarding them to clients (remove file paths and redact URLs to origin).
+
 ## [0.3.0] - 2026-02-06
 
 ### Added
