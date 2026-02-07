@@ -5,6 +5,7 @@ import type { DriveController } from '../drive';
 import type { InspectService } from '../inspect';
 import type { DebuggerBridge } from '../debugger-bridge';
 import type { RecoveryTracker } from '../recovery';
+import { HealthCheckInputSchema } from '@btraut/browser-bridge-shared';
 import { ResponseLike, isRecord, sendError, sendResult } from './shared';
 
 type RequestLike = {
@@ -27,10 +28,58 @@ type DiagnosticsRoutesOptions = {
   recoveryTracker?: RecoveryTracker;
 };
 
+const PROCESS_STARTED_AT = new Date(
+  Date.now() - Math.floor(process.uptime() * 1000)
+).toISOString();
+
 export const registerDiagnosticsRoutes = (
   router: RouteRegistry,
   options: DiagnosticsRoutesOptions = {}
 ): void => {
+  router.post('/health_check', (req, res) => {
+    const body = req.body ?? {};
+    if (!isRecord(body)) {
+      sendError(res, 400, {
+        code: 'INVALID_ARGUMENT',
+        message: 'Request body must be an object.',
+        retryable: false,
+      });
+      return;
+    }
+
+    const parsed = HealthCheckInputSchema.safeParse(body);
+    if (!parsed.success) {
+      const issue = parsed.error.issues[0];
+      sendError(res, 400, {
+        code: 'INVALID_ARGUMENT',
+        message: issue?.message ?? 'Invalid health check request.',
+        retryable: false,
+        details: issue?.path.length
+          ? { field: issue.path.map((part) => String(part)).join('.') }
+          : undefined,
+      });
+      return;
+    }
+
+    const sessionsActive = options.registry
+      ? options.registry.list().length
+      : 0;
+    const extensionStatus = options.extensionBridge?.getStatus();
+
+    sendResult(res, {
+      started_at: PROCESS_STARTED_AT,
+      uptime_ms: Math.floor(process.uptime() * 1000),
+      memory: process.memoryUsage(),
+      sessions: { active: sessionsActive },
+      extension: {
+        connected: extensionStatus?.connected ?? false,
+        ...(extensionStatus?.lastSeenAt
+          ? { last_seen_at: extensionStatus.lastSeenAt }
+          : {}),
+      },
+    });
+  });
+
   router.post('/diagnostics/doctor', (req, res) => {
     let sessionId: string | undefined;
     if (req.body !== undefined) {
