@@ -12,6 +12,7 @@ What makes it different:
 
 - **Real browser state**: operate on your actual Chrome profile (tabs, cookies, logins, extensions).
 - **Two-plane architecture**: a **drive** plane that does what a user does (click, type, navigate), plus an **inspect** plane that reads state (DOM, console, screenshots). This separation makes runs less flaky and lets inspection happen in parallel.
+- **Token-efficient inspection**: stable element refs like `@e1` (find once, reuse everywhere) plus knobs to bound output (`--max-nodes`, `--compact`, `--interactive`, `--selector`).
 - **Structured errors for agents**: stable error codes with a `retryable` flag (no more guessing whether to retry).
 - **Recovery-first**: sessions have an explicit state machine with `session.recover()` and `diagnostics doctor`.
 - **Inspect beyond screenshots**: DOM snapshots (AX + HTML) and `inspect dom-diff` to detect page changes.
@@ -35,7 +36,7 @@ Compared to Playwright/Puppeteer-style tooling:
 
 - Browser Bridge targets the user's existing, interactive Chrome session by default (typical Playwright/Puppeteer flows spin up a separate browser/context).
 - Browser Bridge surfaces retry guidance in the API (`retryable`) instead of forcing the agent to infer it from exceptions and timing.
-- Browser Bridge ships a first-class inspect plane (DOM snapshots, diffs, diagnostics) designed for LLM consumption.
+- Browser Bridge ships a first-class inspect plane (DOM snapshots, diffs, diagnostics) designed for LLM consumption, with output-bounding options to keep agent context small.
 
 Compared to extension-first MCP tools (example: mcp-chrome):
 
