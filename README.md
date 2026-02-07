@@ -1,6 +1,6 @@
 <img src="docs/assets/readme-header.png" alt="Browser Bridge header graphic" width="720" />
 
-[![npm version](https://img.shields.io/npm/v/@btraut/browser-bridge.svg)](https://www.npmjs.com/package/@btraut/browser-bridge) [![npm downloads](https://img.shields.io/npm/dm/@btraut/browser-bridge.svg)](https://www.npmjs.com/package/@btraut/browser-bridge) [![CI](https://github.com/btraut/browser-bridge/actions/workflows/ci.yml/badge.svg)](https://github.com/btraut/browser-bridge/actions/workflows/ci.yml) [![License](https://img.shields.io/github/license/btraut/browser-bridge.svg)](LICENSE) ![Local only](https://img.shields.io/badge/local--only-127.0.0.1-0ea5e9) ![MCP optional](https://img.shields.io/badge/MCP-optional-2b6cb0)
+[![npm version](https://img.shields.io/npm/v/@btraut/browser-bridge.svg)](https://www.npmjs.com/package/@btraut/browser-bridge) [![npm downloads](https://img.shields.io/npm/dm/@btraut/browser-bridge.svg)](https://www.npmjs.com/package/@btraut/browser-bridge) [![CI](https://github.com/btraut/browser-bridge/actions/workflows/ci.yml/badge.svg)](https://github.com/btraut/browser-bridge/actions/workflows/ci.yml) [![License](https://img.shields.io/github/license/btraut/browser-bridge.svg)](LICENSE)
 
 # Browser Bridge
 
@@ -11,53 +11,29 @@ Browser Bridge drives your real, local Chrome (not headless) and inspects page s
 What makes it different:
 
 - **Real browser state**: operate on your actual Chrome profile (tabs, cookies, logins, extensions).
-- **Two-plane architecture**: serialized **drive plane** for deterministic input, plus an **inspect plane** that can run in parallel.
+- **Two-plane architecture**: a **drive** plane that does what a user does (click, type, navigate), plus an **inspect** plane that reads state (DOM, console, screenshots). This separation makes runs less flaky and lets inspection happen in parallel.
+- **Token-efficient inspection**: stable element refs like `@e1` (find once, reuse everywhere) plus knobs to bound output (`--max-nodes`, `--compact`, `--interactive`, `--selector`).
 - **Structured errors for agents**: stable error codes with a `retryable` flag (no more guessing whether to retry).
 - **Recovery-first**: sessions have an explicit state machine with `session.recover()` and `diagnostics doctor`.
 - **Inspect beyond screenshots**: DOM snapshots (AX + HTML) and `inspect dom-diff` to detect page changes.
 
-## Demos
+## Why Browser Bridge
 
-Short clips are being added. In the meantime, the demo scripts are ready:
+Browser Bridge is built for agent reliability and "stay logged in" workflows in your real Chrome, not for headless test automation.
 
-- `docs/demos.md`
-
-If you record a clip, the convention is:
-
-- Put assets under `docs/assets/demos/`
-- Link them from `docs/demos.md`
-
-## Competitive Positioning
-
-Browser Bridge is built for agent reliability and "stay logged in" workflows, not for headless test automation.
-
-Compared to Playwright/Puppeteer-style tooling:
+If you're coming from Playwright/Puppeteer-style tooling:
 
 - Browser Bridge targets the user's existing, interactive Chrome session by default (typical Playwright/Puppeteer flows spin up a separate browser/context).
 - Browser Bridge surfaces retry guidance in the API (`retryable`) instead of forcing the agent to infer it from exceptions and timing.
-- Browser Bridge ships a first-class inspect plane (DOM snapshots, diffs, diagnostics) designed for LLM consumption.
+- Browser Bridge ships a first-class inspect plane (DOM snapshots, diffs, diagnostics) designed for LLM consumption, with output-bounding options to keep agent context small.
 
-Compared to extension-first MCP tools (example: mcp-chrome):
+If you're coming from an extension-only MCP tool:
 
 - Browser Bridge puts a stateful local Core daemon behind the tools (sessions, recovery, diagnostics, artifacts).
-- Drive is intentionally single-flight (mutex) for determinism; inspect is a separate plane that can keep producing structured state.
+- Drive actions are serialized for determinism; inspect is a separate plane that can keep producing structured state.
 - CLI works everywhere; MCP is optional.
 
 ## How It Works
-
-At a high level:
-
-```text
-Agent (CLI or MCP)
-  |
-  |  (HTTP + JSON envelopes; local-only)
-  v
-Core daemon (127.0.0.1)
-  |                    |
-  | drive plane        | inspect plane
-  v                    v
-Chrome extension  <->  Chrome debugger APIs
-```
 
 Core keeps a session state machine and exposes a small set of stable tools:
 
@@ -118,7 +94,9 @@ Notes:
 
 - `inspect dom-snapshot` defaults to `--format ax`; `--max-nodes` is only supported for AX snapshots.
 
-## Skills (Codex + Claude Code)
+## Skills (Agent Clients)
+
+Browser Bridge skills work across many agent clients, including Codex and Claude Code.
 
 Easiest option (recommended):
 
@@ -206,28 +184,3 @@ The Core daemon keeps sessions in memory. By default, it automatically cleans up
 
 - `BROWSER_BRIDGE_SESSION_TTL_MS`: Idle session TTL in milliseconds. Set to `0` to disable cleanup.
 - `BROWSER_BRIDGE_SESSION_CLEANUP_INTERVAL_MS`: Cleanup interval in milliseconds. Defaults to a small value relative to the TTL.
-
-## Changelog
-
-See `CHANGELOG.md`.
-
-## Releasing
-
-See `docs/releasing.md`.
-
-## Security Model (v1)
-
-- Extension <-> Core WebSocket has no authentication; trust local machine only.
-- Do not expose the port or run the Core daemon on shared hosts.
-
-## Development Notes
-
-If you are contributing locally, load the extension unpacked:
-
-1. Open Chrome and navigate to `chrome://extensions`.
-2. Enable **Developer mode**.
-3. Click **Load unpacked** and select `packages/extension` (repo).
-4. Confirm the extension's background service worker is running.
-5. Start the Core daemon (or run `browser-bridge session create`) so the extension can connect to `127.0.0.1`.
-
-Additional manual test flows live in `docs/manual-test.md`.

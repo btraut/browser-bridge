@@ -20,7 +20,7 @@
 
 **Priority** Reliability is the #1 priority. Speed and elegance are secondary.
 
-**High-Level Design (Non-Negotiable)** The system is a hybrid, two-plane browser controller operating against the same Chrome instance and tab.
+**High-Level Design (Non-Negotiable)** The system is a hybrid, two-plane browser controller operating against the same Chrome instance and tab. "Drive" is for user-like actions (click/type/navigate); "inspect" is for reading and debugging what is happening (DOM, console, screenshots).
 
 Drive Plane (Human-Centric Control)
 
