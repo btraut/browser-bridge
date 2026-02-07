@@ -12,7 +12,7 @@ _TBD_
 
 ### Fixed
 
-_TBD_
+- Remove the unused `scripting` permission from the Chrome extension manifest (Chrome Web Store compliance).
 
 ## [0.4.2] - 2026-02-07
 
