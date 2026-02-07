@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Browser Bridge",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "description": "Control Chrome for Browser Bridge: drive tabs and inspect pages for coding agents.",
   "icons": {
     "16": "assets/icons/icon-16.png",
@@ -20,7 +20,7 @@
     "service_worker": "dist/background.js",
     "type": "module"
   },
-  "permissions": ["tabs", "scripting", "storage", "webNavigation", "debugger"],
+  "permissions": ["tabs", "storage", "webNavigation", "debugger"],
   "host_permissions": ["<all_urls>"],
   "content_scripts": [
     {
