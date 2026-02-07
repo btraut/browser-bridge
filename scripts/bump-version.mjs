@@ -59,12 +59,6 @@ const usage = () => {
 const repoRoot = process.cwd();
 const rootPkgPath = path.join(repoRoot, 'package.json');
 const packagesRoot = path.join(repoRoot, 'packages');
-const extensionManifestPath = path.join(
-  repoRoot,
-  'packages',
-  'extension',
-  'manifest.json'
-);
 
 const run = async () => {
   let targetVersion;
@@ -105,18 +99,6 @@ const run = async () => {
     }
     pkg.version = targetVersion;
     await writeJson(pkgPath, pkg);
-  }
-
-  // Keep the Chrome extension manifest version in sync with package versions.
-  // (bump-version.mjs is the source of truth for release versioning.)
-  try {
-    const manifest = await readJson(extensionManifestPath);
-    if (manifest && typeof manifest === 'object') {
-      manifest.version = targetVersion;
-      await writeJson(extensionManifestPath, manifest);
-    }
-  } catch {
-    // Ignore missing/invalid manifest.json so version bumps don't break.
   }
 
   console.log(`Bumped versions to ${targetVersion}`);

@@ -44,14 +44,3 @@ jobs:
 
       - name: Build
         run: npm run build
-
-      - name: Package extension zip
-        run: |
-          command -v zip >/dev/null || (sudo apt-get update && sudo apt-get install -y zip)
-          node scripts/package-extension.mjs
-
-      - name: Upload extension artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: browser-bridge-extension-${{ github.sha }}
-          path: dist/browser-bridge-extension-*.zip

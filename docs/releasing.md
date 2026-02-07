@@ -63,8 +63,3 @@ npm publish --access public --workspaces=false
 ```bash
 git push origin main --follow-tags
 ```
-
-9. Create a GitHub Release for the tag:
-
-- Create a release for `vMAJOR.MINOR.PATCH` on GitHub.
-- The `Release Extension Asset` workflow will build and attach `browser-bridge-extension-vMAJOR.MINOR.PATCH.zip` automatically.

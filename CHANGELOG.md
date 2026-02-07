@@ -8,7 +8,7 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 
 ### Added
 
-- Publish a pre-built Chrome extension zip asset with GitHub Releases.
+_TBD_
 
 ### Fixed
 
