@@ -35,20 +35,6 @@ If you're coming from an extension-only MCP tool:
 
 ## How It Works
 
-At a high level:
-
-```text
-Agent (CLI or MCP)
-  |
-  |  (HTTP + JSON envelopes; local-only)
-  v
-Core daemon (127.0.0.1)
-  |                    |
-  | drive plane        | inspect plane
-  v                    v
-Chrome extension  <->  Chrome debugger APIs
-```
-
 Core keeps a session state machine and exposes a small set of stable tools:
 
 - `session.*` - lifecycle + recovery
@@ -108,7 +94,9 @@ Notes:
 
 - `inspect dom-snapshot` defaults to `--format ax`; `--max-nodes` is only supported for AX snapshots.
 
-## Skills (Codex + Claude Code)
+## Skills (Agent Clients)
+
+Browser Bridge skills work across many agent clients, including Codex and Claude Code.
 
 Easiest option (recommended):
 
