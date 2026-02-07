@@ -17,17 +17,6 @@ What makes it different:
 - **Recovery-first**: sessions have an explicit state machine with `session.recover()` and `diagnostics doctor`.
 - **Inspect beyond screenshots**: DOM snapshots (AX + HTML) and `inspect dom-diff` to detect page changes.
 
-## Demos
-
-Short clips are being added. In the meantime, the demo scripts are ready:
-
-- `docs/demos.md`
-
-If you record a clip, the convention is:
-
-- Put assets under `docs/assets/demos/`
-- Link them from `docs/demos.md`
-
 ## Competitive Positioning
 
 Browser Bridge is built for agent reliability and "stay logged in" workflows, not for headless test automation.
