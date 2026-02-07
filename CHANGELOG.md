@@ -14,6 +14,12 @@ _TBD_
 
 _TBD_
 
+## [0.4.2] - 2026-02-07
+
+### Fixed
+
+- Fix the GitHub release workflow tag/version verification step so tag pushes reliably create a GitHub Release and upload the extension zip.
+
 ## [0.4.1] - 2026-02-07
 
 ### Added
