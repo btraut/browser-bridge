@@ -27,7 +27,7 @@ jobs:
 
       - name: Verify tag matches package.json
         run: |
-          node -e "const v=require('./package.json').version; const tag=process.env.GITHUB_REF_NAME; if (tag !== `v${v}`) { throw new Error(`Tag ${tag} does not match package.json v${v}`); }"
+          node -e "const v=require('./package.json').version; const tag=process.env.GITHUB_REF_NAME; if (tag !== ('v' + v)) { throw new Error('Tag ' + tag + ' does not match package.json v' + v); }"
 
       - name: Package extension zip
         run: |
