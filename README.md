@@ -1,6 +1,6 @@
 <img src="docs/assets/readme-header.png" alt="Browser Bridge header graphic" width="720" />
 
-[![npm version](https://img.shields.io/npm/v/@btraut/browser-bridge.svg)](https://www.npmjs.com/package/@btraut/browser-bridge) [![npm downloads](https://img.shields.io/npm/dm/@btraut/browser-bridge.svg)](https://www.npmjs.com/package/@btraut/browser-bridge) [![CI](https://github.com/btraut/browser-bridge/actions/workflows/ci.yml/badge.svg)](https://github.com/btraut/browser-bridge/actions/workflows/ci.yml) [![License](https://img.shields.io/github/license/btraut/browser-bridge.svg)](LICENSE) ![Local only](https://img.shields.io/badge/local--only-127.0.0.1-0ea5e9) ![MCP optional](https://img.shields.io/badge/MCP-optional-2b6cb0)
+[![npm version](https://img.shields.io/npm/v/@btraut/browser-bridge.svg)](https://www.npmjs.com/package/@btraut/browser-bridge) [![npm downloads](https://img.shields.io/npm/dm/@btraut/browser-bridge.svg)](https://www.npmjs.com/package/@btraut/browser-bridge) [![CI](https://github.com/btraut/browser-bridge/actions/workflows/ci.yml/badge.svg)](https://github.com/btraut/browser-bridge/actions/workflows/ci.yml) [![License](https://img.shields.io/github/license/btraut/browser-bridge.svg)](LICENSE)
 
 # Browser Bridge
 
@@ -11,7 +11,7 @@ Browser Bridge drives your real, local Chrome (not headless) and inspects page s
 What makes it different:
 
 - **Real browser state**: operate on your actual Chrome profile (tabs, cookies, logins, extensions).
-- **Two-plane architecture**: serialized **drive plane** for deterministic input, plus an **inspect plane** that can run in parallel.
+- **Two-plane architecture**: a **drive** plane that does what a user does (click, type, navigate), plus an **inspect** plane that reads state (DOM, console, screenshots). This separation makes runs less flaky and lets inspection happen in parallel.
 - **Structured errors for agents**: stable error codes with a `retryable` flag (no more guessing whether to retry).
 - **Recovery-first**: sessions have an explicit state machine with `session.recover()` and `diagnostics doctor`.
 - **Inspect beyond screenshots**: DOM snapshots (AX + HTML) and `inspect dom-diff` to detect page changes.
