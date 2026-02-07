@@ -1,5 +1,9 @@
 import type { DebuggerBridge } from '../debugger-bridge';
-import type { DriveTabInfo } from '../drive-protocol';
+import type {
+  DriveAction,
+  DriveResponse,
+  DriveTabInfo,
+} from '../drive-protocol';
 import type { SessionRegistry } from '../session';
 
 export type InspectErrorCode =
@@ -115,6 +119,11 @@ export type InspectServiceOptions = {
   extensionBridge?: {
     isConnected: () => boolean;
     getStatus: () => { tabs: DriveTabInfo[] };
+    request?: <T = unknown>(
+      action: DriveAction,
+      params?: Record<string, unknown>,
+      timeoutMs?: number
+    ) => Promise<DriveResponse<T>>;
   };
   maxSnapshotsPerSession?: number;
   maxSnapshotHistory?: number;

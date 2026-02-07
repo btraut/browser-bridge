@@ -9,6 +9,7 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 ### Added
 
 - `health_check` MCP tool and core endpoint (`/health_check`) for uptime/memory/session/extension status.
+- Full-page scrolling screenshots for `artifacts.screenshot` via `fullPage: true` (scroll + stitch, up to ~50K px tall).
 
 ### Fixed
 

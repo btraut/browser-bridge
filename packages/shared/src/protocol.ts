@@ -128,6 +128,20 @@ export type DriveScrollParams = {
   tab_id?: number;
 };
 
+export type DriveScreenshotParams = {
+  tab_id?: number;
+  mode?: 'viewport' | 'full_page';
+  format?: 'png' | 'jpeg' | 'webp';
+  quality?: number;
+};
+
+export type DriveScreenshotResult = {
+  mime: string;
+  data_base64: string;
+  width_px: number;
+  height_px: number;
+};
+
 export type DriveWaitForParams = {
   condition: {
     kind: 'locator_visible' | 'text_present' | 'url_matches';
@@ -171,6 +185,7 @@ export type DriveAction =
   | 'drive.key'
   | 'drive.key_press'
   | 'drive.scroll'
+  | 'drive.screenshot'
   | 'drive.wait_for'
   | 'drive.tab_list'
   | 'drive.tab_activate'

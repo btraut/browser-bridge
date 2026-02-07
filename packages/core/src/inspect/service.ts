@@ -7,7 +7,13 @@ import TurndownService from 'turndown';
 import { ensureArtifactRootDir } from '../artifacts';
 import { driveMutex } from '../drive';
 import type { DebuggerBridge } from '../debugger-bridge';
-import type { DriveErrorInfo, DriveTabInfo } from '../drive-protocol';
+import type {
+  DriveAction,
+  DriveErrorInfo,
+  DriveResponse,
+  DriveScreenshotResult,
+  DriveTabInfo,
+} from '../drive-protocol';
 import {
   applyAxSnapshotFilters,
   getAxName,
@@ -58,6 +64,11 @@ export class InspectService {
   private readonly extensionBridge?: {
     isConnected: () => boolean;
     getStatus: () => { tabs: DriveTabInfo[] };
+    request?: <T = unknown>(
+      action: DriveAction,
+      params?: Record<string, unknown>,
+      timeoutMs?: number
+    ) => Promise<DriveResponse<T>>;
   };
   private lastError?: InspectError;
   private lastErrorAt?: string;
@@ -677,9 +688,98 @@ export class InspectService {
     this.requireSession(input.sessionId);
     const selection = await this.resolveTab(input.targetHint);
 
+    const format = input.format ?? 'png';
+    const writeArtifact = async (data: string): Promise<ArtifactInfo> => {
+      try {
+        const rootDir = await ensureArtifactRootDir(input.sessionId);
+        const artifactId = randomUUID();
+        const extension = format === 'jpeg' ? 'jpg' : format;
+        const filePath = path.join(
+          rootDir,
+          `screenshot-${artifactId}.${extension}`
+        );
+        await writeFile(filePath, Buffer.from(data, 'base64'));
+        const mime = format === 'jpeg' ? 'image/jpeg' : `image/${format}`;
+        const output = {
+          artifact_id: artifactId,
+          path: filePath,
+          mime,
+        };
+        this.markInspectConnected(input.sessionId);
+        return output;
+      } catch {
+        const error = new InspectError(
+          'ARTIFACT_IO_ERROR',
+          'Failed to write screenshot file.'
+        );
+        this.recordError(error);
+        throw error;
+      }
+    };
+
+    if (input.target === 'full' && this.extensionBridge?.request) {
+      try {
+        const response =
+          await this.extensionBridge.request<DriveScreenshotResult>(
+            'drive.screenshot',
+            {
+              tab_id: selection.tabId,
+              mode: 'full_page',
+              format,
+              ...(typeof input.quality === 'number'
+                ? { quality: input.quality }
+                : {}),
+            },
+            120000
+          );
+
+        if (response.status === 'error') {
+          const error = new InspectError(
+            (response.error?.code as InspectErrorCode) ?? 'INSPECT_UNAVAILABLE',
+            response.error?.message ??
+              'Failed to capture full page screenshot.',
+            {
+              retryable: response.error?.retryable ?? false,
+              ...(response.error?.details
+                ? { details: response.error.details }
+                : {}),
+            }
+          );
+          this.recordError(error);
+          throw error;
+        }
+
+        const result = response.result;
+        if (!result?.data_base64 || typeof result.data_base64 !== 'string') {
+          const error = new InspectError(
+            'INSPECT_UNAVAILABLE',
+            'Failed to capture full page screenshot.'
+          );
+          this.recordError(error);
+          throw error;
+        }
+
+        return await writeArtifact(result.data_base64);
+      } catch (error) {
+        // Fall back to CDP screenshots for environments that don't yet support
+        // extension-driven full page capture.
+        if (error instanceof InspectError) {
+          const code = String(error.code);
+          if (
+            ![
+              'NOT_SUPPORTED',
+              'NOT_IMPLEMENTED',
+              'INSPECT_UNAVAILABLE',
+            ].includes(code)
+          ) {
+            throw error;
+          }
+        }
+      }
+    }
+
     await this.debuggerCommand(selection.tabId, 'Page.enable', {});
 
-    const format = input.format ?? 'png';
     let captureParams: Record<string, unknown> = {
       format,
       fromSurface: true,
@@ -729,31 +829,7 @@ export class InspectService {
       throw error;
     }
 
-    try {
-      const rootDir = await ensureArtifactRootDir(input.sessionId);
-      const artifactId = randomUUID();
-      const extension = format === 'jpeg' ? 'jpg' : format;
-      const filePath = path.join(
-        rootDir,
-        `screenshot-${artifactId}.${extension}`
-      );
-      await writeFile(filePath, Buffer.from(data, 'base64'));
-      const mime = format === 'jpeg' ? 'image/jpeg' : `image/${format}`;
-      const output = {
-        artifact_id: artifactId,
-        path: filePath,
-        mime,
-      };
-      this.markInspectConnected(input.sessionId);
-      return output;
-    } catch {
-      const error = new InspectError(
-        'ARTIFACT_IO_ERROR',
-        'Failed to write screenshot file.'
-      );
-      this.recordError(error);
-      throw error;
-    }
+    return await writeArtifact(data);
   }
 
   private ensureDebugger(): DebuggerBridge {

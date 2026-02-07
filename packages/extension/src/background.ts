@@ -98,6 +98,88 @@ const wrapChromeVoid = (
   });
 };
 
+const delayMs = async (ms: number): Promise<void> => {
+  if (!Number.isFinite(ms) || ms <= 0) {
+    return;
+  }
+  await new Promise<void>((resolve) => {
+    self.setTimeout(resolve, ms);
+  });
+};
+
+const parseDataUrl = (
+  dataUrl: string
+): { mime: string; base64: string } | null => {
+  const match = /^data:([^;]+);base64,(.*)$/s.exec(dataUrl);
+  if (!match) {
+    return null;
+  }
+  return { mime: match[1] ?? 'application/octet-stream', base64: match[2] };
+};
+
+const arrayBufferToBase64 = (buffer: ArrayBuffer): string => {
+  const bytes = new Uint8Array(buffer);
+  const chunkSize = 0x8000;
+  let binary = '';
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    const chunk = bytes.subarray(i, i + chunkSize);
+    binary += String.fromCharCode(...chunk);
+  }
+  return btoa(binary);
+};
+
+const renderDataUrlToFormat = async (
+  dataUrl: string,
+  format: 'png' | 'jpeg' | 'webp',
+  quality?: number
+): Promise<{
+  mime: string;
+  data_base64: string;
+  width_px: number;
+  height_px: number;
+}> => {
+  const parsed = parseDataUrl(dataUrl);
+  if (!parsed) {
+    throw new Error('Invalid screenshot data URL.');
+  }
+
+  const blob = await (await fetch(dataUrl)).blob();
+  const bitmap = await createImageBitmap(blob);
+  try {
+    const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      throw new Error('Canvas context unavailable.');
+    }
+    ctx.drawImage(bitmap, 0, 0);
+
+    const mime =
+      format === 'jpeg'
+        ? 'image/jpeg'
+        : format === 'webp'
+          ? 'image/webp'
+          : 'image/png';
+    const q =
+      typeof quality === 'number' && Number.isFinite(quality)
+        ? Math.max(0, Math.min(1, quality / 100))
+        : undefined;
+    const out =
+      format === 'png'
+        ? await canvas.convertToBlob({ type: mime })
+        : await canvas.convertToBlob({ type: mime, quality: q });
+    const base64 = arrayBufferToBase64(await out.arrayBuffer());
+
+    return {
+      mime,
+      data_base64: base64,
+      width_px: bitmap.width,
+      height_px: bitmap.height,
+    };
+  } finally {
+    bitmap.close();
+  }
+};
+
 const readCorePort = async (): Promise<number> => {
   return await new Promise<number>((resolve) => {
     chrome.storage.local.get(
@@ -829,6 +911,308 @@ class DriveSocket {
             respondOk(result.result ?? { ok: true });
           } else {
             respondError(result.error);
+          }
+          return;
+        }
+        case 'drive.screenshot': {
+          const params = (message.params ?? {}) as Record<string, unknown>;
+          let tabId = params.tab_id;
+          if (tabId !== undefined && typeof tabId !== 'number') {
+            respondError({
+              code: 'INVALID_ARGUMENT',
+              message: 'tab_id must be a number when provided.',
+              retryable: false,
+            });
+            return;
+          }
+          if (tabId === undefined) {
+            tabId = await getActiveTabId();
+          }
+
+          const mode =
+            params.mode === 'full_page' || params.mode === 'viewport'
+              ? params.mode
+              : 'viewport';
+          const format =
+            params.format === 'jpeg' || params.format === 'webp'
+              ? params.format
+              : 'png';
+          const quality =
+            typeof params.quality === 'number' &&
+            Number.isFinite(params.quality)
+              ? Math.max(0, Math.min(100, Math.floor(params.quality)))
+              : undefined;
+
+          const tab = await getTab(tabId as number);
+          const url = tab.url;
+          if (typeof url === 'string' && isRestrictedUrl(url)) {
+            respondError({
+              code: 'NOT_SUPPORTED',
+              message: 'Screenshots are not supported for this URL.',
+              retryable: false,
+              details: { url },
+            });
+            return;
+          }
+          const windowId = tab.windowId;
+          if (typeof windowId !== 'number') {
+            respondError({
+              code: 'TAB_NOT_FOUND',
+              message: 'window_id missing for tab.',
+              retryable: false,
+            });
+            return;
+          }
+
+          if (typeof OffscreenCanvas === 'undefined') {
+            respondError({
+              code: 'NOT_SUPPORTED',
+              message: 'OffscreenCanvas is unavailable in this extension host.',
+              retryable: false,
+            });
+            return;
+          }
+
+          const captureVisible = async (): Promise<string> => {
+            return await wrapChromeCallback<string>((callback) =>
+              chrome.tabs.captureVisibleTab(
+                windowId,
+                { format: 'png' },
+                callback
+              )
+            );
+          };
+
+          if (mode === 'viewport') {
+            try {
+              const dataUrl = await captureVisible();
+              const rendered = await renderDataUrlToFormat(
+                dataUrl,
+                format,
+                quality
+              );
+              respondOk(rendered);
+            } catch (error) {
+              respondError({
+                code: 'ARTIFACT_IO_ERROR',
+                message:
+                  error instanceof Error
+                    ? error.message
+                    : 'Failed to capture screenshot.',
+                retryable: false,
+              });
+            }
+            return;
+          }
+
+          const meta = await sendToTab(
+            tabId as number,
+            'drive.screenshot_meta'
+          );
+          if (!meta.ok) {
+            respondError(meta.error);
+            return;
+          }
+          const payload = meta.result;
+          if (!payload || typeof payload !== 'object') {
+            respondError({
+              code: 'EVALUATION_FAILED',
+              message: 'Invalid screenshot metadata response.',
+              retryable: false,
+            });
+            return;
+          }
+          const record = payload as Record<string, unknown>;
+          const viewportHeight = record.viewportHeight;
+          const scrollHeight = record.scrollHeight;
+          const scrollY = record.scrollY;
+          const scrollX = record.scrollX;
+          const dpr = record.devicePixelRatio;
+
+          if (
+            typeof viewportHeight !== 'number' ||
+            !Number.isFinite(viewportHeight) ||
+            viewportHeight <= 0
+          ) {
+            respondError({
+              code: 'EVALUATION_FAILED',
+              message: 'viewportHeight missing from screenshot metadata.',
+              retryable: false,
+            });
+            return;
+          }
+          if (
+            typeof scrollHeight !== 'number' ||
+            !Number.isFinite(scrollHeight) ||
+            scrollHeight <= 0
+          ) {
+            respondError({
+              code: 'EVALUATION_FAILED',
+              message: 'scrollHeight missing from screenshot metadata.',
+              retryable: false,
+            });
+            return;
+          }
+          const devicePixelRatio =
+            typeof dpr === 'number' && Number.isFinite(dpr) && dpr > 0
+              ? dpr
+              : 1;
+
+          const fullHeightPx = Math.round(scrollHeight * devicePixelRatio);
+          const maxHeightPx = 50000;
+          if (fullHeightPx > maxHeightPx) {
+            respondError({
+              code: 'NOT_SUPPORTED',
+              message: `Page is too tall to capture (max ${maxHeightPx}px).`,
+              retryable: false,
+              details: { height_px: fullHeightPx, max_height_px: maxHeightPx },
+            });
+            return;
+          }
+
+          const maxScrollY = Math.max(0, scrollHeight - viewportHeight);
+          const step = viewportHeight;
+          const positions: number[] = [];
+          for (let y = 0; y < maxScrollY; y += step) {
+            positions.push(y);
+          }
+          positions.push(maxScrollY);
+
+          const maxTiles = 200;
+          if (positions.length > maxTiles) {
+            respondError({
+              code: 'NOT_SUPPORTED',
+              message: `Page requires too many tiles to capture (${positions.length}).`,
+              retryable: false,
+              details: { tiles: positions.length, max_tiles: maxTiles },
+            });
+            return;
+          }
+
+          const scrollTo = async (top: number, left: number): Promise<void> => {
+            const result = await sendToTab(tabId as number, 'drive.scroll', {
+              top,
+              left,
+              behavior: 'auto',
+              tab_id: tabId,
+            });
+            if (!result.ok) {
+              throw new Error(result.error.message);
+            }
+          };
+
+          try {
+            await scrollTo(0, 0);
+            await delayMs(100);
+
+            const firstDataUrl = await captureVisible();
+            const firstBlob = await (await fetch(firstDataUrl)).blob();
+            const firstBitmap = await createImageBitmap(firstBlob);
+
+            const canvas = new OffscreenCanvas(firstBitmap.width, fullHeightPx);
+            const ctx = canvas.getContext('2d');
+            if (!ctx) {
+              firstBitmap.close();
+              respondError({
+                code: 'NOT_SUPPORTED',
+                message: 'Canvas context unavailable.',
+                retryable: false,
+              });
+              return;
+            }
+
+            const drawTile = (bitmap: ImageBitmap, yCss: number): void => {
+              const destY = Math.round(yCss * devicePixelRatio);
+              const remaining = fullHeightPx - destY;
+              if (remaining <= 0) {
+                return;
+              }
+              const drawHeight = Math.min(bitmap.height, remaining);
+              ctx.drawImage(
+                bitmap,
+                0,
+                0,
+                bitmap.width,
+                drawHeight,
+                0,
+                destY,
+                bitmap.width,
+                drawHeight
+              );
+            };
+
+            drawTile(firstBitmap, 0);
+            firstBitmap.close();
+
+            for (const y of positions.slice(1)) {
+              await scrollTo(y, 0);
+              await delayMs(100);
+              const dataUrl = await captureVisible();
+              const blob = await (await fetch(dataUrl)).blob();
+              const bitmap = await createImageBitmap(blob);
+              drawTile(bitmap, y);
+              bitmap.close();
+            }
+
+            const restoreTop =
+              typeof scrollY === 'number' && Number.isFinite(scrollY)
+                ? scrollY
+                : 0;
+            const restoreLeft =
+              typeof scrollX === 'number' && Number.isFinite(scrollX)
+                ? scrollX
+                : 0;
+            await scrollTo(restoreTop, restoreLeft);
+
+            const mime =
+              format === 'jpeg'
+                ? 'image/jpeg'
+                : format === 'webp'
+                  ? 'image/webp'
+                  : 'image/png';
+            const q =
+              typeof quality === 'number' && Number.isFinite(quality)
+                ? Math.max(0, Math.min(1, quality / 100))
+                : undefined;
+            const blob =
+              format === 'png'
+                ? await canvas.convertToBlob({ type: mime })
+                : await canvas.convertToBlob({ type: mime, quality: q });
+            const base64 = arrayBufferToBase64(await blob.arrayBuffer());
+
+            respondOk({
+              mime,
+              data_base64: base64,
+              width_px: canvas.width,
+              height_px: canvas.height,
+            });
+          } catch (error) {
+            try {
+              const restoreTop =
+                typeof scrollY === 'number' && Number.isFinite(scrollY)
+                  ? scrollY
+                  : 0;
+              const restoreLeft =
+                typeof scrollX === 'number' && Number.isFinite(scrollX)
+                  ? scrollX
+                  : 0;
+              await sendToTab(tabId as number, 'drive.scroll', {
+                top: restoreTop,
+                left: restoreLeft,
+                behavior: 'auto',
+                tab_id: tabId,
+              });
+            } catch {
+              // Ignore restoration errors.
+            }
+            respondError({
+              code: 'ARTIFACT_IO_ERROR',
+              message:
+                error instanceof Error
+                  ? error.message
+                  : 'Failed to capture full page screenshot.',
+              retryable: false,
+            });
           }
           return;
         }

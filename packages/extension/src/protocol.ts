@@ -53,6 +53,8 @@ export type {
   DriveResponse,
   DriveResponseStatus,
   DriveScrollParams,
+  DriveScreenshotParams,
+  DriveScreenshotResult,
   DriveSelectParams,
   DriveTabActivateParams,
   DriveTabCloseParams,

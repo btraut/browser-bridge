@@ -798,6 +798,37 @@ export const runDriveAction = async (
           'scroll requires delta_x/delta_y or top/left.'
         );
       }
+      case 'drive.screenshot_meta': {
+        const root = document.documentElement;
+        const body = document.body;
+        const scrollWidth = Math.max(
+          root?.scrollWidth ?? 0,
+          root?.clientWidth ?? 0,
+          body?.scrollWidth ?? 0,
+          body?.clientWidth ?? 0
+        );
+        const scrollHeight = Math.max(
+          root?.scrollHeight ?? 0,
+          root?.clientHeight ?? 0,
+          body?.scrollHeight ?? 0,
+          body?.clientHeight ?? 0
+        );
+
+        return ok({
+          scrollX: window.scrollX,
+          scrollY: window.scrollY,
+          viewportWidth: window.innerWidth,
+          viewportHeight: window.innerHeight,
+          scrollWidth,
+          scrollHeight,
+          devicePixelRatio:
+            typeof window.devicePixelRatio === 'number' &&
+            Number.isFinite(window.devicePixelRatio) &&
+            window.devicePixelRatio > 0
+              ? window.devicePixelRatio
+              : 1,
+        });
+      }
       case 'drive.wait_for': {
         const { condition, timeout_ms } = parseParams();
         if (!condition || typeof condition !== 'object') {
