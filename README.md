@@ -24,8 +24,8 @@ browser-bridge --help
 
 Chrome Web Store listing is pending. For now, install the extension manually:
 
-1. Clone this repo.
-2. Install deps and build:
+1. Download `browser-bridge-extension-vX.Y.Z.zip` from GitHub Releases and unzip it (recommended), or clone this repo.
+2. If you're using the repo, install deps and build:
 
 ```bash
 npm install
@@ -33,7 +33,7 @@ npm run build
 ```
 
 3. Open Chrome and navigate to `chrome://extensions`.
-4. Enable **Developer mode**, click **Load unpacked**, and select `packages/extension` (the folder with `manifest.json`).
+4. Enable **Developer mode**, click **Load unpacked**, and select the unpacked extension folder (the folder with `manifest.json`).
 
 ## Quickstart
 
