@@ -1,5 +1,8 @@
 import { Command } from 'commander';
-import { startMcpServer } from '@btraut/browser-bridge-mcp-adapter';
+import {
+  startMcpHttpServer,
+  startMcpServer,
+} from '@btraut/browser-bridge-mcp-adapter';
 import { createCoreClient } from '../core-client';
 import { getGlobalOptions, runLocal } from '../cli-runtime';
 import { checkboxPrompt, requireTty } from '../tui';
@@ -87,4 +90,47 @@ export const registerMcpCommand = (program: Command): void => {
     .option('--name <name>', 'MCP server name')
     .option('--version <version>', 'MCP server version')
     .action(startServer);
+
+  mcp
+    .command('serve-http')
+    .description('Run the MCP server over Streamable HTTP')
+    .option('--name <name>', 'MCP server name')
+    .option('--version <version>', 'MCP server version')
+    .option('--host <host>', 'HTTP host (default 127.0.0.1)')
+    .option('--port <port>', 'HTTP port (default random available port)')
+    .option('--path <path>', 'HTTP path (default /mcp)')
+    .action(async (options, command: Command) => {
+      const globals = getGlobalOptions(command);
+      const coreClient = createCoreClient({
+        host: globals.host,
+        port: globals.port,
+        ensureDaemon: globals.daemon !== false,
+      });
+
+      const parsedPort =
+        typeof options.port === 'string' && options.port.length > 0
+          ? Number(options.port)
+          : undefined;
+
+      try {
+        const handle = await startMcpHttpServer({
+          name: options.name,
+          version: options.version,
+          host: options.host,
+          port:
+            typeof parsedPort === 'number' && Number.isFinite(parsedPort)
+              ? parsedPort
+              : undefined,
+          path: options.path,
+          coreClient,
+        });
+
+        console.error(
+          `MCP HTTP server listening on http://${handle.host}:${handle.port}${handle.path}`
+        );
+      } catch (error) {
+        console.error(error);
+        process.exitCode = 1;
+      }
+    });
 };

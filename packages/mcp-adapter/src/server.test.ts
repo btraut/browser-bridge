@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import type { CoreClient } from './core-client';
-import { createMcpServer, startMcpServer } from './server';
+import { createMcpServer, startMcpHttpServer, startMcpServer } from './server';
 import { TOOL_DEFINITIONS } from './tools';
 
 describe('mcp-adapter server', () => {
@@ -47,6 +47,58 @@ describe('mcp-adapter server', () => {
       expect(handle.transport).toBeInstanceOf(StdioServerTransport);
     } finally {
       connectSpy.mockRestore();
+    }
+  });
+
+  it('starts streamable HTTP transport on startMcpHttpServer', async () => {
+    const coreClient: CoreClient = {
+      baseUrl: 'http://core',
+      post: vi.fn(),
+    };
+
+    const handle = await startMcpHttpServer({
+      coreClient,
+      host: '127.0.0.1',
+      port: 0,
+      path: '/mcp',
+      name: 'test-server',
+      version: '0.0.0',
+    });
+
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 3000);
+      try {
+        const response = await fetch(
+          `http://${handle.host}:${handle.port}${handle.path}`,
+          {
+            method: 'POST',
+            headers: {
+              accept: 'application/json, text/event-stream',
+              'content-type': 'application/json',
+            },
+            body: JSON.stringify({
+              jsonrpc: '2.0',
+              id: 1,
+              method: 'initialize',
+              params: {
+                protocolVersion: '2025-03-26',
+                capabilities: {},
+                clientInfo: { name: 'vitest', version: '0.0.0' },
+              },
+            }),
+            signal: controller.signal,
+          }
+        );
+
+        expect(response.status).toBe(200);
+        expect(response.headers.get('mcp-session-id')).toBeTruthy();
+        await response.body?.cancel();
+      } finally {
+        clearTimeout(timeout);
+      }
+    } finally {
+      await handle.close();
     }
   });
 });
