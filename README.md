@@ -17,20 +17,20 @@ What makes it different:
 - **Recovery-first**: sessions have an explicit state machine with `session.recover()` and `diagnostics doctor`.
 - **Inspect beyond screenshots**: DOM snapshots (AX + HTML) and `inspect dom-diff` to detect page changes.
 
-## Competitive Positioning
+## Why Browser Bridge
 
-Browser Bridge is built for agent reliability and "stay logged in" workflows, not for headless test automation.
+Browser Bridge is built for agent reliability and "stay logged in" workflows in your real Chrome, not for headless test automation.
 
-Compared to Playwright/Puppeteer-style tooling:
+If you're coming from Playwright/Puppeteer-style tooling:
 
 - Browser Bridge targets the user's existing, interactive Chrome session by default (typical Playwright/Puppeteer flows spin up a separate browser/context).
 - Browser Bridge surfaces retry guidance in the API (`retryable`) instead of forcing the agent to infer it from exceptions and timing.
 - Browser Bridge ships a first-class inspect plane (DOM snapshots, diffs, diagnostics) designed for LLM consumption, with output-bounding options to keep agent context small.
 
-Compared to extension-first MCP tools (example: mcp-chrome):
+If you're coming from an extension-only MCP tool:
 
 - Browser Bridge puts a stateful local Core daemon behind the tools (sessions, recovery, diagnostics, artifacts).
-- Drive is intentionally single-flight (mutex) for determinism; inspect is a separate plane that can keep producing structured state.
+- Drive actions are serialized for determinism; inspect is a separate plane that can keep producing structured state.
 - CLI works everywhere; MCP is optional.
 
 ## How It Works
