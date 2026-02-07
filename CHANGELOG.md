@@ -8,7 +8,7 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 
 ### Added
 
-_TBD_
+- `health_check` MCP tool and core endpoint (`/health_check`) for uptime/memory/session/extension status.
 
 ### Fixed
 

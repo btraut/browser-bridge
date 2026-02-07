@@ -517,6 +517,32 @@ export const MCP_TOOL_FIXTURES: ToolFixture[] = [
     },
   },
   {
+    name: 'health_check',
+    corePath: '/health_check',
+    input: {},
+    successEnvelope: {
+      ok: true,
+      result: {
+        started_at: '2026-02-07T00:00:00.000Z',
+        uptime_ms: 1234,
+        memory: {
+          rss: 1000000,
+          heapTotal: 2000000,
+          heapUsed: 1500000,
+          external: 500000,
+          arrayBuffers: 0,
+        },
+        sessions: {
+          active: 1,
+        },
+        extension: {
+          connected: true,
+          last_seen_at: '2026-02-07T00:00:00.000Z',
+        },
+      },
+    },
+  },
+  {
     name: 'diagnostics.doctor',
     corePath: '/diagnostics/doctor',
     input: { session_id: 'session-1' },

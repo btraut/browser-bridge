@@ -60,6 +60,8 @@ import {
   FormFieldInfoSchema,
   FormInfoSchema,
   EvaluateResultSchema,
+  HealthCheckInputSchema,
+  HealthCheckOutputSchema,
   InspectConsoleListInputSchema,
   InspectConsoleListOutputSchema,
   InspectConsistencySchema,
@@ -110,6 +112,9 @@ export type Locator = z.infer<typeof LocatorSchema>;
 export type OpResult = z.infer<typeof OpResultSchema>;
 
 export type SessionId = z.infer<typeof SessionIdSchema>;
+
+export type HealthCheckInput = z.infer<typeof HealthCheckInputSchema>;
+export type HealthCheckOutput = z.infer<typeof HealthCheckOutputSchema>;
 
 export type SessionState = z.infer<typeof SessionStateSchema>;
 export type SessionInfo = z.infer<typeof SessionInfoSchema>;

@@ -1,5 +1,8 @@
 import { Command } from 'commander';
-import { DiagnosticsDoctorInputSchema } from '@btraut/browser-bridge-shared';
+import {
+  DiagnosticsDoctorInputSchema,
+  HealthCheckInputSchema,
+} from '@btraut/browser-bridge-shared';
 import { parseInput } from '../cli-output';
 import { runCommand } from '../cli-runtime';
 
@@ -18,6 +21,16 @@ export const registerDiagnosticsCommands = (program: Command): void => {
           session_id: options.sessionId,
         });
         return client.post('/diagnostics/doctor', payload);
+      });
+    });
+
+  diagnostics
+    .command('health-check')
+    .description('Run a lightweight health check')
+    .action(async (_options, command) => {
+      await runCommand(command, (client) => {
+        const payload = parseInput(HealthCheckInputSchema, {});
+        return client.post('/health_check', payload);
       });
     });
 };

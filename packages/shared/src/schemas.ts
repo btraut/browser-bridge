@@ -602,6 +602,34 @@ export const ArtifactsScreenshotInputSchema = z.object({
 });
 export const ArtifactsScreenshotOutputSchema = ArtifactInfoSchema;
 
+export const HealthCheckInputSchema = z.object({});
+export const HealthCheckOutputSchema = z
+  .object({
+    started_at: z.string().min(1),
+    uptime_ms: z.number().finite().nonnegative(),
+    memory: z
+      .object({
+        rss: z.number().finite().nonnegative(),
+        heapTotal: z.number().finite().nonnegative(),
+        heapUsed: z.number().finite().nonnegative(),
+        external: z.number().finite().nonnegative(),
+        arrayBuffers: z.number().finite().nonnegative().optional(),
+      })
+      .passthrough(),
+    sessions: z
+      .object({
+        active: z.number().finite().nonnegative(),
+      })
+      .passthrough(),
+    extension: z
+      .object({
+        connected: z.boolean(),
+        last_seen_at: z.string().min(1).optional(),
+      })
+      .passthrough(),
+  })
+  .passthrough();
+
 export const DiagnosticsDoctorInputSchema = z.object({
   session_id: z.string().min(1).optional(),
 });

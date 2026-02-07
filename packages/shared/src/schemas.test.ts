@@ -6,6 +6,8 @@ import {
   DiagnosticReportSchema,
   DialogAcceptInputSchema,
   DialogDismissInputSchema,
+  HealthCheckInputSchema,
+  HealthCheckOutputSchema,
   DriveClickInputSchema,
   DriveDragInputSchema,
   DriveFillFormInputSchema,
@@ -349,6 +351,26 @@ describe('shared schemas', () => {
   it('parses diagnostics doctor with optional session', () => {
     const parsed = DiagnosticsDoctorInputSchema.parse({});
     expect(parsed.session_id).toBeUndefined();
+  });
+
+  it('parses health check output', () => {
+    const parsed = HealthCheckInputSchema.parse({});
+    expect(parsed).toEqual({});
+
+    const output = HealthCheckOutputSchema.parse({
+      started_at: '2026-02-07T00:00:00.000Z',
+      uptime_ms: 1234,
+      memory: {
+        rss: 1000000,
+        heapTotal: 2000000,
+        heapUsed: 1500000,
+        external: 500000,
+        arrayBuffers: 0,
+      },
+      sessions: { active: 1 },
+      extension: { connected: true },
+    });
+    expect(output.extension.connected).toBe(true);
   });
 
   it('parses diagnostics report with debugger info', () => {

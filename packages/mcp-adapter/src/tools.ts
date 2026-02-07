@@ -8,6 +8,8 @@ import {
   DialogAcceptOutputSchema,
   DialogDismissInputSchema,
   DialogDismissOutputSchema,
+  HealthCheckInputSchema,
+  HealthCheckOutputSchema,
   ErrorEnvelopeSchema,
   DriveClickInputSchema,
   DriveClickOutputSchema,
@@ -470,6 +472,17 @@ export const TOOL_DEFINITIONS: Array<{ name: string; config: ToolConfig }> = [
       inputSchema: ArtifactsScreenshotInputSchema,
       outputSchema: envelope(ArtifactsScreenshotOutputSchema),
       corePath: '/artifacts/screenshot',
+    },
+  },
+  {
+    name: 'health_check',
+    config: {
+      title: 'Health Check',
+      description:
+        'Check server health including uptime, memory usage, active session count, and extension connection status.',
+      inputSchema: HealthCheckInputSchema,
+      outputSchema: envelope(HealthCheckOutputSchema),
+      corePath: '/health_check',
     },
   },
   {
