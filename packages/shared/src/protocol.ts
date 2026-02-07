@@ -130,7 +130,8 @@ export type DriveScrollParams = {
 
 export type DriveScreenshotParams = {
   tab_id?: number;
-  mode?: 'viewport' | 'full_page';
+  mode?: 'viewport' | 'full_page' | 'element';
+  selector?: string;
   format?: 'png' | 'jpeg' | 'webp';
   quality?: number;
 };

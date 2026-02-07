@@ -829,6 +829,63 @@ export const runDriveAction = async (
               : 1,
         });
       }
+      case 'drive.screenshot_element': {
+        const { selector } = parseParams();
+        if (typeof selector !== 'string' || selector.trim().length === 0) {
+          return buildError(
+            'INVALID_ARGUMENT',
+            'selector must be a non-empty string.'
+          );
+        }
+
+        let element: Element | null = null;
+        try {
+          element = document.querySelector(selector);
+        } catch {
+          return buildError(
+            'INVALID_ARGUMENT',
+            'selector must be a valid CSS selector.'
+          );
+        }
+
+        if (!element) {
+          return buildError('INVALID_ARGUMENT', 'No element matched selector.');
+        }
+
+        try {
+          (element as HTMLElement).scrollIntoView?.({
+            block: 'center',
+            inline: 'center',
+          });
+        } catch {
+          // Ignore scroll failures; capture whatever is visible.
+        }
+
+        const rect = element.getBoundingClientRect();
+        const scrollX = window.scrollX;
+        const scrollY = window.scrollY;
+        const dpr =
+          typeof window.devicePixelRatio === 'number' &&
+          Number.isFinite(window.devicePixelRatio) &&
+          window.devicePixelRatio > 0
+            ? window.devicePixelRatio
+            : 1;
+
+        return ok({
+          selector,
+          pageX: rect.left + scrollX,
+          pageY: rect.top + scrollY,
+          width: rect.width,
+          height: rect.height,
+          viewportLeft: rect.left,
+          viewportTop: rect.top,
+          viewportWidth: window.innerWidth,
+          viewportHeight: window.innerHeight,
+          scrollX,
+          scrollY,
+          devicePixelRatio: dpr,
+        });
+      }
       case 'drive.wait_for': {
         const { condition, timeout_ms } = parseParams();
         if (!condition || typeof condition !== 'object') {

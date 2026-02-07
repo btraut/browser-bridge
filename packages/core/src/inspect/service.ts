@@ -681,6 +681,7 @@ export class InspectService {
   async screenshot(input: {
     sessionId: string;
     target: 'viewport' | 'full';
+    selector?: string;
     format?: 'png' | 'jpeg' | 'webp';
     quality?: number;
     targetHint?: TargetHint;
@@ -716,6 +717,59 @@ export class InspectService {
         throw error;
       }
     };
+
+    if (input.selector) {
+      if (!this.extensionBridge?.request) {
+        const error = new InspectError(
+          'NOT_SUPPORTED',
+          'Element screenshots require an extension that supports drive.screenshot.'
+        );
+        this.recordError(error);
+        throw error;
+      }
+
+      const response =
+        await this.extensionBridge.request<DriveScreenshotResult>(
+          'drive.screenshot',
+          {
+            tab_id: selection.tabId,
+            mode: 'element',
+            selector: input.selector,
+            format,
+            ...(typeof input.quality === 'number'
+              ? { quality: input.quality }
+              : {}),
+          },
+          120000
+        );
+
+      if (response.status === 'error') {
+        const error = new InspectError(
+          (response.error?.code as InspectErrorCode) ?? 'INSPECT_UNAVAILABLE',
+          response.error?.message ?? 'Failed to capture element screenshot.',
+          {
+            retryable: response.error?.retryable ?? false,
+            ...(response.error?.details
+              ? { details: response.error.details }
+              : {}),
+          }
+        );
+        this.recordError(error);
+        throw error;
+      }
+
+      const result = response.result;
+      if (!result?.data_base64 || typeof result.data_base64 !== 'string') {
+        const error = new InspectError(
+          'INSPECT_UNAVAILABLE',
+          'Failed to capture element screenshot.'
+        );
+        this.recordError(error);
+        throw error;
+      }
+
+      return await writeArtifact(result.data_base64);
+    }
 
     if (input.target === 'full' && this.extensionBridge?.request) {
       try {

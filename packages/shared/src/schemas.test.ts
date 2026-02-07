@@ -348,6 +348,14 @@ describe('shared schemas', () => {
     expect(parsed.quality).toBe(80);
   });
 
+  it('accepts element selector for screenshots', () => {
+    const parsed = ArtifactsScreenshotInputSchema.parse({
+      session_id: 'session-1',
+      selector: '#app > button.primary',
+    });
+    expect(parsed.selector).toBe('#app > button.primary');
+  });
+
   it('parses diagnostics doctor with optional session', () => {
     const parsed = DiagnosticsDoctorInputSchema.parse({});
     expect(parsed.session_id).toBeUndefined();

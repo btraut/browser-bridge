@@ -930,7 +930,9 @@ class DriveSocket {
           }
 
           const mode =
-            params.mode === 'full_page' || params.mode === 'viewport'
+            params.mode === 'full_page' ||
+            params.mode === 'viewport' ||
+            params.mode === 'element'
               ? params.mode
               : 'viewport';
           const format =
@@ -983,6 +985,203 @@ class DriveSocket {
             );
           };
 
+          const scrollTo = async (top: number, left: number): Promise<void> => {
+            const result = await sendToTab(tabId as number, 'drive.scroll', {
+              top,
+              left,
+              behavior: 'auto',
+              tab_id: tabId,
+            });
+            if (!result.ok) {
+              throw new Error(result.error.message);
+            }
+          };
+
+          const getMetaInfo = async (): Promise<{
+            viewportHeight: number;
+            scrollHeight: number;
+            scrollY: number;
+            scrollX: number;
+            devicePixelRatio: number;
+            fullHeightPx: number;
+            positions: number[];
+          }> => {
+            const meta = await sendToTab(
+              tabId as number,
+              'drive.screenshot_meta'
+            );
+            if (!meta.ok) {
+              throw new Error(meta.error.message);
+            }
+            const payload = meta.result;
+            if (!payload || typeof payload !== 'object') {
+              throw new Error('Invalid screenshot metadata response.');
+            }
+
+            const record = payload as Record<string, unknown>;
+            const viewportHeight = record.viewportHeight;
+            const scrollHeight = record.scrollHeight;
+            const scrollY = record.scrollY;
+            const scrollX = record.scrollX;
+            const dpr = record.devicePixelRatio;
+
+            if (
+              typeof viewportHeight !== 'number' ||
+              !Number.isFinite(viewportHeight) ||
+              viewportHeight <= 0
+            ) {
+              throw new Error(
+                'viewportHeight missing from screenshot metadata.'
+              );
+            }
+            if (
+              typeof scrollHeight !== 'number' ||
+              !Number.isFinite(scrollHeight) ||
+              scrollHeight <= 0
+            ) {
+              throw new Error('scrollHeight missing from screenshot metadata.');
+            }
+
+            const devicePixelRatio =
+              typeof dpr === 'number' && Number.isFinite(dpr) && dpr > 0
+                ? dpr
+                : 1;
+
+            const fullHeightPx = Math.round(scrollHeight * devicePixelRatio);
+            const maxHeightPx = 50000;
+            if (fullHeightPx > maxHeightPx) {
+              throw new Error(
+                `Page is too tall to capture (max ${maxHeightPx}px).`
+              );
+            }
+
+            const maxScrollY = Math.max(0, scrollHeight - viewportHeight);
+            const step = viewportHeight;
+            const positions: number[] = [];
+            for (let y = 0; y < maxScrollY; y += step) {
+              positions.push(y);
+            }
+            positions.push(maxScrollY);
+
+            const maxTiles = 200;
+            if (positions.length > maxTiles) {
+              throw new Error(
+                `Page requires too many tiles to capture (${positions.length}).`
+              );
+            }
+
+            return {
+              viewportHeight,
+              scrollHeight,
+              scrollY:
+                typeof scrollY === 'number' && Number.isFinite(scrollY)
+                  ? scrollY
+                  : 0,
+              scrollX:
+                typeof scrollX === 'number' && Number.isFinite(scrollX)
+                  ? scrollX
+                  : 0,
+              devicePixelRatio,
+              fullHeightPx,
+              positions,
+            };
+          };
+
+          const canvasToResult = async (
+            canvas: OffscreenCanvas
+          ): Promise<{
+            mime: string;
+            data_base64: string;
+            width_px: number;
+            height_px: number;
+          }> => {
+            const mime =
+              format === 'jpeg'
+                ? 'image/jpeg'
+                : format === 'webp'
+                  ? 'image/webp'
+                  : 'image/png';
+            const q =
+              typeof quality === 'number' && Number.isFinite(quality)
+                ? Math.max(0, Math.min(1, quality / 100))
+                : undefined;
+            const blob =
+              format === 'png'
+                ? await canvas.convertToBlob({ type: mime })
+                : await canvas.convertToBlob({ type: mime, quality: q });
+            const base64 = arrayBufferToBase64(await blob.arrayBuffer());
+            return {
+              mime,
+              data_base64: base64,
+              width_px: canvas.width,
+              height_px: canvas.height,
+            };
+          };
+
+          const captureFullPageCanvas = async (
+            metaInfo: Awaited<ReturnType<typeof getMetaInfo>>
+          ): Promise<OffscreenCanvas> => {
+            try {
+              await scrollTo(0, 0);
+              await delayMs(100);
+
+              const firstDataUrl = await captureVisible();
+              const firstBlob = await (await fetch(firstDataUrl)).blob();
+              const firstBitmap = await createImageBitmap(firstBlob);
+
+              const canvas = new OffscreenCanvas(
+                firstBitmap.width,
+                metaInfo.fullHeightPx
+              );
+              const ctx = canvas.getContext('2d');
+              if (!ctx) {
+                firstBitmap.close();
+                throw new Error('Canvas context unavailable.');
+              }
+
+              const drawTile = (bitmap: ImageBitmap, yCss: number): void => {
+                const destY = Math.round(yCss * metaInfo.devicePixelRatio);
+                const remaining = metaInfo.fullHeightPx - destY;
+                if (remaining <= 0) {
+                  return;
+                }
+                const drawHeight = Math.min(bitmap.height, remaining);
+                ctx.drawImage(
+                  bitmap,
+                  0,
+                  0,
+                  bitmap.width,
+                  drawHeight,
+                  0,
+                  destY,
+                  bitmap.width,
+                  drawHeight
+                );
+              };
+
+              drawTile(firstBitmap, 0);
+              firstBitmap.close();
+
+              for (const y of metaInfo.positions.slice(1)) {
+                await scrollTo(y, 0);
+                await delayMs(100);
+                const dataUrl = await captureVisible();
+                const blob = await (await fetch(dataUrl)).blob();
+                const bitmap = await createImageBitmap(blob);
+                drawTile(bitmap, y);
+                bitmap.close();
+              }
+
+              return canvas;
+            } finally {
+              try {
+                await scrollTo(metaInfo.scrollY, metaInfo.scrollX);
+              } catch {
+                // Ignore restoration errors.
+              }
+            }
+          };
+
           if (mode === 'viewport') {
             try {
               const dataUrl = await captureVisible();
@@ -1005,206 +1204,193 @@ class DriveSocket {
             return;
           }
 
-          const meta = await sendToTab(
-            tabId as number,
-            'drive.screenshot_meta'
-          );
-          if (!meta.ok) {
-            respondError(meta.error);
-            return;
-          }
-          const payload = meta.result;
-          if (!payload || typeof payload !== 'object') {
-            respondError({
-              code: 'EVALUATION_FAILED',
-              message: 'Invalid screenshot metadata response.',
-              retryable: false,
-            });
-            return;
-          }
-          const record = payload as Record<string, unknown>;
-          const viewportHeight = record.viewportHeight;
-          const scrollHeight = record.scrollHeight;
-          const scrollY = record.scrollY;
-          const scrollX = record.scrollX;
-          const dpr = record.devicePixelRatio;
-
-          if (
-            typeof viewportHeight !== 'number' ||
-            !Number.isFinite(viewportHeight) ||
-            viewportHeight <= 0
-          ) {
-            respondError({
-              code: 'EVALUATION_FAILED',
-              message: 'viewportHeight missing from screenshot metadata.',
-              retryable: false,
-            });
-            return;
-          }
-          if (
-            typeof scrollHeight !== 'number' ||
-            !Number.isFinite(scrollHeight) ||
-            scrollHeight <= 0
-          ) {
-            respondError({
-              code: 'EVALUATION_FAILED',
-              message: 'scrollHeight missing from screenshot metadata.',
-              retryable: false,
-            });
-            return;
-          }
-          const devicePixelRatio =
-            typeof dpr === 'number' && Number.isFinite(dpr) && dpr > 0
-              ? dpr
-              : 1;
-
-          const fullHeightPx = Math.round(scrollHeight * devicePixelRatio);
-          const maxHeightPx = 50000;
-          if (fullHeightPx > maxHeightPx) {
-            respondError({
-              code: 'NOT_SUPPORTED',
-              message: `Page is too tall to capture (max ${maxHeightPx}px).`,
-              retryable: false,
-              details: { height_px: fullHeightPx, max_height_px: maxHeightPx },
-            });
-            return;
-          }
-
-          const maxScrollY = Math.max(0, scrollHeight - viewportHeight);
-          const step = viewportHeight;
-          const positions: number[] = [];
-          for (let y = 0; y < maxScrollY; y += step) {
-            positions.push(y);
-          }
-          positions.push(maxScrollY);
-
-          const maxTiles = 200;
-          if (positions.length > maxTiles) {
-            respondError({
-              code: 'NOT_SUPPORTED',
-              message: `Page requires too many tiles to capture (${positions.length}).`,
-              retryable: false,
-              details: { tiles: positions.length, max_tiles: maxTiles },
-            });
-            return;
-          }
-
-          const scrollTo = async (top: number, left: number): Promise<void> => {
-            const result = await sendToTab(tabId as number, 'drive.scroll', {
-              top,
-              left,
-              behavior: 'auto',
-              tab_id: tabId,
-            });
-            if (!result.ok) {
-              throw new Error(result.error.message);
-            }
-          };
-
-          try {
-            await scrollTo(0, 0);
-            await delayMs(100);
-
-            const firstDataUrl = await captureVisible();
-            const firstBlob = await (await fetch(firstDataUrl)).blob();
-            const firstBitmap = await createImageBitmap(firstBlob);
-
-            const canvas = new OffscreenCanvas(firstBitmap.width, fullHeightPx);
-            const ctx = canvas.getContext('2d');
-            if (!ctx) {
-              firstBitmap.close();
+          if (mode === 'element') {
+            const selector = params.selector;
+            if (typeof selector !== 'string' || selector.trim().length === 0) {
               respondError({
-                code: 'NOT_SUPPORTED',
-                message: 'Canvas context unavailable.',
+                code: 'INVALID_ARGUMENT',
+                message: 'selector must be a non-empty string.',
                 retryable: false,
               });
               return;
             }
 
-            const drawTile = (bitmap: ImageBitmap, yCss: number): void => {
-              const destY = Math.round(yCss * devicePixelRatio);
-              const remaining = fullHeightPx - destY;
-              if (remaining <= 0) {
+            let metaInfo: Awaited<ReturnType<typeof getMetaInfo>>;
+            try {
+              metaInfo = await getMetaInfo();
+            } catch (error) {
+              respondError({
+                code: 'EVALUATION_FAILED',
+                message:
+                  error instanceof Error
+                    ? error.message
+                    : 'Failed to read screenshot metadata.',
+                retryable: false,
+              });
+              return;
+            }
+
+            const element = await sendToTab(
+              tabId as number,
+              'drive.screenshot_element',
+              { selector }
+            );
+            if (!element.ok) {
+              respondError(element.error);
+              return;
+            }
+
+            const payload = element.result;
+            if (!payload || typeof payload !== 'object') {
+              respondError({
+                code: 'EVALUATION_FAILED',
+                message: 'Invalid element metadata response.',
+                retryable: false,
+              });
+              return;
+            }
+
+            const record = payload as Record<string, unknown>;
+            const viewportLeft = record.viewportLeft;
+            const viewportTop = record.viewportTop;
+            const viewportWidth = record.viewportWidth;
+            const viewportHeight = record.viewportHeight;
+            const width = record.width;
+            const height = record.height;
+            const pageX = record.pageX;
+            const pageY = record.pageY;
+            const dpr = record.devicePixelRatio;
+            const devicePixelRatio =
+              typeof dpr === 'number' && Number.isFinite(dpr) && dpr > 0
+                ? dpr
+                : metaInfo.devicePixelRatio;
+
+            if (
+              typeof viewportLeft !== 'number' ||
+              typeof viewportTop !== 'number' ||
+              typeof viewportWidth !== 'number' ||
+              typeof viewportHeight !== 'number' ||
+              typeof width !== 'number' ||
+              typeof height !== 'number' ||
+              typeof pageX !== 'number' ||
+              typeof pageY !== 'number' ||
+              !Number.isFinite(viewportLeft) ||
+              !Number.isFinite(viewportTop) ||
+              !Number.isFinite(viewportWidth) ||
+              !Number.isFinite(viewportHeight) ||
+              !Number.isFinite(width) ||
+              !Number.isFinite(height) ||
+              !Number.isFinite(pageX) ||
+              !Number.isFinite(pageY)
+            ) {
+              respondError({
+                code: 'EVALUATION_FAILED',
+                message: 'Invalid element bounding box metadata.',
+                retryable: false,
+              });
+              return;
+            }
+
+            const fitsInViewport =
+              viewportLeft >= 0 &&
+              viewportTop >= 0 &&
+              viewportLeft + width <= viewportWidth &&
+              viewportTop + height <= viewportHeight;
+
+            const cropW = Math.max(1, Math.round(width * devicePixelRatio));
+            const cropH = Math.max(1, Math.round(height * devicePixelRatio));
+
+            try {
+              if (fitsInViewport) {
+                const dataUrl = await captureVisible();
+                const blob = await (await fetch(dataUrl)).blob();
+                const bitmap = await createImageBitmap(blob);
+                try {
+                  const cropX = Math.max(
+                    0,
+                    Math.round(viewportLeft * devicePixelRatio)
+                  );
+                  const cropY = Math.max(
+                    0,
+                    Math.round(viewportTop * devicePixelRatio)
+                  );
+                  const srcW = Math.min(cropW, bitmap.width - cropX);
+                  const srcH = Math.min(cropH, bitmap.height - cropY);
+                  if (srcW <= 0 || srcH <= 0) {
+                    throw new Error('Element is outside screenshot bounds.');
+                  }
+                  const cropCanvas = new OffscreenCanvas(srcW, srcH);
+                  const ctx = cropCanvas.getContext('2d');
+                  if (!ctx) {
+                    throw new Error('Canvas context unavailable.');
+                  }
+                  ctx.drawImage(
+                    bitmap,
+                    cropX,
+                    cropY,
+                    srcW,
+                    srcH,
+                    0,
+                    0,
+                    srcW,
+                    srcH
+                  );
+                  respondOk(await canvasToResult(cropCanvas));
+                } finally {
+                  bitmap.close();
+                }
                 return;
               }
-              const drawHeight = Math.min(bitmap.height, remaining);
+
+              const fullCanvas = await captureFullPageCanvas(metaInfo);
+              const cropX = Math.max(0, Math.round(pageX * devicePixelRatio));
+              const cropY = Math.max(0, Math.round(pageY * devicePixelRatio));
+              const srcW = Math.min(cropW, fullCanvas.width - cropX);
+              const srcH = Math.min(cropH, fullCanvas.height - cropY);
+              if (srcW <= 0 || srcH <= 0) {
+                throw new Error('Element is outside screenshot bounds.');
+              }
+              const cropCanvas = new OffscreenCanvas(srcW, srcH);
+              const ctx = cropCanvas.getContext('2d');
+              if (!ctx) {
+                throw new Error('Canvas context unavailable.');
+              }
               ctx.drawImage(
-                bitmap,
+                fullCanvas,
+                cropX,
+                cropY,
+                srcW,
+                srcH,
                 0,
                 0,
-                bitmap.width,
-                drawHeight,
-                0,
-                destY,
-                bitmap.width,
-                drawHeight
+                srcW,
+                srcH
               );
-            };
-
-            drawTile(firstBitmap, 0);
-            firstBitmap.close();
-
-            for (const y of positions.slice(1)) {
-              await scrollTo(y, 0);
-              await delayMs(100);
-              const dataUrl = await captureVisible();
-              const blob = await (await fetch(dataUrl)).blob();
-              const bitmap = await createImageBitmap(blob);
-              drawTile(bitmap, y);
-              bitmap.close();
-            }
-
-            const restoreTop =
-              typeof scrollY === 'number' && Number.isFinite(scrollY)
-                ? scrollY
-                : 0;
-            const restoreLeft =
-              typeof scrollX === 'number' && Number.isFinite(scrollX)
-                ? scrollX
-                : 0;
-            await scrollTo(restoreTop, restoreLeft);
-
-            const mime =
-              format === 'jpeg'
-                ? 'image/jpeg'
-                : format === 'webp'
-                  ? 'image/webp'
-                  : 'image/png';
-            const q =
-              typeof quality === 'number' && Number.isFinite(quality)
-                ? Math.max(0, Math.min(1, quality / 100))
-                : undefined;
-            const blob =
-              format === 'png'
-                ? await canvas.convertToBlob({ type: mime })
-                : await canvas.convertToBlob({ type: mime, quality: q });
-            const base64 = arrayBufferToBase64(await blob.arrayBuffer());
-
-            respondOk({
-              mime,
-              data_base64: base64,
-              width_px: canvas.width,
-              height_px: canvas.height,
-            });
-          } catch (error) {
-            try {
-              const restoreTop =
-                typeof scrollY === 'number' && Number.isFinite(scrollY)
-                  ? scrollY
-                  : 0;
-              const restoreLeft =
-                typeof scrollX === 'number' && Number.isFinite(scrollX)
-                  ? scrollX
-                  : 0;
-              await sendToTab(tabId as number, 'drive.scroll', {
-                top: restoreTop,
-                left: restoreLeft,
-                behavior: 'auto',
-                tab_id: tabId,
+              respondOk(await canvasToResult(cropCanvas));
+            } catch (error) {
+              respondError({
+                code: 'ARTIFACT_IO_ERROR',
+                message:
+                  error instanceof Error
+                    ? error.message
+                    : 'Failed to capture element screenshot.',
+                retryable: false,
               });
-            } catch {
-              // Ignore restoration errors.
+            } finally {
+              try {
+                await scrollTo(metaInfo.scrollY, metaInfo.scrollX);
+              } catch {
+                // Ignore.
+              }
             }
+            return;
+          }
+
+          try {
+            const metaInfo = await getMetaInfo();
+            const canvas = await captureFullPageCanvas(metaInfo);
+            respondOk(await canvasToResult(canvas));
+          } catch (error) {
             respondError({
               code: 'ARTIFACT_IO_ERROR',
               message:

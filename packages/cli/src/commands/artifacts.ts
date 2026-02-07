@@ -22,6 +22,10 @@ export const registerArtifactsCommands = (program: Command): void => {
     .requiredOption('--session-id <id>', 'Session identifier')
     .option('--target <target>', 'Screenshot target (viewport, full)')
     .option('--full-page', 'Capture full page (alias for --target full)')
+    .option(
+      '--selector <selector>',
+      'Capture a specific element by CSS selector'
+    )
     .option('--format <format>', 'Screenshot format (png, jpeg, webp)')
     .option('--quality <quality>', 'Screenshot quality (0-100) for jpeg/webp')
     .action(async (options, command) => {
@@ -30,6 +34,7 @@ export const registerArtifactsCommands = (program: Command): void => {
           session_id: options.sessionId,
           target: options.target,
           fullPage: Boolean(options.fullPage),
+          selector: options.selector,
           format: options.format,
           quality: parseNumber(options.quality),
         });

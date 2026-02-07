@@ -12,6 +12,7 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 - Full-page scrolling screenshots for `artifacts.screenshot` via `fullPage: true` (scroll + stitch, up to ~50K px tall).
 - MCP Streamable HTTP server transport (in addition to stdio).
 - Pre-built Chrome extension zip attached to GitHub releases.
+- Element-targeted screenshots for `artifacts.screenshot` via `selector`.
 
 ### Fixed
 

@@ -120,6 +120,7 @@ export const registerArtifactsRoutes = (
       const result = await inspect.screenshot({
         sessionId: input.session_id,
         target,
+        selector: input.selector,
         format: input.format,
         quality: input.quality,
         targetHint: hint,
