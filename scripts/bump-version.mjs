@@ -59,6 +59,12 @@ const usage = () => {
 const repoRoot = process.cwd();
 const rootPkgPath = path.join(repoRoot, 'package.json');
 const packagesRoot = path.join(repoRoot, 'packages');
+const extensionManifestPath = path.join(
+  repoRoot,
+  'packages',
+  'extension',
+  'manifest.json'
+);
 
 const run = async () => {
   let targetVersion;
@@ -99,6 +105,14 @@ const run = async () => {
     }
     pkg.version = targetVersion;
     await writeJson(pkgPath, pkg);
+  }
+
+  // Keep the Chrome extension manifest version in sync with the repo version.
+  // (Manifest versions must be monotonically increasing for Chrome updates.)
+  const manifest = await readJson(extensionManifestPath);
+  if (typeof manifest === 'object' && manifest && 'version' in manifest) {
+    manifest.version = targetVersion;
+    await writeJson(extensionManifestPath, manifest);
   }
 
   console.log(`Bumped versions to ${targetVersion}`);

@@ -63,3 +63,11 @@ npm publish --access public --workspaces=false
 ```bash
 git push origin main --follow-tags
 ```
+
+## Extension Zip (GitHub Releases)
+
+When you push a `vX.Y.Z` tag, GitHub Actions will create/update the matching GitHub Release and attach a pre-built Chrome extension zip:
+
+- `browser-bridge-extension-vX.Y.Z.zip`
+
+Unzip it and load the unpacked folder via `chrome://extensions`.
