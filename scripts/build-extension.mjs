@@ -14,6 +14,20 @@ const outdir = path.join(extensionRoot, 'dist');
 await fs.rm(outdir, { recursive: true, force: true });
 await fs.mkdir(outdir, { recursive: true });
 
+const buildClassicScript = async (infile, outfile) => {
+  // MV3 classic scripts must not contain top-level `import`/`export`. Bundle to an IIFE.
+  await build({
+    entryPoints: [infile],
+    outfile,
+    bundle: true,
+    format: 'iife',
+    platform: 'browser',
+    target: ['es2020'],
+    sourcemap: true,
+    logLevel: 'info',
+  });
+};
+
 // MV3 background service workers can be ESM ("type": "module").
 await build({
   entryPoints: [path.join(extensionRoot, 'src', 'background.ts')],
@@ -26,15 +40,17 @@ await build({
   logLevel: 'info',
 });
 
-// MV3 content scripts are *not* module scripts; they must not contain top-level
-// `import`/`export`. Bundle to an IIFE to guarantee classic-script compatibility.
-await build({
-  entryPoints: [path.join(extensionRoot, 'src', 'content.ts')],
-  outfile: path.join(outdir, 'content.js'),
-  bundle: true,
-  format: 'iife',
-  platform: 'browser',
-  target: ['es2020'],
-  sourcemap: true,
-  logLevel: 'info',
-});
+await buildClassicScript(
+  path.join(extensionRoot, 'src', 'content.ts'),
+  path.join(outdir, 'content.js')
+);
+
+await buildClassicScript(
+  path.join(extensionRoot, 'src', 'permission-prompt-ui.ts'),
+  path.join(outdir, 'permission-prompt-ui.js')
+);
+
+await buildClassicScript(
+  path.join(extensionRoot, 'src', 'options-ui.ts'),
+  path.join(outdir, 'options-ui.js')
+);

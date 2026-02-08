@@ -16,6 +16,17 @@ const readJson = async (filePath) => {
   return JSON.parse(raw);
 };
 
+const maybeCopyFile = async (fromPath, toPath) => {
+  try {
+    await fs.cp(fromPath, toPath);
+  } catch (error) {
+    if (error && typeof error === 'object' && error.code === 'ENOENT') {
+      return;
+    }
+    throw error;
+  }
+};
+
 const writeJson = async (filePath, value) => {
   await fs.writeFile(filePath, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
 };
@@ -79,6 +90,14 @@ try {
   await fs.cp(assetsPath, path.join(stagingRoot, 'assets'), {
     recursive: true,
   });
+  await maybeCopyFile(
+    path.join(extensionRoot, 'permission.html'),
+    path.join(stagingRoot, 'permission.html')
+  );
+  await maybeCopyFile(
+    path.join(extensionRoot, 'options.html'),
+    path.join(stagingRoot, 'options.html')
+  );
 
   // Zip the staged extension directory.
   run('zip', ['-r', outPath, '.'], { cwd: stagingRoot });

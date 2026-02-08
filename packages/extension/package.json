@@ -11,6 +11,8 @@
   "files": [
     "dist",
     "manifest.json",
-    "assets"
+    "assets",
+    "permission.html",
+    "options.html"
   ]
 }
