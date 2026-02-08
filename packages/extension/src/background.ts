@@ -14,6 +14,12 @@ import type {
 } from './protocol.js';
 import { sanitizeDriveErrorInfo } from './error-sanitizer.js';
 import { PermissionPromptController } from './permission-prompt.js';
+import {
+  allowSiteAlways,
+  isSiteAllowed,
+  siteKeyFromUrl,
+  touchSiteLastUsed,
+} from './site-permissions.js';
 
 type ContentResult =
   | { ok: true; result?: unknown }
@@ -771,9 +777,16 @@ class DriveSocket {
 
   private async handleRequest(message: ExtensionRequest): Promise<void> {
     let driveMessage: DriveRequest | null = null;
+    let gatedSiteKey: string | null = null;
+    let touchGatedSiteOnSuccess = false;
     const respondOk = (result?: unknown): void => {
       if (!driveMessage) {
         return;
+      }
+      if (touchGatedSiteOnSuccess && gatedSiteKey) {
+        void touchSiteLastUsed(gatedSiteKey).catch((error) => {
+          console.error('Failed to touch site allowlist entry:', error);
+        });
       }
       const response: DriveResponse = {
         id: driveMessage.id,
@@ -816,6 +829,178 @@ class DriveSocket {
       }
 
       driveMessage = message as DriveRequest;
+
+      const gatedActions = new Set<string>([
+        'drive.navigate',
+        'drive.go_back',
+        'drive.go_forward',
+        'drive.back',
+        'drive.forward',
+        'drive.click',
+        'drive.hover',
+        'drive.select',
+        'drive.type',
+        'drive.fill_form',
+        'drive.drag',
+        'drive.handle_dialog',
+        'drive.key',
+        'drive.key_press',
+        'drive.scroll',
+        'drive.screenshot',
+        'drive.wait_for',
+      ]);
+
+      const gateDriveAction = async (): Promise<
+        | { ok: true; siteKey: string | null; touchOnSuccess: boolean }
+        | { ok: false; error: DriveErrorInfo }
+      > => {
+        const action = message.action;
+        if (!gatedActions.has(action)) {
+          return { ok: true, siteKey: null, touchOnSuccess: false };
+        }
+
+        const params = (message.params ?? {}) as Record<string, unknown>;
+        let siteKey: string | null = null;
+
+        if (action === 'drive.navigate') {
+          const url = params.url;
+          if (typeof url !== 'string' || url.length === 0) {
+            // Let the switch handle INVALID_ARGUMENT for missing url.
+            return { ok: true, siteKey: null, touchOnSuccess: false };
+          }
+          if (isRestrictedUrl(url)) {
+            return {
+              ok: false,
+              error: {
+                code: 'NOT_SUPPORTED',
+                message: 'Navigation is not supported for this URL.',
+                retryable: false,
+                details: { url },
+              },
+            };
+          }
+          siteKey = siteKeyFromUrl(url);
+          if (!siteKey) {
+            return {
+              ok: false,
+              error: {
+                code: 'INVALID_ARGUMENT',
+                message: 'Unable to resolve site permission key for url.',
+                retryable: false,
+                details: { url },
+              },
+            };
+          }
+        } else {
+          const tabId = params.tab_id;
+          if (tabId !== undefined && typeof tabId !== 'number') {
+            // Let the switch handle INVALID_ARGUMENT for tab_id shape.
+            return { ok: true, siteKey: null, touchOnSuccess: false };
+          }
+          const resolvedTabId =
+            typeof tabId === 'number' ? tabId : await getActiveTabId();
+          const tab = await getTab(resolvedTabId);
+          const url = tab.url;
+          if (typeof url !== 'string' || url.length === 0) {
+            return {
+              ok: false,
+              error: {
+                code: 'FAILED_PRECONDITION',
+                message: 'Active tab URL is unavailable for permission gating.',
+                retryable: false,
+                details: { tab_id: resolvedTabId },
+              },
+            };
+          }
+          if (isRestrictedUrl(url)) {
+            const message =
+              action === 'drive.screenshot'
+                ? 'Screenshots are not supported for this URL.'
+                : 'This action is not supported for this URL.';
+            return {
+              ok: false,
+              error: {
+                code: 'NOT_SUPPORTED',
+                message,
+                retryable: false,
+                details: { url },
+              },
+            };
+          }
+          siteKey = siteKeyFromUrl(url);
+          if (!siteKey) {
+            return {
+              ok: false,
+              error: {
+                code: 'FAILED_PRECONDITION',
+                message:
+                  'Unable to resolve site permission key for active tab.',
+                retryable: false,
+                details: { url, tab_id: resolvedTabId },
+              },
+            };
+          }
+        }
+
+        if (await isSiteAllowed(siteKey)) {
+          return { ok: true, siteKey, touchOnSuccess: true };
+        }
+
+        const decision = await permissionPrompts.requestPermission({
+          siteKey,
+          action,
+        });
+
+        if (decision.kind === 'timed_out') {
+          return {
+            ok: false,
+            error: {
+              code: 'PERMISSION_REQUIRED',
+              message: `Permission required for ${siteKey}.`,
+              retryable: true,
+              details: {
+                reason: 'prompt_timed_out',
+                site: siteKey,
+                action,
+              },
+            },
+          };
+        }
+
+        if (decision.kind === 'deny') {
+          return {
+            ok: false,
+            error: {
+              code: 'PERMISSION_REQUIRED',
+              message: `Permission denied for ${siteKey}.`,
+              retryable: false,
+              details: {
+                reason: 'user_denied',
+                site: siteKey,
+                action,
+              },
+            },
+          };
+        }
+
+        if (decision.kind === 'allow_always') {
+          // Ensure the allowlist is persisted even if the controller didn't (or couldn't).
+          await allowSiteAlways(siteKey);
+          return { ok: true, siteKey, touchOnSuccess: true };
+        }
+
+        // allow_once
+        return { ok: true, siteKey, touchOnSuccess: false };
+      };
+
+      const gated = await gateDriveAction();
+      if (!gated.ok) {
+        respondError(gated.error);
+        return;
+      }
+      gatedSiteKey = gated.siteKey;
+      touchGatedSiteOnSuccess = gated.touchOnSuccess;
+
       switch (message.action) {
         case 'drive.ping': {
           respondOk({ ok: true });
