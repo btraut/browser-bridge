@@ -9,6 +9,7 @@ export const ErrorCodeSchema = z.enum([
   'FAILED_PRECONDITION',
   'UNAUTHORIZED',
   'FORBIDDEN',
+  'PERMISSION_REQUIRED',
   'CONFLICT',
   'TIMEOUT',
   'CANCELLED',
