@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Browser Bridge Permissions</title>
+    <link rel="stylesheet" href="assets/ui.css" />
+  </head>
+  <body class="bb-page">
+    <main class="bb-card" role="main">
+      <header class="bb-header">
+        <div class="bb-eyebrow">Browser Bridge</div>
+        <h1 class="bb-title">New permissions required</h1>
+      </header>
+
+      <section class="bb-body">
+        <p class="bb-lead" id="bb-summary">Permission required.</p>
+        <div class="bb-site" id="bb-site"></div>
+      </section>
+
+      <section class="bb-actions" aria-label="Permission actions">
+        <button class="bb-button" id="bb-allow-once" type="button">
+          Allow this action
+        </button>
+        <button
+          class="bb-button bb-button-secondary"
+          id="bb-deny"
+          type="button"
+        >
+          Decline
+        </button>
+        <button
+          class="bb-button bb-button-primary"
+          id="bb-allow-always"
+          type="button"
+        >
+          Always allow actions on this site
+        </button>
+      </section>
+
+      <footer class="bb-footnote">
+        This is a user-consent allowlist for agent actions. It does not change
+        Chrome host permissions.
+      </footer>
+    </main>
+
+    <script src="dist/permission-prompt-ui.js"></script>
+  </body>
+</html>

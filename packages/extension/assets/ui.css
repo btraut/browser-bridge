@@ -1,0 +1,147 @@
+:root {
+  color-scheme: light;
+  --bb-bg-0: #f6f2ea;
+  --bb-bg-1: #ffffff;
+  --bb-ink: #191614;
+  --bb-ink-2: #4a403a;
+  --bb-border: rgba(25, 22, 20, 0.18);
+  --bb-shadow: 0 18px 50px rgba(25, 22, 20, 0.12);
+  --bb-radius: 18px;
+  --bb-radius-sm: 12px;
+  --bb-accent: #d97d54;
+  --bb-accent-ink: #1a0f0a;
+  --bb-muted: rgba(25, 22, 20, 0.06);
+  --bb-font:
+    ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body.bb-page {
+  margin: 0;
+  font-family: var(--bb-font);
+  color: var(--bb-ink);
+  background:
+    radial-gradient(
+      1200px 600px at 20% 0%,
+      rgba(217, 125, 84, 0.18),
+      transparent 60%
+    ),
+    radial-gradient(
+      900px 500px at 100% 20%,
+      rgba(94, 163, 142, 0.18),
+      transparent 55%
+    ),
+    linear-gradient(180deg, var(--bb-bg-0), #fff 70%);
+  padding: 14px;
+}
+
+.bb-card {
+  background: var(--bb-bg-1);
+  border: 1px solid var(--bb-border);
+  border-radius: var(--bb-radius);
+  box-shadow: var(--bb-shadow);
+  padding: 18px 18px 14px;
+}
+
+.bb-header {
+  margin-bottom: 12px;
+}
+
+.bb-eyebrow {
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--bb-ink-2);
+}
+
+.bb-title {
+  font-size: 18px;
+  line-height: 1.2;
+  margin: 6px 0 0;
+}
+
+.bb-body {
+  margin: 12px 0 14px;
+}
+
+.bb-lead {
+  margin: 0 0 10px;
+  color: var(--bb-ink-2);
+  font-size: 14px;
+}
+
+.bb-site {
+  border: 1px solid var(--bb-border);
+  background: var(--bb-muted);
+  border-radius: var(--bb-radius-sm);
+  padding: 12px;
+  font-size: 15px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bb-actions {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+
+.bb-button {
+  appearance: none;
+  border: 1px solid var(--bb-border);
+  background: #fff;
+  border-radius: var(--bb-radius-sm);
+  padding: 10px 12px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.bb-button:hover {
+  background: rgba(25, 22, 20, 0.03);
+}
+
+.bb-button:disabled {
+  cursor: default;
+  opacity: 0.65;
+}
+
+.bb-button-secondary {
+  background: rgba(25, 22, 20, 0.03);
+}
+
+.bb-button-primary {
+  border-color: rgba(217, 125, 84, 0.55);
+  background: linear-gradient(
+    180deg,
+    rgba(217, 125, 84, 0.2),
+    rgba(217, 125, 84, 0.08)
+  );
+}
+
+.bb-footnote {
+  margin-top: 12px;
+  font-size: 12px;
+  color: var(--bb-ink-2);
+}
+
+.bb-inline-code {
+  font-family:
+    ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    Monaco,
+    Consolas,
+    Liberation Mono,
+    monospace;
+  font-size: 0.95em;
+}
