@@ -48,7 +48,7 @@ export const registerDriveCommands = (program: Command): void => {
     .description('Navigate to a URL')
     .requiredOption('--session-id <id>', 'Session identifier')
     .requiredOption('--url <url>', 'URL to navigate to')
-    .option('--tab-id <id>', 'Tab identifier (defaults to active tab)')
+    .option('--tab-id <id>', 'Tab identifier (defaults to agent window/tab)')
     .option('--wait <mode>', 'Wait mode (none, domcontentloaded)')
     .action(async (options, command) => {
       await runCommand(command, (client) => {
@@ -66,7 +66,7 @@ export const registerDriveCommands = (program: Command): void => {
     .command('go-back')
     .description('Go back in browser history')
     .requiredOption('--session-id <id>', 'Session identifier')
-    .option('--tab-id <id>', 'Tab identifier')
+    .option('--tab-id <id>', 'Tab identifier (defaults to agent window/tab)')
     .action(async (options, command) => {
       await runCommand(command, (client) => {
         const payload = parseInput(DriveGoBackInputSchema, {
@@ -81,7 +81,7 @@ export const registerDriveCommands = (program: Command): void => {
     .command('back')
     .description('Go back in browser history')
     .requiredOption('--session-id <id>', 'Session identifier')
-    .option('--tab-id <id>', 'Tab identifier')
+    .option('--tab-id <id>', 'Tab identifier (defaults to agent window/tab)')
     .action(async (options, command) => {
       await runCommand(command, (client) => {
         const payload = parseInput(DriveBackInputSchema, {
@@ -96,7 +96,7 @@ export const registerDriveCommands = (program: Command): void => {
     .command('go-forward')
     .description('Go forward in browser history')
     .requiredOption('--session-id <id>', 'Session identifier')
-    .option('--tab-id <id>', 'Tab identifier')
+    .option('--tab-id <id>', 'Tab identifier (defaults to agent window/tab)')
     .action(async (options, command) => {
       await runCommand(command, (client) => {
         const payload = parseInput(DriveGoForwardInputSchema, {
@@ -111,7 +111,7 @@ export const registerDriveCommands = (program: Command): void => {
     .command('forward')
     .description('Go forward in browser history')
     .requiredOption('--session-id <id>', 'Session identifier')
-    .option('--tab-id <id>', 'Tab identifier')
+    .option('--tab-id <id>', 'Tab identifier (defaults to agent window/tab)')
     .action(async (options, command) => {
       await runCommand(command, (client) => {
         const payload = parseInput(DriveForwardInputSchema, {
@@ -126,7 +126,7 @@ export const registerDriveCommands = (program: Command): void => {
     .command('click')
     .description('Click an element')
     .requiredOption('--session-id <id>', 'Session identifier')
-    .option('--tab-id <id>', 'Tab identifier')
+    .option('--tab-id <id>', 'Tab identifier (defaults to agent window/tab)')
     .option('--locator-ref <ref>', 'Locator ref (e.g., @e1)')
     .option('--locator-testid <id>', 'Locator test id')
     .option('--locator-css <selector>', 'Locator CSS selector')
@@ -158,7 +158,7 @@ export const registerDriveCommands = (program: Command): void => {
     .command('hover')
     .description('Hover over an element')
     .requiredOption('--session-id <id>', 'Session identifier')
-    .option('--tab-id <id>', 'Tab identifier')
+    .option('--tab-id <id>', 'Tab identifier (defaults to agent window/tab)')
     .option('--locator-ref <ref>', 'Locator ref (e.g., @e1)')
     .option('--locator-testid <id>', 'Locator test id')
     .option('--locator-css <selector>', 'Locator CSS selector')
@@ -190,7 +190,7 @@ export const registerDriveCommands = (program: Command): void => {
     .command('select')
     .description('Select an option in a dropdown')
     .requiredOption('--session-id <id>', 'Session identifier')
-    .option('--tab-id <id>', 'Tab identifier')
+    .option('--tab-id <id>', 'Tab identifier (defaults to agent window/tab)')
     .option('--locator-ref <ref>', 'Locator ref (e.g., @e1)')
     .option('--locator-testid <id>', 'Locator test id')
     .option('--locator-css <selector>', 'Locator CSS selector')
@@ -227,7 +227,7 @@ export const registerDriveCommands = (program: Command): void => {
     .description('Type into a field')
     .requiredOption('--session-id <id>', 'Session identifier')
     .requiredOption('--text <text>', 'Text to enter')
-    .option('--tab-id <id>', 'Tab identifier')
+    .option('--tab-id <id>', 'Tab identifier (defaults to agent window/tab)')
     .option('--locator-ref <ref>', 'Locator ref (e.g., @e1)')
     .option('--locator-testid <id>', 'Locator test id')
     .option('--locator-css <selector>', 'Locator CSS selector')
@@ -263,7 +263,7 @@ export const registerDriveCommands = (program: Command): void => {
     .description('Fill multiple form fields')
     .requiredOption('--session-id <id>', 'Session identifier')
     .requiredOption('--fields <json>', 'JSON array of fields to fill')
-    .option('--tab-id <id>', 'Tab identifier')
+    .option('--tab-id <id>', 'Tab identifier (defaults to agent window/tab)')
     .action(async (options, command) => {
       await runCommand(command, (client) => {
         const fields = parseJson(options.fields, 'fields');
@@ -293,7 +293,7 @@ export const registerDriveCommands = (program: Command): void => {
     .option('--to-locator-role <role>', 'Target locator role name')
     .option('--to-locator-role-value <value>', 'Target locator role value')
     .option('--steps <steps>', 'Number of drag steps')
-    .option('--tab-id <id>', 'Tab identifier')
+    .option('--tab-id <id>', 'Tab identifier (defaults to agent window/tab)')
     .action(async (options, command) => {
       await runCommand(command, (client) => {
         const from = requireLocator({
@@ -329,7 +329,7 @@ export const registerDriveCommands = (program: Command): void => {
     .requiredOption('--session-id <id>', 'Session identifier')
     .requiredOption('--action <action>', 'Dialog action (accept, dismiss)')
     .option('--prompt-text <text>', 'Prompt text for prompt() dialogs')
-    .option('--tab-id <id>', 'Tab identifier')
+    .option('--tab-id <id>', 'Tab identifier (defaults to agent window/tab)')
     .action(async (options, command) => {
       await runCommand(command, (client) => {
         const payload = parseInput(DriveHandleDialogInputSchema, {
@@ -351,7 +351,7 @@ export const registerDriveCommands = (program: Command): void => {
     .option('--alt', 'Hold alt modifier')
     .option('--shift', 'Hold shift modifier')
     .option('--meta', 'Hold meta modifier')
-    .option('--tab-id <id>', 'Tab identifier')
+    .option('--tab-id <id>', 'Tab identifier (defaults to agent window/tab)')
     .action(async (options, command) => {
       await runCommand(command, (client) => {
         const payload = parseInput(DriveKeyPressInputSchema, {
@@ -381,7 +381,7 @@ export const registerDriveCommands = (program: Command): void => {
       []
     )
     .option('--repeat <count>', 'Number of times to press')
-    .option('--tab-id <id>', 'Tab identifier')
+    .option('--tab-id <id>', 'Tab identifier (defaults to agent window/tab)')
     .action(async (options, command) => {
       await runCommand(command, (client) => {
         const payload = parseInput(DriveKeyInputSchema, {
@@ -404,7 +404,7 @@ export const registerDriveCommands = (program: Command): void => {
     .option('--top <px>', 'Scroll top position')
     .option('--left <px>', 'Scroll left position')
     .option('--behavior <mode>', 'Scroll behavior (auto, smooth)')
-    .option('--tab-id <id>', 'Tab identifier')
+    .option('--tab-id <id>', 'Tab identifier (defaults to agent window/tab)')
     .action(async (options, command) => {
       await runCommand(command, (client) => {
         const payload = parseInput(DriveScrollInputSchema, {
@@ -424,7 +424,7 @@ export const registerDriveCommands = (program: Command): void => {
     .command('wait-for')
     .description('Wait for a condition')
     .requiredOption('--session-id <id>', 'Session identifier')
-    .option('--tab-id <id>', 'Tab identifier')
+    .option('--tab-id <id>', 'Tab identifier (defaults to agent window/tab)')
     .requiredOption(
       '--kind <kind>',
       'Condition kind (locator_visible, text_present, url_matches)'

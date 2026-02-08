@@ -44,6 +44,9 @@ const DEBUGGER_IDLE_TIMEOUT_KEY = 'debuggerIdleTimeoutMs';
 const DEFAULT_DEBUGGER_IDLE_TIMEOUT_MS = 15000;
 const DEFAULT_DEBUGGER_COMMAND_TIMEOUT_MS = 10000;
 
+const AGENT_TAB_ID_KEY = 'agentTabId';
+const AGENT_TAB_GROUP_TITLE = '🌉 Browser Bridge';
+
 const nowIso = (): string => new Date().toISOString();
 
 const makeEventId = (() => {
@@ -52,6 +55,10 @@ const makeEventId = (() => {
 })();
 
 const lastActiveAtByTab = new Map<number, string>();
+
+// When callers omit tab_id, we avoid taking over the user's active tab by
+// creating (and reusing) a dedicated "agent" window/tab.
+let agentTabId: number | null = null;
 
 const ensureLastActiveAt = (tabId: number): string => {
   const existing = lastActiveAtByTab.get(tabId);
@@ -365,6 +372,151 @@ const getActiveTabId = async (): Promise<number> => {
     return first.id;
   }
   throw new Error('No active tab found.');
+};
+
+const clearAgentTarget = (): void => {
+  agentTabId = null;
+  // Best-effort; the service worker may be shutting down.
+  void writeAgentTabId(null);
+};
+
+const queryActiveTabIdInWindow = async (windowId: number): Promise<number> => {
+  const tabs = await wrapChromeCallback<Record<string, unknown>[]>((callback) =>
+    chrome.tabs.query({ active: true, windowId }, callback)
+  );
+  const first = tabs[0];
+  if (first && typeof first.id === 'number') {
+    return first.id;
+  }
+
+  const anyTabs = await wrapChromeCallback<Record<string, unknown>[]>(
+    (callback) => chrome.tabs.query({ windowId }, callback)
+  );
+  const fallback = anyTabs[0];
+  if (fallback && typeof fallback.id === 'number') {
+    return fallback.id;
+  }
+
+  throw new Error('No tab found for window.');
+};
+
+const ensureAgentTabGroup = async (
+  tabId: number,
+  windowId: number
+): Promise<void> => {
+  if (typeof chrome.tabs?.group !== 'function') {
+    return;
+  }
+  if (!chrome.tabGroups || typeof chrome.tabGroups.update !== 'function') {
+    return;
+  }
+
+  try {
+    const groupId = await wrapChromeCallback<number>((callback) =>
+      chrome.tabs.group(
+        { tabIds: tabId, createProperties: { windowId } },
+        callback
+      )
+    );
+    await wrapChromeVoid((callback) =>
+      chrome.tabGroups.update(groupId, { title: AGENT_TAB_GROUP_TITLE }, () =>
+        callback()
+      )
+    );
+  } catch (error) {
+    console.debug('Failed to create/update agent tab group.', error);
+  }
+};
+
+const createAgentWindow = async (): Promise<number> => {
+  const created = await wrapChromeCallback<Record<string, unknown>>(
+    (callback) =>
+      chrome.windows.create({ url: 'about:blank', focused: true }, callback)
+  );
+  const windowId = created.id;
+  if (typeof windowId !== 'number') {
+    throw new Error('Failed to create agent window.');
+  }
+  const tabId = await queryActiveTabIdInWindow(windowId);
+  await ensureAgentTabGroup(tabId, windowId);
+  return tabId;
+};
+
+const readAgentTabId = async (): Promise<number | null> => {
+  return await new Promise<number | null>((resolve) => {
+    chrome.storage.local.get(
+      [AGENT_TAB_ID_KEY],
+      (result: Record<string, unknown>) => {
+        const raw = result?.[AGENT_TAB_ID_KEY];
+        resolve(typeof raw === 'number' && Number.isFinite(raw) ? raw : null);
+      }
+    );
+  });
+};
+
+const writeAgentTabId = async (tabId: number | null): Promise<void> => {
+  await new Promise<void>((resolve, reject) => {
+    const done = () => {
+      const error = chrome.runtime.lastError;
+      if (error) {
+        reject(new Error(error.message));
+        return;
+      }
+      resolve();
+    };
+
+    if (tabId === null) {
+      chrome.storage.local.remove([AGENT_TAB_ID_KEY], done);
+      return;
+    }
+
+    chrome.storage.local.set({ [AGENT_TAB_ID_KEY]: tabId }, done);
+  }).catch((error) => {
+    console.debug('Failed to persist agentTabId.', error);
+  });
+};
+
+const getOrCreateAgentTabId = async (): Promise<number> => {
+  if (agentTabId !== null) {
+    try {
+      await getTab(agentTabId);
+      return agentTabId;
+    } catch {
+      clearAgentTarget();
+    }
+  }
+
+  const stored = await readAgentTabId();
+  if (stored !== null) {
+    try {
+      await getTab(stored);
+      agentTabId = stored;
+      ensureLastActiveAt(stored);
+      markTabActive(stored);
+      return stored;
+    } catch {
+      await writeAgentTabId(null);
+    }
+  }
+
+  const tabId = await createAgentWindow();
+  agentTabId = tabId;
+  ensureLastActiveAt(tabId);
+  markTabActive(tabId);
+  await writeAgentTabId(tabId);
+  return tabId;
+};
+
+const getDefaultTabId = async (): Promise<number> => {
+  try {
+    return await getOrCreateAgentTabId();
+  } catch (error) {
+    console.warn(
+      'Failed to create agent window/tab; falling back to active tab.',
+      error
+    );
+    return await getActiveTabId();
+  }
 };
 
 const sendToTab = async (
@@ -689,7 +841,7 @@ class DriveSocket {
             return;
           }
           if (tabId === undefined) {
-            tabId = await getActiveTabId();
+            tabId = await getDefaultTabId();
           }
           const waitMode =
             params.wait === 'none' || params.wait === 'domcontentloaded'
@@ -730,7 +882,7 @@ class DriveSocket {
             return;
           }
           if (tabId === undefined) {
-            tabId = await getActiveTabId();
+            tabId = await getDefaultTabId();
           }
           try {
             const isBack =
@@ -815,6 +967,9 @@ class DriveSocket {
           await wrapChromeVoid((callback) =>
             chrome.tabs.remove(tabId, () => callback())
           );
+          if (agentTabId === tabId) {
+            clearAgentTarget();
+          }
           lastActiveAtByTab.delete(tabId);
           respondOk({ ok: true });
           this.sendTabReport();
@@ -850,7 +1005,7 @@ class DriveSocket {
             return;
           }
           if (tabId === undefined) {
-            tabId = await getActiveTabId();
+            tabId = await getDefaultTabId();
           }
 
           const error = await this.ensureDebuggerAttached(tabId as number);
@@ -900,7 +1055,7 @@ class DriveSocket {
             return;
           }
           if (tabId === undefined) {
-            tabId = await getActiveTabId();
+            tabId = await getDefaultTabId();
           }
           const result = await sendToTab(
             tabId as number,
@@ -926,7 +1081,7 @@ class DriveSocket {
             return;
           }
           if (tabId === undefined) {
-            tabId = await getActiveTabId();
+            tabId = await getDefaultTabId();
           }
 
           const mode =
@@ -1880,6 +2035,9 @@ chrome.tabs.onUpdated.addListener(
 );
 
 chrome.tabs.onRemoved.addListener((tabId: number) => {
+  if (agentTabId === tabId) {
+    clearAgentTarget();
+  }
   lastActiveAtByTab.delete(tabId);
   socket.sendTabReport();
 });

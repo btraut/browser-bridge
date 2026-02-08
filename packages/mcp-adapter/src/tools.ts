@@ -328,7 +328,8 @@ export const TOOL_DEFINITIONS: Array<{ name: string; config: ToolConfig }> = [
     name: 'drive.scroll',
     config: {
       title: 'Drive Scroll',
-      description: 'Scroll the active tab.',
+      description:
+        'Scroll the default tab (agent window/tab unless tab_id is provided).',
       inputSchema: DriveScrollInputSchema,
       outputSchema: envelope(DriveScrollOutputSchema),
       corePath: '/drive/scroll',

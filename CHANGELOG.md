@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on "Keep a Changelog", and this project adheres to Semantic Versioning.
 
+## [Unreleased]
+
+### Changed
+
+- When `tab_id` is omitted in drive commands, Browser Bridge now creates (and reuses) a dedicated Chrome window/tab so agent activity stays separate from the user's current window.
+- The dedicated agent tab is grouped under a `🌉 Browser Bridge` tab group when created.
+
 ## [0.4.3] - 2026-02-07
 
 ### Fixed

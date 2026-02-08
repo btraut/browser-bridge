@@ -59,6 +59,7 @@ browser-bridge session close --session-id <id>
 Notes:
 
 - `--max-nodes` only applies to `--format ax` snapshots. For `--format html`, the snapshot succeeds and the flag is ignored with a warning.
+- When `tab_id` is omitted, drive commands target a dedicated agent window/tab that Browser Bridge creates and reuses automatically.
 
 Element targeting:
 

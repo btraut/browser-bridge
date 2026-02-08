@@ -7,8 +7,8 @@ This smoke flow validates the MCP adapter against a running Core + Chrome extens
 1. Install dependencies: `npm install`.
 2. Build the workspace: `npm run build`.
 3. Load the extension from `packages/extension` (repo) or `node_modules/@btraut/browser-bridge/extension` (npm install) in `chrome://extensions`.
-4. Open a dedicated Chrome tab you do not mind navigating (example: `about:blank` or `https://example.com`).
-5. Ensure DevTools is closed on the target tab (the debugger cannot attach while DevTools is open).
+4. Ensure Chrome is running (Browser Bridge will create a dedicated agent window/tab when `tab_id` is omitted).
+5. Ensure DevTools is closed on the agent tab (the debugger cannot attach while DevTools is open).
 
 ## Run
 
@@ -17,7 +17,7 @@ This smoke flow validates the MCP adapter against a running Core + Chrome extens
 3. Connect with your MCP client and run `tools/list`.
 4. Run `session.create` and note the `session_id`.
 5. With the `session_id`, run a minimal smoke set:
-   - `drive.navigate` to a known URL (defaults to the active tab unless `tab_id` is provided)
+   - `drive.navigate` to a known URL (defaults to an agent window/tab unless `tab_id` is provided)
    - `drive.tab_list`
    - `inspect.dom_snapshot`
    - `artifacts.screenshot`
