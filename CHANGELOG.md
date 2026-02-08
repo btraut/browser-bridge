@@ -9,6 +9,7 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 ### Added
 
 - `PERMISSION_REQUIRED` error code for soft site-permissions gating.
+- Soft site-permissions allowlist with a permission prompt window and an options page to review/revoke approved sites.
 
 ### Changed
 

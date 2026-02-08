@@ -25,6 +25,33 @@ This checklist validates the Drive + Inspect planes and artifact handling end-to
 10. Run diagnostics to confirm reliability status: `node packages/cli/dist/index.js diagnostics doctor --session-id <id>`
 11. Open the artifact folder: `node packages/cli/dist/index.js open-artifacts --session-id <id>`
 
+## Checklist (Site Permissions)
+
+1. Open the extension options page:
+   - Chrome: Extensions menu -> Browser Bridge -> Extension options
+   - Or: `chrome://extensions` -> Browser Bridge -> Details -> Extension options
+2. Revoke any previously-approved sites so the list is empty.
+3. Trigger a permission prompt by navigating to a new site:
+   - `node packages/cli/dist/index.js drive navigate --session-id <id> --tab-id <tabId> --url https://example.com`
+4. Verify "Allow this action":
+   - Click **Allow this action** within 10 seconds.
+   - The command should succeed without persisting the site (a later action should prompt again).
+5. Verify "Always allow actions on this site":
+   - Trigger another prompt on a site you have not approved.
+   - Click **Always allow actions on this site**.
+   - Retry the command (if it already timed out); it should succeed without prompting on subsequent actions.
+6. Verify "Decline":
+   - Trigger a prompt and click **Decline**.
+   - The command should return `PERMISSION_REQUIRED` with `retryable: false`.
+7. Verify prompt timeout behavior:
+   - Trigger a prompt, do not click anything for >10 seconds.
+   - The command should return `PERMISSION_REQUIRED` with `retryable: true`.
+   - Click **Always allow actions on this site** in the prompt window.
+   - Retry the same command; it should now succeed.
+8. Verify revoke takes effect immediately:
+   - Revoke the site in the options page.
+   - Run a drive action on that site again; it should prompt again.
+
 ## Optional Full-Tool CLI Smoke
 
 This optional script exercises every CLI tool against a deterministic fixture page. It requires the extension to be loaded and the workspace to be built.

@@ -76,6 +76,11 @@ npm run build
 3. Open Chrome and navigate to `chrome://extensions`.
 4. Enable **Developer mode**, click **Load unpacked**, and select the extension folder (the folder with `manifest.json`).
 
+Notes:
+
+- Browser Bridge enforces a per-site allowlist for `drive.*` actions. The first time it acts on a new site, you'll see a permission prompt.
+- You can review and revoke approved sites via the extension options page (Extensions menu -> Browser Bridge -> Extension options).
+
 ## Quickstart
 
 1. Install the extension.

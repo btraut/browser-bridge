@@ -78,7 +78,7 @@ const defaultCloseWindow = async (windowId: number): Promise<void> => {
 
 const delay = async (ms: number): Promise<void> => {
   return await new Promise<void>((resolve) => {
-    self.setTimeout(resolve, ms);
+    setTimeout(resolve, ms);
   });
 };
 
@@ -121,6 +121,13 @@ export class PermissionPromptController {
       const windowId = await this.deps.openWindow(url);
       state.windowId = windowId;
       this.stateByWindowId.set(windowId, state);
+
+      // In tests (or in rare races), a decision could be processed before the
+      // window id is set. If so, close and clean up now.
+      if (state.decided) {
+        await this.deps.closeWindow(windowId);
+        this.cleanupState(state);
+      }
     }
 
     const waitMs = await this.deps.getWaitMs();
@@ -240,9 +247,8 @@ export class PermissionPromptController {
 
     if (typeof state.windowId === 'number') {
       await this.deps.closeWindow(state.windowId);
+      this.cleanupState(state);
     }
-
-    this.cleanupState(state);
   }
 
   private cleanupState(state: PromptState): void {
