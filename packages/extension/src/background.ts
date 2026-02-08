@@ -13,6 +13,7 @@ import type {
   ExtensionRequest,
 } from './protocol.js';
 import { sanitizeDriveErrorInfo } from './error-sanitizer.js';
+import { PermissionPromptController } from './permission-prompt.js';
 
 type ContentResult =
   | { ok: true; result?: unknown }
@@ -2001,6 +2002,15 @@ class DebuggerTimeoutError extends Error {
 }
 
 const socket = new DriveSocket();
+const permissionPrompts = new PermissionPromptController();
+
+chrome.runtime.onConnect.addListener((port: unknown) => {
+  permissionPrompts.handleConnect(port as Record<string, unknown>);
+});
+
+chrome.windows.onRemoved.addListener((windowId: number) => {
+  permissionPrompts.handleWindowRemoved(windowId);
+});
 
 chrome.tabs.onActivated.addListener((activeInfo: { tabId: number }) => {
   markTabActive(activeInfo.tabId);
