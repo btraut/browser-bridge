@@ -290,21 +290,6 @@ const setMode = async (mode: SitePermissionsMode): Promise<void> => {
     return;
   }
 
-  if (mode === 'bypass') {
-    const ok = globalThis.confirm(
-      'Enable bypass mode?\n\nThis lets Browser Bridge click/type on any website without per-site prompts. This is intentionally unsafe.'
-    );
-    if (!ok) {
-      modeWriteInProgress = true;
-      try {
-        applyMode(lastMode ?? 'granular');
-      } finally {
-        modeWriteInProgress = false;
-      }
-      return;
-    }
-  }
-
   modeWriteInProgress = true;
   try {
     await writeSitePermissionsMode(mode);
