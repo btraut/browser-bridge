@@ -305,6 +305,10 @@ body.bb-page--popup .bb-menu {
   background: rgba(0, 0, 0, 0.02);
 }
 
+.bb-empty > * + * {
+  margin-top: 8px;
+}
+
 .bb-toast-wrap {
   position: fixed;
   left: 14px;

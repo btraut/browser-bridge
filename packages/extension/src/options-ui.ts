@@ -196,8 +196,24 @@ const render = (rows: Row[]): void => {
 
   if (rows.length === 0) {
     const empty = document.createElement('div');
-    empty.className = 'bb-site-empty';
-    empty.textContent = 'No approved sites yet.';
+    empty.className = 'bb-empty';
+
+    const line1 = document.createElement('div');
+    const title = document.createElement('strong');
+    title.textContent = 'No approved sites yet.';
+    line1.appendChild(title);
+    line1.appendChild(
+      document.createTextNode(
+        ' Sites show up here after you approve them in a permission prompt (click "Always allow actions on this site").'
+      )
+    );
+
+    const line2 = document.createElement('div');
+    line2.textContent =
+      'If you want zero prompts, switch Permission mode to "Bypass (dangerous)".';
+
+    empty.appendChild(line1);
+    empty.appendChild(line2);
     container.appendChild(empty);
     return;
   }

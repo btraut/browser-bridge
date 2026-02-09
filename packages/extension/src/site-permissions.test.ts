@@ -169,6 +169,9 @@ describe('site permissions', () => {
 
   it('reads and writes permissions mode with a safe default', async () => {
     expect(await readSitePermissionsMode()).toBe(DEFAULT_SITE_PERMISSIONS_MODE);
+    expect(store[SITE_PERMISSIONS_MODE_KEY]).toBe(
+      DEFAULT_SITE_PERMISSIONS_MODE
+    );
 
     store[SITE_PERMISSIONS_MODE_KEY] = 'bypass';
     expect(await readSitePermissionsMode()).toBe('bypass');
@@ -178,6 +181,9 @@ describe('site permissions', () => {
 
     store[SITE_PERMISSIONS_MODE_KEY] = 'nope';
     expect(await readSitePermissionsMode()).toBe(DEFAULT_SITE_PERMISSIONS_MODE);
+    expect(store[SITE_PERMISSIONS_MODE_KEY]).toBe(
+      DEFAULT_SITE_PERMISSIONS_MODE
+    );
 
     await writeSitePermissionsMode('bypass');
     expect(store[SITE_PERMISSIONS_MODE_KEY]).toBe('bypass');

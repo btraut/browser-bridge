@@ -93,6 +93,17 @@ export const readSitePermissionsMode =
             resolve(raw);
             return;
           }
+
+          // Self-heal legacy/invalid storage to a safe default, so UIs never
+          // render with "no mode selected" and other callers don't have to
+          // special-case missing values.
+          try {
+            chrome.storage.local.set({
+              [SITE_PERMISSIONS_MODE_KEY]: DEFAULT_SITE_PERMISSIONS_MODE,
+            });
+          } catch {
+            // ignore
+          }
           resolve(DEFAULT_SITE_PERMISSIONS_MODE);
         }
       );
