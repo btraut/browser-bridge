@@ -8,6 +8,20 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 
 ### Added
 
+_TBD_
+
+### Fixed
+
+_TBD_
+
+### Changed
+
+_TBD_
+
+## [0.5.0] - 2026-02-09
+
+### Added
+
 - `PERMISSION_REQUIRED` error code for soft site-permissions gating.
 - `PERMISSION_DENIED` error code for explicit user declines in the site-permissions prompt.
 - `PERMISSION_PROMPT_TIMEOUT` error code for when a site-permissions approval prompt times out while waiting for user input.
