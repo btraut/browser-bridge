@@ -13,6 +13,7 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 ### Fixed
 
 - Extension popup menu: Settings/About always open in a new tab/window (no more crushing the UI inside the popup).
+- Extension options: default permissions mode to Granular when unset, and show a real empty state for the approved sites allowlist.
 
 ### Changed
 

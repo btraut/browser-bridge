@@ -37,6 +37,7 @@
                 type="radio"
                 name="bb-permissions-mode"
                 value="granular"
+                checked
               />
             </label>
             <label class="bb-row bb-radio-row">
@@ -80,7 +81,19 @@
           Bypass is enabled, so this allowlist is ignored.
         </p>
         <section aria-label="Approved sites list">
-          <div id="bb-sites" class="bb-menu bb-menu--list" role="list"></div>
+          <div id="bb-sites" class="bb-menu bb-menu--list" role="list">
+            <div class="bb-empty" role="listitem">
+              <div>
+                <strong>No approved sites yet.</strong> Sites show up here after
+                you approve them in a permission prompt (click "Always allow
+                actions on this site").
+              </div>
+              <div>
+                If you want zero prompts, switch Permission mode to "Bypass
+                (dangerous)".
+              </div>
+            </div>
+          </div>
         </section>
       </details>
     </main>
