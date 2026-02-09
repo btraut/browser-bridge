@@ -18,13 +18,28 @@ What makes it different:
 - **Recovery-first**: sessions have an explicit state machine with `session.recover()` and `diagnostics doctor`.
 - **Inspect beyond screenshots**: DOM snapshots (AX + HTML) and `inspect dom-diff` to detect page changes.
 
+## Feature Comparison
+
+| Category | Browser Bridge | Playwright MCP | agent-browser | mcp-chrome | Claude Code + Chrome |
+| --- | --- | --- | --- | --- | --- |
+| Uses your real, already-logged-in Chrome (tabs/cookies) | ✅ | ❌ | ❌ | ✅ | ✅ |
+| Visible browser (not headless) | ✅ | ✅ | ❌ | ✅ | ✅ |
+| Per-site permission prompts / allowlist | ✅ | ❌ | ❌ | ❌ | ✅ |
+| Drive/Inspect split (inspect without racing input) | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Token-efficient inspection (element refs, bounded output, cleanup) | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Structured errors + retry hints | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Explicit recovery + doctor-style diagnostics | ✅ | ❌ | ❌ | ❌ | ❌ |
+| DOM diff (change detection) | ✅ | ❌ | ❌ | ❌ | ❌ |
+| HAR / network export | ✅ | ✅ | ✅ | ✅ | ❌ |
+| Open source | ✅ | ✅ | ✅ | ✅ | ❌ |
+
 ## Why Browser Bridge
 
 Browser Bridge is built for agent reliability and "stay logged in" workflows in your real Chrome, not for headless test automation.
 
 If you're coming from Playwright/Puppeteer-style tooling:
 
-- Browser Bridge targets the user's existing, interactive Chrome session by default (typical Playwright/Puppeteer flows spin up a separate browser/context).
+- Browser Bridge targets the user's existing, interactive Chrome session (typical Playwright/Puppeteer flows spin up a separate browser/context).
 - Browser Bridge surfaces retry guidance in the API (`retryable`) instead of forcing the agent to infer it from exceptions and timing.
 - Browser Bridge ships a first-class inspect plane (DOM snapshots, diffs, diagnostics) designed for LLM consumption, with output-bounding options to keep agent context small.
 
@@ -79,7 +94,7 @@ npm run build
 
 ### Site Permissions (Drive Actions)
 
-Browser Bridge is intentionally safe by default: **drive actions** (`drive.navigate`, click, type, etc.) require **per-site approval**.
+Browser Bridge is intentionally safe: **drive actions** (`drive.navigate`, click, type, etc.) require **per-site approval**.
 
 This is the big differentiator versus most "agent browser" tools: once installed, a lot of them effectively grant blanket click/type powers everywhere. That's convenient right up until an agent starts poking around the wrong account, the wrong tab, or prod. Browser Bridge forces an explicit "yes, on this site" and keeps an audit/revoke list.
 
@@ -104,7 +119,7 @@ Manage approvals (and bypass mode):
 
 1. Install the extension.
 2. (Optional) Run `browser-bridge install` (skill + optional MCP).
-3. Run a quick CLI check (Core auto-starts by default):
+3. Run a quick CLI check (Core auto-starts):
 
 ```bash
 browser-bridge session create
