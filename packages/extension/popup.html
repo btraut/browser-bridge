@@ -19,9 +19,13 @@
         <h1 class="bb-popup-title">Browser Bridge</h1>
       </header>
 
-      <nav class="bb-menu" aria-label="Extension menu">
-        <button class="bb-row" id="bb-settings" type="button">Settings</button>
-        <button class="bb-row" id="bb-about" type="button">
+      <div class="bb-menu" aria-label="Extension menu">
+        <a class="bb-row" id="bb-settings" href="options.html">Settings</a>
+        <a
+          class="bb-row"
+          id="bb-about"
+          href="https://github.com/btraut/browser-bridge"
+        >
           About
           <svg
             class="bb-row-icon"
@@ -52,8 +56,8 @@
               stroke-linejoin="round"
             />
           </svg>
-        </button>
-      </nav>
+        </a>
+      </div>
     </main>
 
     <script type="module" src="dist/popup-ui.js"></script>

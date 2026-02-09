@@ -1,7 +1,10 @@
-const byId = (id: string): HTMLElement => {
+const byId = (id: string): HTMLAnchorElement => {
   const el = document.getElementById(id);
   if (!el) {
     throw new Error(`Missing element: ${id}`);
+  }
+  if (!(el instanceof HTMLAnchorElement)) {
+    throw new Error(`Expected <a> element: ${id}`);
   }
   return el;
 };
@@ -36,10 +39,12 @@ const openGithub = async (): Promise<void> => {
 };
 
 const main = (): void => {
-  byId('bb-settings').addEventListener('click', () => {
+  byId('bb-settings').addEventListener('click', (e) => {
+    e.preventDefault();
     void openOptionsPopupWindow().finally(() => window.close());
   });
-  byId('bb-about').addEventListener('click', () => {
+  byId('bb-about').addEventListener('click', (e) => {
+    e.preventDefault();
     void openGithub().finally(() => window.close());
   });
 };
