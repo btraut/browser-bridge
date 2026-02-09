@@ -211,10 +211,7 @@ body.bb-page--popup .bb-menu {
 }
 
 .bb-list {
-  border: 1px solid var(--bb-border-2);
-  border-radius: var(--bb-radius-sm);
-  overflow: hidden;
-  background: var(--bb-bg);
+  background: transparent;
 }
 
 .bb-list-row {
@@ -222,7 +219,7 @@ body.bb-page--popup .bb-menu {
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
-  padding: 12px;
+  padding: 14px 0;
 }
 
 .bb-list-row + .bb-list-row {

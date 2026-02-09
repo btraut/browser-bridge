@@ -138,7 +138,7 @@ const render = (rows: Row[]): void => {
     }
 
     key.textContent = row.site;
-    meta.textContent = `Last used: ${formatTime(row.lastUsedAt)} - Allowed actions: browse, click, type.`;
+    meta.textContent = `Last used: ${formatTime(row.lastUsedAt)}`;
     meta.title = `Approved: ${formatTime(row.createdAt)}\nLast used: ${formatTime(
       row.lastUsedAt
     )}`;
