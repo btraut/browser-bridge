@@ -8,7 +8,7 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 
 ### Added
 
-- Extension options: permissions mode toggle (Granular per-site vs dangerous bypass), with bypass collapsing and ignoring the approved sites allowlist.
+_TBD_
 
 ### Fixed
 
@@ -17,6 +17,12 @@ _TBD_
 ### Changed
 
 _TBD_
+
+## [0.6.0] - 2026-02-09
+
+### Added
+
+- Extension options: permissions mode toggle (Granular per-site vs dangerous bypass), with bypass collapsing and ignoring the approved sites allowlist.
 
 ## [0.5.0] - 2026-02-09
 
