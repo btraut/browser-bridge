@@ -97,9 +97,7 @@ body.bb-page.bb-page--popup {
 }
 
 body.bb-page--popup .bb-menu {
-  box-shadow:
-    0 1px 1px rgba(0, 0, 0, 0.08),
-    0 6px 14px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.06);
 }
 
 .bb-row {
@@ -225,6 +223,7 @@ body.bb-page--popup .bb-menu {
 
 .bb-menu--list {
   margin-top: 12px;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.06);
 }
 
 .bb-site-row {

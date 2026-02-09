@@ -486,7 +486,11 @@ const writeAgentTabId = async (tabId: number | null): Promise<void> => {
 const getOrCreateAgentTabId = async (): Promise<number> => {
   if (agentTabId !== null) {
     try {
-      await getTab(agentTabId);
+      const tab = await getTab(agentTabId);
+      const url = tab.url;
+      if (typeof url === 'string' && isRestrictedUrl(url)) {
+        throw new Error(`Agent tab points at restricted URL: ${url}`);
+      }
       return agentTabId;
     } catch {
       clearAgentTarget();
@@ -496,7 +500,11 @@ const getOrCreateAgentTabId = async (): Promise<number> => {
   const stored = await readAgentTabId();
   if (stored !== null) {
     try {
-      await getTab(stored);
+      const tab = await getTab(stored);
+      const url = tab.url;
+      if (typeof url === 'string' && isRestrictedUrl(url)) {
+        throw new Error(`Stored agent tab points at restricted URL: ${url}`);
+      }
       agentTabId = stored;
       ensureLastActiveAt(stored);
       markTabActive(stored);
@@ -531,35 +539,65 @@ const sendToTab = async (
   action: string,
   params?: Record<string, unknown>
 ): Promise<ContentResult> => {
-  return await new Promise<ContentResult>((resolve) => {
-    const message: ContentRequest = { action, params };
-    chrome.tabs.sendMessage(tabId, message, (response: ContentResult) => {
-      const error = chrome.runtime.lastError;
-      if (error) {
-        resolve({
-          ok: false,
-          error: {
-            code: 'EVALUATION_FAILED',
-            message: error.message,
-            retryable: false,
-          },
-        });
-        return;
-      }
-      if (!response || typeof response !== 'object') {
-        resolve({
-          ok: false,
-          error: {
-            code: 'EVALUATION_FAILED',
-            message: 'Empty response from content script.',
-            retryable: false,
-          },
-        });
-        return;
-      }
-      resolve(response);
+  const attemptSend = async (): Promise<ContentResult> => {
+    return await new Promise<ContentResult>((resolve) => {
+      const message: ContentRequest = { action, params };
+      chrome.tabs.sendMessage(tabId, message, (response: ContentResult) => {
+        const error = chrome.runtime.lastError;
+        if (error) {
+          resolve({
+            ok: false,
+            error: {
+              code: 'EVALUATION_FAILED',
+              message: error.message,
+              retryable: false,
+            },
+          });
+          return;
+        }
+        if (!response || typeof response !== 'object') {
+          resolve({
+            ok: false,
+            error: {
+              code: 'EVALUATION_FAILED',
+              message: 'Empty response from content script.',
+              retryable: false,
+            },
+          });
+          return;
+        }
+        resolve(response);
+      });
     });
-  });
+  };
+
+  // After navigation, MV3 content scripts can lag slightly behind the tab's URL
+  // update. Retrying avoids flaky "Receiving end does not exist" failures.
+  const MAX_ATTEMPTS = 5;
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
+    const result = await attemptSend();
+    if (result.ok) {
+      return result;
+    }
+    const message = result.error?.message;
+    const isNoReceiver =
+      typeof message === 'string' &&
+      message.toLowerCase().includes('receiving end does not exist');
+    if (!isNoReceiver || attempt === MAX_ATTEMPTS) {
+      return result;
+    }
+    await delayMs(200);
+  }
+
+  // Unreachable (loop always returns), but keeps TS happy if this code moves.
+  return {
+    ok: false,
+    error: {
+      code: 'INTERNAL',
+      message: 'Failed to send message to content script.',
+      retryable: false,
+    },
+  };
 };
 
 const waitForDomContentLoaded = async (
@@ -897,8 +935,12 @@ class DriveSocket {
             // Let the switch handle INVALID_ARGUMENT for tab_id shape.
             return { ok: true, siteKey: null, touchOnSuccess: false };
           }
+          // IMPORTANT: Drive actions default to operating on the dedicated
+          // agent tab (getDefaultTabId) when tab_id is omitted. Permission
+          // gating must resolve the same tab, otherwise we might gate/prompt
+          // for the wrong site.
           const resolvedTabId =
-            typeof tabId === 'number' ? tabId : await getActiveTabId();
+            typeof tabId === 'number' ? tabId : await getDefaultTabId();
           const tab = await getTab(resolvedTabId);
           const url = tab.url;
           if (typeof url !== 'string' || url.length === 0) {
