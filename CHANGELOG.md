@@ -22,6 +22,7 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 - Make permission-decline failures more actionable for agent clients by returning `PERMISSION_DENIED` with next-step guidance.
 - Fix extension popup/options buttons by loading UI scripts as modules; simplify the popup styling (no gradients/ALL CAPS) and replace About ellipsis with an external-link icon.
 - Fix a small extension popup bottom-clipping issue; add a subtle header icon for personality without gradients.
+- Match the options page list drop shadow to the popup menu styling, and reduce shadow intensity.
 - Options page: make Undo revoke more robust by verifying the allowlist restore.
 
 ### Changed
