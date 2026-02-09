@@ -425,9 +425,11 @@ body.bb-page--popup .bb-menu {
 .bb-sites-summary::before {
   content: '▸';
   display: inline-block;
-  width: 14px;
+  width: 22px;
+  font-size: 20px;
+  line-height: 1;
   color: var(--bb-ink-2);
-  transform: translateY(-1px);
+  transform: translateY(1px);
 }
 
 details[open] > .bb-sites-summary::before {
