@@ -13,29 +13,50 @@ const openOptionsPopupWindow = async (): Promise<void> => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const chromeAny = chrome as any;
   const url = chromeAny.runtime.getURL('options.html');
-  await new Promise<void>((resolve) => {
-    chromeAny.windows.create(
-      {
-        type: 'popup',
-        url,
-        focused: true,
-        width: 900,
-        height: 720,
-      },
-      () => resolve()
-    );
-  });
+
+  // Prefer a dedicated popup window so the options UI isn't crushed inside the toolbar popup.
+  if (chromeAny.windows?.create) {
+    await new Promise<void>((resolve) => {
+      chromeAny.windows.create(
+        {
+          type: 'popup',
+          url,
+          focused: true,
+          width: 900,
+          height: 720,
+        },
+        () => resolve()
+      );
+    });
+    return;
+  }
+
+  // Fallbacks for environments where `chrome.windows` isn't available.
+  if (chromeAny.runtime?.openOptionsPage) {
+    await chromeAny.runtime.openOptionsPage();
+    return;
+  }
+  if (chromeAny.tabs?.create) {
+    await new Promise<void>((resolve) => {
+      chromeAny.tabs.create({ url }, () => resolve());
+    });
+    return;
+  }
+
+  window.open(url, '_blank', 'noopener');
 };
 
 const openGithub = async (): Promise<void> => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const chromeAny = chrome as any;
-  await new Promise<void>((resolve) => {
-    chromeAny.tabs.create(
-      { url: 'https://github.com/btraut/browser-bridge' },
-      () => resolve()
-    );
-  });
+  const url = 'https://github.com/btraut/browser-bridge';
+  if (chromeAny.tabs?.create) {
+    await new Promise<void>((resolve) => {
+      chromeAny.tabs.create({ url }, () => resolve());
+    });
+    return;
+  }
+  window.open(url, '_blank', 'noopener');
 };
 
 const main = (): void => {
