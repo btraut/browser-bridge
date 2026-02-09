@@ -1,16 +1,21 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
+  DEFAULT_SITE_PERMISSIONS_MODE,
   DEFAULT_PERMISSION_PROMPT_WAIT_MS,
   PERMISSION_PROMPT_WAIT_MS_KEY,
   SITE_ALLOWLIST_KEY,
+  SITE_PERMISSIONS_MODE_KEY,
+  type SitePermissionsMode,
   allowSiteAlways,
   getAllowlistedSites,
   isSiteAllowed,
   readPermissionPromptWaitMs,
+  readSitePermissionsMode,
   revokeSite,
   siteKeyFromUrl,
   touchSiteLastUsed,
   upsertAllowlistedSites,
+  writeSitePermissionsMode,
 } from './site-permissions';
 
 type ChromeStorageLike = {
@@ -160,5 +165,26 @@ describe('site permissions', () => {
       'bad-entry': { createdAt: 1, lastUsedAt: 2 },
     };
     expect(await getAllowlistedSites()).toEqual({});
+  });
+
+  it('reads and writes permissions mode with a safe default', async () => {
+    expect(await readSitePermissionsMode()).toBe(DEFAULT_SITE_PERMISSIONS_MODE);
+
+    store[SITE_PERMISSIONS_MODE_KEY] = 'bypass';
+    expect(await readSitePermissionsMode()).toBe('bypass');
+
+    store[SITE_PERMISSIONS_MODE_KEY] = 'granular';
+    expect(await readSitePermissionsMode()).toBe('granular');
+
+    store[SITE_PERMISSIONS_MODE_KEY] = 'nope';
+    expect(await readSitePermissionsMode()).toBe(DEFAULT_SITE_PERMISSIONS_MODE);
+
+    await writeSitePermissionsMode('bypass');
+    expect(store[SITE_PERMISSIONS_MODE_KEY]).toBe('bypass');
+
+    // Type-level check that we only persist supported values.
+    const mode: SitePermissionsMode = 'granular';
+    await writeSitePermissionsMode(mode);
+    expect(store[SITE_PERMISSIONS_MODE_KEY]).toBe('granular');
   });
 });
