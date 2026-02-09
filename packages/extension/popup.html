@@ -20,11 +20,16 @@
       </header>
 
       <div class="bb-menu" aria-label="Extension menu">
-        <a class="bb-row" id="bb-settings" href="options.html">Settings</a>
+        <!-- Fallback for when dist scripts fail to load: don't navigate inside the popup. -->
+        <a class="bb-row" id="bb-settings" href="options.html" target="_blank"
+          >Settings</a
+        >
         <a
           class="bb-row"
           id="bb-about"
           href="https://github.com/btraut/browser-bridge"
+          target="_blank"
+          rel="noopener noreferrer"
         >
           About
           <svg

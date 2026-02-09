@@ -12,7 +12,7 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 
 ### Fixed
 
-_TBD_
+- Extension popup menu: Settings/About always open in a new tab/window (no more crushing the UI inside the popup).
 
 ### Changed
 
