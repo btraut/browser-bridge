@@ -14,6 +14,10 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 
 - Extension popup menu: Settings/About always open in a new tab/window (no more crushing the UI inside the popup).
 - Extension options: default permissions mode to Granular when unset, and show a real empty state for the approved sites allowlist.
+- Extension options: remove the nested-card empty state styling, simplify the copy, and always show the Approved sites disclosure + list in both Granular and Bypass modes.
+- Extension options: add a drop shadow to the permission mode controls to match the rest of the settings containers.
+- Extension options: remove the "Bypass mode is intentionally unsafe" warning box.
+- Extension options: tighten and vertically align the Approved sites disclosure triangle.
 
 ### Changed
 

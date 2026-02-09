@@ -96,6 +96,10 @@ body.bb-page.bb-page--popup {
   background: var(--bb-bg);
 }
 
+.bb-menu--shadow {
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.06);
+}
+
 body.bb-page--popup .bb-menu {
   box-shadow: 0 3px 8px rgba(0, 0, 0, 0.06);
 }
@@ -271,6 +275,10 @@ body.bb-page--popup .bb-menu {
   color: var(--bb-ink-2);
 }
 
+.bb-site-empty > * + * {
+  margin-top: 8px;
+}
+
 .bb-link-button {
   appearance: none;
   border: 0;
@@ -293,20 +301,6 @@ body.bb-page--popup .bb-menu {
 
 .bb-link-button-danger {
   color: var(--bb-accent);
-}
-
-.bb-empty {
-  margin-top: 12px;
-  border: 1px dashed var(--bb-border-2);
-  border-radius: var(--bb-radius-sm);
-  padding: 12px;
-  font-size: 13px;
-  color: var(--bb-ink-2);
-  background: rgba(0, 0, 0, 0.02);
-}
-
-.bb-empty > * + * {
-  margin-top: 8px;
 }
 
 .bb-toast-wrap {
@@ -416,6 +410,9 @@ body.bb-page--popup .bb-menu {
   list-style: none;
   cursor: pointer;
   user-select: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
   font-size: 13px;
   font-weight: 650;
   padding: 10px 6px 0;
@@ -428,12 +425,12 @@ body.bb-page--popup .bb-menu {
 
 .bb-sites-summary::before {
   content: '▸';
-  display: inline-block;
-  width: 22px;
+  display: block;
+  flex: 0 0 auto;
   font-size: 20px;
   line-height: 1;
-  color: var(--bb-ink-2);
-  transform: translateY(1px);
+  color: var(--bb-ink);
+  transform: translateY(-1px);
 }
 
 details[open] > .bb-sites-summary::before {
