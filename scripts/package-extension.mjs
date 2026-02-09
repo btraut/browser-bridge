@@ -98,6 +98,10 @@ try {
     path.join(extensionRoot, 'options.html'),
     path.join(stagingRoot, 'options.html')
   );
+  await maybeCopyFile(
+    path.join(extensionRoot, 'popup.html'),
+    path.join(stagingRoot, 'popup.html')
+  );
 
   // Zip the staged extension directory.
   run('zip', ['-r', outPath, '.'], { cwd: stagingRoot });

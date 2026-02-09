@@ -15,6 +15,10 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 
 - Increase the site-permissions prompt popup size to avoid clipping controls.
 
+### Added
+
+- Extension toolbar menu (Settings/About) for easier discovery of site permissions.
+
 ### Changed
 
 - When `tab_id` is omitted in drive commands, Browser Bridge now creates (and reuses) a dedicated Chrome window/tab so agent activity stays separate from the user's current window.

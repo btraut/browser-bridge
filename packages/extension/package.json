@@ -13,6 +13,7 @@
     "manifest.json",
     "assets",
     "permission.html",
-    "options.html"
+    "options.html",
+    "popup.html"
   ]
 }

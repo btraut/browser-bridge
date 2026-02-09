@@ -54,3 +54,8 @@ await buildClassicScript(
   path.join(extensionRoot, 'src', 'options-ui.ts'),
   path.join(outdir, 'options-ui.js')
 );
+
+await buildClassicScript(
+  path.join(extensionRoot, 'src', 'popup-ui.ts'),
+  path.join(outdir, 'popup-ui.js')
+);

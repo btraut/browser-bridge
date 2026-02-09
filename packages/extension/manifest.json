@@ -14,7 +14,8 @@
       "16": "assets/icons/icon-16.png",
       "32": "assets/icons/icon-32.png",
       "48": "assets/icons/icon-48.png"
-    }
+    },
+    "default_popup": "popup.html"
   },
   "background": {
     "service_worker": "dist/background.js",

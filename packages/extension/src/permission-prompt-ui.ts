@@ -71,3 +71,6 @@ const escapeHtml = (raw: string): string => {
 };
 
 main();
+
+// Make this file a module (avoid global name collisions across UI entrypoints).
+export {};

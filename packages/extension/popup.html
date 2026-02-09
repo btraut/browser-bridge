@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Browser Bridge</title>
+    <link rel="stylesheet" href="assets/ui.css" />
+    <style>
+      body.bb-page {
+        padding: 10px;
+        min-width: 280px;
+      }
+      .bb-card {
+        padding: 12px;
+      }
+      .bb-title {
+        font-size: 16px;
+      }
+      .bb-menu {
+        display: grid;
+        gap: 8px;
+      }
+      .bb-button {
+        width: 100%;
+        text-align: left;
+      }
+    </style>
+  </head>
+  <body class="bb-page">
+    <main class="bb-card" role="main">
+      <header class="bb-header">
+        <div class="bb-eyebrow">Browser Bridge</div>
+        <h1 class="bb-title">Menu</h1>
+      </header>
+
+      <section class="bb-menu" aria-label="Extension menu">
+        <button
+          class="bb-button bb-button-primary"
+          id="bb-settings"
+          type="button"
+        >
+          Settings...
+        </button>
+        <button
+          class="bb-button bb-button-secondary"
+          id="bb-about"
+          type="button"
+        >
+          About...
+        </button>
+      </section>
+    </main>
+
+    <script src="dist/popup-ui.js"></script>
+  </body>
+</html>
