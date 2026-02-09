@@ -212,6 +212,7 @@ body.bb-page--popup .bb-menu {
 
 .bb-list {
   background: transparent;
+  border-top: 1px solid var(--bb-border-2);
 }
 
 .bb-list-row {
@@ -258,7 +259,8 @@ body.bb-page--popup .bb-menu {
 
 .bb-list-right {
   flex: 0 0 auto;
-  padding-top: 1px;
+  align-self: center;
+  padding-top: 0;
 }
 
 .bb-link-button {
