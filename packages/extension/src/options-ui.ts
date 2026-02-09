@@ -1,14 +1,26 @@
 import {
   allowSiteAlways,
   getAllowlistedSites,
+  readSitePermissionsMode,
   revokeSite,
+  type SitePermissionsMode,
   upsertAllowlistedSites,
+  writeSitePermissionsMode,
 } from './site-permissions.js';
 
 type Row = {
   site: string;
   createdAt: string;
   lastUsedAt: string;
+};
+
+type ModeEls = {
+  granular: HTMLInputElement;
+  bypass: HTMLInputElement;
+  warning: HTMLElement;
+  sitesDetails: HTMLDetailsElement;
+  sitesSummary: HTMLElement;
+  sitesIgnored: HTMLElement;
 };
 
 const byId = (id: string): HTMLElement => {
@@ -99,6 +111,63 @@ const createToast = (): {
 };
 
 const toast = createToast();
+
+const getModeEls = (): ModeEls => {
+  const granular = byId('bb-mode-granular') as HTMLInputElement;
+  const bypass = byId('bb-mode-bypass') as HTMLInputElement;
+  const warning = byId('bb-bypass-warning');
+  const sitesDetails = byId('bb-sites-details') as HTMLDetailsElement;
+  const sitesSummary = byId('bb-sites-summary');
+  const sitesIgnored = byId('bb-sites-ignored');
+
+  if (granular.type !== 'radio' || bypass.type !== 'radio') {
+    throw new Error('Expected radio inputs for permissions mode.');
+  }
+  if (sitesDetails.tagName.toLowerCase() !== 'details') {
+    throw new Error('Expected a <details> for the sites disclosure.');
+  }
+
+  return {
+    granular,
+    bypass,
+    warning,
+    sitesDetails,
+    sitesSummary,
+    sitesIgnored,
+  };
+};
+
+let lastMode: SitePermissionsMode | null = null;
+let modeWriteInProgress = false;
+
+const applyMode = (mode: SitePermissionsMode): void => {
+  const els = getModeEls();
+  els.granular.checked = mode === 'granular';
+  els.bypass.checked = mode === 'bypass';
+
+  els.warning.hidden = mode !== 'bypass';
+  els.sitesIgnored.hidden = mode !== 'bypass';
+
+  if (mode === 'bypass') {
+    els.sitesSummary.textContent = 'Approved sites (ignored in bypass mode)';
+    els.sitesDetails.classList.remove('bb-sites-details--no-summary');
+    if (lastMode !== 'bypass') {
+      els.sitesDetails.open = false;
+    }
+  } else {
+    els.sitesSummary.textContent = 'Approved sites';
+    els.sitesDetails.classList.add('bb-sites-details--no-summary');
+    if (lastMode !== 'granular') {
+      els.sitesDetails.open = true;
+    }
+  }
+
+  lastMode = mode;
+};
+
+const refreshMode = async (): Promise<void> => {
+  applyMode(await readSitePermissionsMode());
+};
 
 const focusSiteRow = (site: string): void => {
   const container = byId('bb-sites');
@@ -216,11 +285,44 @@ const refresh = async (): Promise<void> => {
   render(rows);
 };
 
+const setMode = async (mode: SitePermissionsMode): Promise<void> => {
+  if (modeWriteInProgress) {
+    return;
+  }
+
+  modeWriteInProgress = true;
+  try {
+    await writeSitePermissionsMode(mode);
+    applyMode(mode);
+  } finally {
+    modeWriteInProgress = false;
+  }
+};
+
+const refreshAll = async (): Promise<void> => {
+  await Promise.all([refresh(), refreshMode()]);
+};
+
 const main = (): void => {
-  void refresh();
+  void refreshAll();
+
+  const { granular, bypass } = getModeEls();
+  granular.addEventListener('change', () => {
+    if (!granular.checked) {
+      return;
+    }
+    void setMode('granular');
+  });
+  bypass.addEventListener('change', () => {
+    if (!bypass.checked) {
+      return;
+    }
+    void setMode('bypass');
+  });
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (chrome as any).storage?.onChanged?.addListener?.(() => {
-    void refresh();
+    void refreshAll();
   });
 };
 

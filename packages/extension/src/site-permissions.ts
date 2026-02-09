@@ -1,6 +1,10 @@
 export const SITE_ALLOWLIST_KEY = 'siteAllowlist';
 export const PERMISSION_PROMPT_WAIT_MS_KEY = 'permissionPromptWaitMs';
 export const DEFAULT_PERMISSION_PROMPT_WAIT_MS = 30_000;
+export const SITE_PERMISSIONS_MODE_KEY = 'sitePermissionsMode';
+
+export type SitePermissionsMode = 'granular' | 'bypass';
+export const DEFAULT_SITE_PERMISSIONS_MODE: SitePermissionsMode = 'granular';
 
 export type SiteAllowlistEntry = {
   createdAt: string; // ISO
@@ -73,6 +77,33 @@ const readAllowlistRaw = async (): Promise<SiteAllowlist> => {
 const writeAllowlistRaw = async (allowlist: SiteAllowlist): Promise<void> => {
   return await new Promise<void>((resolve) => {
     chrome.storage.local.set({ [SITE_ALLOWLIST_KEY]: allowlist }, () =>
+      resolve()
+    );
+  });
+};
+
+export const readSitePermissionsMode =
+  async (): Promise<SitePermissionsMode> => {
+    return await new Promise<SitePermissionsMode>((resolve) => {
+      chrome.storage.local.get(
+        [SITE_PERMISSIONS_MODE_KEY],
+        (result: Record<string, unknown>) => {
+          const raw = result?.[SITE_PERMISSIONS_MODE_KEY];
+          if (raw === 'granular' || raw === 'bypass') {
+            resolve(raw);
+            return;
+          }
+          resolve(DEFAULT_SITE_PERMISSIONS_MODE);
+        }
+      );
+    });
+  };
+
+export const writeSitePermissionsMode = async (
+  mode: SitePermissionsMode
+): Promise<void> => {
+  return await new Promise<void>((resolve) => {
+    chrome.storage.local.set({ [SITE_PERMISSIONS_MODE_KEY]: mode }, () =>
       resolve()
     );
   });

@@ -17,6 +17,7 @@ import { PermissionPromptController } from './permission-prompt.js';
 import {
   allowSiteAlways,
   isSiteAllowed,
+  readSitePermissionsMode,
   siteKeyFromUrl,
   touchSiteLastUsed,
 } from './site-permissions.js';
@@ -982,6 +983,12 @@ class DriveSocket {
               },
             };
           }
+        }
+
+        if ((await readSitePermissionsMode()) === 'bypass') {
+          // Bypass mode skips the per-site allowlist and permission prompt.
+          // We still enforce restricted URL checks above.
+          return { ok: true, siteKey, touchOnSuccess: false };
         }
 
         if (await isSiteAllowed(siteKey)) {

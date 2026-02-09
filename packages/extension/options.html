@@ -3,22 +3,86 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Browser Bridge - Approved Sites</title>
+    <title>Browser Bridge - Site Permissions</title>
     <link rel="stylesheet" href="assets/ui.css" />
   </head>
   <body class="bb-page">
     <main class="bb-options" role="main">
       <header class="bb-options-head">
-        <h1 class="bb-title">Approved sites</h1>
+        <h1 class="bb-title">Site permissions</h1>
         <p class="bb-lead">
-          You have allowed Browser Bridge to take action (browse, click, type)
-          on the following sites.
+          Control whether Browser Bridge asks per-site before taking action
+          (browse, click, type), or runs in bypass mode.
         </p>
       </header>
 
-      <section aria-label="Approved sites list">
-        <div id="bb-sites" class="bb-menu bb-menu--list" role="list"></div>
+      <section aria-label="Permission mode">
+        <fieldset class="bb-fieldset">
+          <legend class="bb-fieldset-legend">Permission mode</legend>
+          <div
+            class="bb-menu"
+            role="radiogroup"
+            aria-describedby="bb-mode-help"
+          >
+            <label class="bb-row bb-radio-row">
+              <span class="bb-radio-text">
+                <span class="bb-radio-title">Granular per-site</span>
+                <span class="bb-radio-sub">
+                  Prompt on new sites; use the allowlist below.
+                </span>
+              </span>
+              <input
+                id="bb-mode-granular"
+                class="bb-radio"
+                type="radio"
+                name="bb-permissions-mode"
+                value="granular"
+              />
+            </label>
+            <label class="bb-row bb-radio-row">
+              <span class="bb-radio-text">
+                <span class="bb-radio-title bb-radio-title--danger">
+                  Bypass (dangerous)
+                </span>
+                <span class="bb-radio-sub">
+                  Allow agent actions on any website without asking.
+                </span>
+              </span>
+              <input
+                id="bb-mode-bypass"
+                class="bb-radio"
+                type="radio"
+                name="bb-permissions-mode"
+                value="bypass"
+              />
+            </label>
+          </div>
+          <p id="bb-mode-help" class="bb-footnote">
+            Restricted URLs (for example, chrome:// and file://) are still
+            blocked.
+          </p>
+          <div id="bb-bypass-warning" class="bb-warning" hidden>
+            Bypass mode is intentionally unsafe: the agent can click/type on any
+            website without per-site consent prompts.
+          </div>
+        </fieldset>
       </section>
+
+      <details
+        id="bb-sites-details"
+        class="bb-sites-details bb-sites-details--no-summary"
+        open
+      >
+        <summary id="bb-sites-summary" class="bb-sites-summary">
+          Approved sites
+        </summary>
+        <p id="bb-sites-ignored" class="bb-sites-ignored" hidden>
+          Bypass is enabled, so this allowlist is ignored.
+        </p>
+        <section aria-label="Approved sites list">
+          <div id="bb-sites" class="bb-menu bb-menu--list" role="list"></div>
+        </section>
+      </details>
     </main>
 
     <script type="module" src="dist/options-ui.js"></script>
