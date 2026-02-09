@@ -32,6 +32,13 @@ export const errorStatus = (code: string): number => {
   switch (code) {
     case 'INVALID_ARGUMENT':
       return 400;
+    case 'UNAUTHORIZED':
+      return 401;
+    case 'FORBIDDEN':
+    case 'PERMISSION_REQUIRED':
+    case 'PERMISSION_PROMPT_TIMEOUT':
+    case 'PERMISSION_DENIED':
+      return 403;
     case 'SESSION_NOT_FOUND':
     case 'TAB_NOT_FOUND':
     case 'LOCATOR_NOT_FOUND':

@@ -955,13 +955,14 @@ class DriveSocket {
           return {
             ok: false,
             error: {
-              code: 'PERMISSION_REQUIRED',
-              message: `Permission required for ${siteKey}.`,
+              code: 'PERMISSION_PROMPT_TIMEOUT',
+              message: `Permission prompt timed out for ${siteKey}.`,
               retryable: true,
               details: {
                 reason: 'prompt_timed_out',
                 site: siteKey,
                 action,
+                wait_ms: decision.waitMs,
               },
             },
           };
@@ -971,13 +972,15 @@ class DriveSocket {
           return {
             ok: false,
             error: {
-              code: 'PERMISSION_REQUIRED',
-              message: `Permission denied for ${siteKey}.`,
+              code: 'PERMISSION_DENIED',
+              message: `User denied Browser Bridge permission for ${siteKey}.`,
               retryable: false,
               details: {
                 reason: 'user_denied',
                 site: siteKey,
                 action,
+                next_step:
+                  'Ask the user to approve the permission prompt (Allow/Always allow) or allow the site in the extension options page, then retry the command.',
               },
             },
           };

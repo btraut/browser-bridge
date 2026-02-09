@@ -80,6 +80,7 @@ Notes:
 
 - Browser Bridge enforces a per-site allowlist for `drive.*` actions. The first time it acts on a new site, you'll see a permission prompt.
 - You can review and revoke approved sites via the extension options page (Extensions menu -> Browser Bridge -> Extension options).
+- If you click **Decline**, the command fails with `PERMISSION_DENIED` (non-retryable). If you don't respond in time, you'll see `PERMISSION_PROMPT_TIMEOUT` (retryable once after the user allows).
 
 ## Quickstart
 

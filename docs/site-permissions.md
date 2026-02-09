@@ -219,7 +219,7 @@ Build system:
        - On allow once: proceed without persisting, but touch `lastUsedAt` in memory or skip
        - On allow always: persist allowlist, then proceed
        - On deny: return non-retryable error
-       - On timeout: return retryable `PERMISSION_REQUIRED`
+       - On timeout: return retryable `PERMISSION_PROMPT_TIMEOUT`
    - Verify:
      - Manual: `drive.navigate` to an unapproved site blocks and prompts.
      - Manual: approval allows action; revoke removes access.

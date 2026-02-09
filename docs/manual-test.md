@@ -42,10 +42,10 @@ This checklist validates the Drive + Inspect planes and artifact handling end-to
    - Retry the command (if it already timed out); it should succeed without prompting on subsequent actions.
 6. Verify "Decline":
    - Trigger a prompt and click **Decline**.
-   - The command should return `PERMISSION_REQUIRED` with `retryable: false`.
+   - The command should return `PERMISSION_DENIED` with `retryable: false`.
 7. Verify prompt timeout behavior:
    - Trigger a prompt, do not click anything for >10 seconds.
-   - The command should return `PERMISSION_REQUIRED` with `retryable: true`.
+   - The command should return `PERMISSION_PROMPT_TIMEOUT` with `retryable: true`.
    - Click **Always allow actions on this site** in the prompt window.
    - Retry the same command; it should now succeed.
 8. Verify revoke takes effect immediately:

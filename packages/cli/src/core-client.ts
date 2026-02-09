@@ -24,7 +24,8 @@ export type CoreClient = {
 
 const DEFAULT_HOST = '127.0.0.1';
 const DEFAULT_PORT = 3210;
-const DEFAULT_TIMEOUT_MS = 4000;
+// Must be long enough to accommodate user-approval prompts in the extension.
+const DEFAULT_TIMEOUT_MS = 30000;
 const HEALTH_RETRY_MS = 250;
 const HEALTH_ATTEMPTS = 20;
 

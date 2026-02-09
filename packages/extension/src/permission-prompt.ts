@@ -9,7 +9,7 @@ export type PermissionPromptDecision = 'allow_once' | 'allow_always' | 'deny';
 
 export type PermissionPromptResult =
   | { kind: PermissionPromptDecision }
-  | { kind: 'timed_out' };
+  | { kind: 'timed_out'; waitMs: number };
 
 export type PermissionPromptRequest = {
   siteKey: string;
@@ -133,7 +133,7 @@ export class PermissionPromptController {
     const waitMs = await this.deps.getWaitMs();
     const decision = await this.waitForDecisionOrTimeout(state, waitMs);
     if (!decision) {
-      return { kind: 'timed_out' };
+      return { kind: 'timed_out', waitMs };
     }
     return { kind: decision };
   }

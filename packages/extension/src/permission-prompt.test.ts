@@ -101,7 +101,7 @@ describe('permission prompt controller', () => {
       });
 
       await vi.advanceTimersByTimeAsync(11);
-      await expect(p).resolves.toEqual({ kind: 'timed_out' });
+      await expect(p).resolves.toEqual({ kind: 'timed_out', waitMs: 10 });
     } finally {
       vi.useRealTimers();
       uninstall();
@@ -135,7 +135,7 @@ describe('permission prompt controller', () => {
         action: 'drive.navigate',
       });
       await vi.advanceTimersByTimeAsync(11);
-      await expect(p1).resolves.toEqual({ kind: 'timed_out' });
+      await expect(p1).resolves.toEqual({ kind: 'timed_out', waitMs: 10 });
 
       const p2 = controller.requestPermission({
         siteKey: 'example.com',

@@ -9,12 +9,16 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 ### Added
 
 - `PERMISSION_REQUIRED` error code for soft site-permissions gating.
+- `PERMISSION_DENIED` error code for explicit user declines in the site-permissions prompt.
+- `PERMISSION_PROMPT_TIMEOUT` error code for when a site-permissions approval prompt times out while waiting for user input.
 - Soft site-permissions allowlist with a permission prompt window and an options page to review/revoke approved sites.
 - Extension toolbar menu (Settings/About) for easier discovery of site permissions.
 
 ### Fixed
 
+- Increase the default Core client timeout (CLI + MCP) so extension permission prompts do not time out prematurely.
 - Increase the site-permissions prompt popup size to avoid clipping controls.
+- Make permission-decline failures more actionable for agent clients by returning `PERMISSION_DENIED` with next-step guidance.
 - Fix extension popup/options buttons by loading UI scripts as modules; simplify the popup styling (no gradients/ALL CAPS) and replace About ellipsis with an external-link icon.
 - Fix a small extension popup bottom-clipping issue; add a subtle header icon for personality without gradients.
 
