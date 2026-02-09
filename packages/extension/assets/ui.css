@@ -4,8 +4,8 @@
   --bb-surface: #f6f6f7;
   --bb-ink: #151515;
   --bb-ink-2: rgba(21, 21, 21, 0.68);
-  --bb-border: rgba(0, 0, 0, 0.14);
-  --bb-border-2: rgba(0, 0, 0, 0.08);
+  --bb-border: #c9c9d2;
+  --bb-border-2: #dedee6;
   --bb-shadow: none;
   --bb-radius: 12px;
   --bb-radius-sm: 10px;
@@ -94,7 +94,6 @@ body.bb-page.bb-page--popup {
   border-radius: var(--bb-radius-sm);
   overflow: hidden;
   background: var(--bb-bg);
-  padding: 1px; /* Keep row hover from visually "tinting" the outer border */
 }
 
 body.bb-page--popup .bb-menu {
@@ -104,7 +103,6 @@ body.bb-page--popup .bb-menu {
 }
 
 .bb-row {
-  appearance: none;
   border: 0;
   background: transparent;
   width: 100%;
@@ -116,6 +114,8 @@ body.bb-page--popup .bb-menu {
   font-size: 14px;
   color: var(--bb-ink);
   cursor: pointer;
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .bb-row + .bb-row {
@@ -150,83 +150,6 @@ body.bb-page--popup .bb-menu {
   margin: 0 0 10px;
   color: var(--bb-ink-2);
   font-size: 14px;
-}
-
-.bb-toolbar {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
-  margin: 10px 0 14px;
-}
-
-.bb-toolbar-left {
-  display: flex;
-  align-items: flex-end;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.bb-toolbar-right {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.bb-field {
-  display: grid;
-  gap: 6px;
-}
-
-.bb-field-label {
-  font-size: 12px;
-  color: var(--bb-ink-2);
-  font-weight: 500;
-}
-
-.bb-input,
-.bb-select {
-  appearance: none;
-  border: 1px solid var(--bb-border-2);
-  background: var(--bb-bg);
-  border-radius: 10px;
-  padding: 9px 10px;
-  font-size: 14px;
-  color: var(--bb-ink);
-  min-width: 180px;
-}
-
-.bb-select {
-  min-width: 160px;
-}
-
-.bb-input:focus-visible,
-.bb-select:focus-visible {
-  outline: 2px solid rgba(224, 107, 61, 0.55);
-  outline-offset: 2px;
-}
-
-.bb-check {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  color: var(--bb-ink);
-  user-select: none;
-  padding: 8px 4px;
-}
-
-.bb-checkbox {
-  width: 16px;
-  height: 16px;
-}
-
-.bb-count {
-  font-size: 12px;
-  color: var(--bb-ink-2);
-  padding: 8px 0;
 }
 
 .bb-site {
@@ -279,11 +202,6 @@ body.bb-page--popup .bb-menu {
 .bb-button-primary {
   border-color: rgba(224, 107, 61, 0.4);
   background: rgba(224, 107, 61, 0.12);
-}
-
-.bb-button-danger {
-  border-color: rgba(0, 0, 0, 0.14);
-  background: rgba(0, 0, 0, 0.03);
 }
 
 .bb-footnote {
@@ -413,45 +331,6 @@ body.bb-page--popup .bb-menu {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.bb-dialog {
-  border: 0;
-  padding: 0;
-  border-radius: 14px;
-  max-width: 520px;
-  width: calc(100% - 28px);
-  background: var(--bb-bg);
-  box-shadow:
-    0 2px 6px rgba(0, 0, 0, 0.12),
-    0 28px 60px rgba(0, 0, 0, 0.22);
-}
-
-.bb-dialog::backdrop {
-  background: rgba(0, 0, 0, 0.38);
-}
-
-.bb-dialog-inner {
-  padding: 14px 14px 12px;
-  margin: 0;
-}
-
-.bb-dialog-title {
-  font-size: 15px;
-  margin: 0 0 6px;
-}
-
-.bb-dialog-body {
-  margin: 0 0 12px;
-  color: var(--bb-ink-2);
-  font-size: 13px;
-  white-space: pre-line;
-}
-
-.bb-dialog-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
 }
 
 .bb-inline-code {

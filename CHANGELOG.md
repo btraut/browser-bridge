@@ -22,7 +22,7 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 
 - When `tab_id` is omitted in drive commands, Browser Bridge now creates (and reuses) a dedicated Chrome window/tab so agent activity stays separate from the user's current window.
 - The dedicated agent tab is grouped under a `🌉 Browser Bridge` tab group when created.
-- Approved sites options page: switch to a scalable list layout with search + sorting, right-aligned per-row revoke actions, bulk revoke (selected/all), confirm dialogs, undo toast, and a "Last used" display optimized for scanning.
+- Approved sites options page: switch to a settings-style list with right-aligned revoke actions and an Undo toast.
 
 ## [0.4.3] - 2026-02-07
 

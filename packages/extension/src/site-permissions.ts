@@ -129,23 +129,6 @@ export const allowSiteAlways = async (
   await writeAllowlistRaw(allowlist);
 };
 
-export const setAllowlistedSites = async (
-  allowlist: SiteAllowlist
-): Promise<void> => {
-  const out: SiteAllowlist = {};
-  for (const [k, v] of Object.entries(allowlist ?? {})) {
-    if (typeof k !== 'string') {
-      continue;
-    }
-    if (!isAllowlistEntry(v)) {
-      continue;
-    }
-    out[normalizeSiteKey(k)] = v;
-  }
-
-  await writeAllowlistRaw(out);
-};
-
 export const upsertAllowlistedSites = async (
   entries: SiteAllowlist
 ): Promise<void> => {
@@ -192,30 +175,5 @@ export const revokeSite = async (siteKey: string): Promise<void> => {
     return;
   }
   delete allowlist[key];
-  await writeAllowlistRaw(allowlist);
-};
-
-export const revokeSites = async (siteKeys: string[]): Promise<void> => {
-  const keys = (siteKeys ?? [])
-    .filter((k): k is string => typeof k === 'string')
-    .map(normalizeSiteKey);
-  if (keys.length === 0) {
-    return;
-  }
-
-  const allowlist = await readAllowlistRaw();
-  let changed = false;
-  for (const key of keys) {
-    if (!allowlist[key]) {
-      continue;
-    }
-    delete allowlist[key];
-    changed = true;
-  }
-
-  if (!changed) {
-    return;
-  }
-
   await writeAllowlistRaw(allowlist);
 };

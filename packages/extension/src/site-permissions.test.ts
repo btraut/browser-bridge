@@ -7,9 +7,7 @@ import {
   getAllowlistedSites,
   isSiteAllowed,
   readPermissionPromptWaitMs,
-  revokeSites,
   revokeSite,
-  setAllowlistedSites,
   siteKeyFromUrl,
   touchSiteLastUsed,
   upsertAllowlistedSites,
@@ -121,7 +119,7 @@ describe('site permissions', () => {
     expect(await isSiteAllowed('example.com')).toBe(false);
   });
 
-  it('supports bulk revoke and undo-style restore helpers', async () => {
+  it('supports undo-style restore helpers', async () => {
     await allowSiteAlways('example.com', new Date('2026-02-08T00:00:00.000Z'));
     await allowSiteAlways(
       'localhost:3000',
@@ -134,17 +132,12 @@ describe('site permissions', () => {
       'localhost:3000',
     ]);
 
-    await revokeSites(['EXAMPLE.com', 'missing.test']);
+    await revokeSite('EXAMPLE.com');
     expect(await isSiteAllowed('example.com')).toBe(false);
-    expect(await isSiteAllowed('localhost:3000')).toBe(true);
 
     // Restore only the removed entry.
     await upsertAllowlistedSites({ 'example.com': before['example.com']! });
     expect(await isSiteAllowed('example.com')).toBe(true);
-
-    // Replace the allowlist entirely (used for "revoke all").
-    await setAllowlistedSites({});
-    expect(await getAllowlistedSites()).toEqual({});
   });
 
   it('reads permission prompt wait config with defaults', async () => {

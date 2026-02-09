@@ -35,8 +35,8 @@ const main = (): void => {
   summary.innerHTML = action
     ? `Browser Bridge wants to run <span class="bb-inline-code">${escapeHtml(
         action
-      )}</span> on:`
-    : 'Browser Bridge wants to act on:';
+      )}</span> on this site:`
+    : 'Browser Bridge wants to act on this site:';
   siteEl.textContent = site;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
