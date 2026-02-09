@@ -12,6 +12,7 @@ What makes it different:
 
 - **Real browser state**: operate on your actual Chrome profile (tabs, cookies, logins, extensions).
 - **Two-plane architecture**: a **drive** plane that does what a user does (click, type, navigate), plus an **inspect** plane that reads state (DOM, console, screenshots). This separation makes runs less flaky and lets inspection happen in parallel.
+- **Safe-by-default drive permissions**: `drive.*` actions are blocked on new sites until you approve them. You can allow once, always allow (per-site allowlist you can audit/revoke), or enable a clearly-labeled bypass mode if you want zero guardrails.
 - **Token-efficient inspection**: stable element refs like `@e1` (find once, reuse everywhere) plus knobs to bound output (`--max-nodes`, `--compact`, `--interactive`, `--selector`).
 - **Structured errors for agents**: stable error codes with a `retryable` flag (no more guessing whether to retry).
 - **Recovery-first**: sessions have an explicit state machine with `session.recover()` and `diagnostics doctor`.
@@ -76,11 +77,28 @@ npm run build
 3. Open Chrome and navigate to `chrome://extensions`.
 4. Enable **Developer mode**, click **Load unpacked**, and select the extension folder (the folder with `manifest.json`).
 
-Notes:
+### Site Permissions (Drive Actions)
 
-- Browser Bridge enforces a per-site allowlist for `drive.*` actions by default. The first time it acts on a new site, you'll see a permission prompt.
-- You can review/revoke approved sites (and optionally enable a dangerous bypass mode) via the extension options page (Extensions menu -> Browser Bridge -> Extension options).
-- If you click **Decline**, the command fails with `PERMISSION_DENIED` (non-retryable). If you don't respond in time, you'll see `PERMISSION_PROMPT_TIMEOUT` (retryable once after the user allows).
+Browser Bridge is intentionally safe by default: **drive actions** (`drive.navigate`, click, type, etc.) require **per-site approval**.
+
+This is the big differentiator versus most "agent browser" tools: once installed, a lot of them effectively grant blanket click/type powers everywhere. That's convenient right up until an agent starts poking around the wrong account, the wrong tab, or prod. Browser Bridge forces an explicit "yes, on this site" and keeps an audit/revoke list.
+
+How it works:
+
+- The first time a `drive.*` action targets a new site, Chrome opens a small permissions prompt.
+- Click **Allow this action** to allow once (no allowlist entry).
+- Click **Always allow actions on this site** to add the site to your approved-sites allowlist.
+- Click **Decline** to fail the command with `PERMISSION_DENIED` (non-retryable).
+- If you ignore the prompt, the command fails with `PERMISSION_PROMPT_TIMEOUT` (retryable). Default wait is 30 seconds; approve the prompt, then retry the command.
+- `inspect.*` is not gated, so agents can inspect first and only ask for permission when it's time to click/type.
+
+Manage approvals (and bypass mode):
+
+- Open the extension options page from `chrome://extensions` (Browser Bridge -> **Extension options**) or from the Extensions toolbar menu (Browser Bridge -> **Extension options**).
+- The options page shows your **Approved sites** allowlist with revoke controls.
+- Switch **Permission mode** to **Bypass (dangerous)** to skip the allowlist and prompts entirely.
+- In bypass mode, the agent can take actions on any website without asking.
+- Restricted URLs (for example `chrome://` and `file://`) are still blocked.
 
 ## Quickstart
 
