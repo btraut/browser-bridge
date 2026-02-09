@@ -50,8 +50,8 @@ const defaultOpenWindow = async (url: string): Promise<number> => {
         type: 'popup',
         url,
         focused: true,
-        width: 420,
-        height: 320,
+        width: 460,
+        height: 420,
       },
       (win: Record<string, unknown> | undefined) => {
         const err = chrome.runtime.lastError;

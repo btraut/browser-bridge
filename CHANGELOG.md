@@ -11,6 +11,10 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 - `PERMISSION_REQUIRED` error code for soft site-permissions gating.
 - Soft site-permissions allowlist with a permission prompt window and an options page to review/revoke approved sites.
 
+### Fixed
+
+- Increase the site-permissions prompt popup size to avoid clipping controls.
+
 ### Changed
 
 - When `tab_id` is omitted in drive commands, Browser Bridge now creates (and reuses) a dedicated Chrome window/tab so agent activity stays separate from the user's current window.
