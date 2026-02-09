@@ -1,4 +1,5 @@
 import {
+  allowSiteAlways,
   getAllowlistedSites,
   revokeSite,
   upsertAllowlistedSites,
@@ -99,6 +100,27 @@ const createToast = (): {
 
 const toast = createToast();
 
+const focusSiteRow = (site: string): void => {
+  const container = byId('bb-sites');
+  const rows = Array.from(container.querySelectorAll('.bb-site-row'));
+  for (const rowEl of rows) {
+    const el = rowEl as HTMLElement;
+    if (el.dataset.site !== site) {
+      continue;
+    }
+
+    try {
+      el.scrollIntoView({ block: 'nearest' });
+    } catch {
+      // ignore
+    }
+
+    const btn = el.querySelector('button') as HTMLButtonElement | null;
+    btn?.focus();
+    return;
+  }
+};
+
 const render = (rows: Row[]): void => {
   const container = byId('bb-sites');
   container.innerHTML = '';
@@ -123,6 +145,7 @@ const render = (rows: Row[]): void => {
         </button>
       </div>
     `);
+    (item as HTMLElement).dataset.site = row.site;
 
     const key = item.querySelector('.bb-site-key') as HTMLElement | null;
     const meta = item.querySelector('.bb-site-meta') as HTMLElement | null;
@@ -141,7 +164,7 @@ const render = (rows: Row[]): void => {
       revokeBtn.disabled = true;
       void (async () => {
         const before = await getAllowlistedSites();
-        const entry = before[row.site];
+        const entry = before[row.site] ?? before[row.site.toLowerCase()];
 
         try {
           await revokeSite(row.site);
@@ -154,8 +177,19 @@ const render = (rows: Row[]): void => {
           toast.showUndo({
             message: `Revoked ${row.site}.`,
             onUndo: async () => {
-              await upsertAllowlistedSites({ [row.site]: entry });
+              try {
+                await upsertAllowlistedSites({ [row.site]: entry });
+              } catch (err) {
+                // If restore fails for any reason, fall back to re-adding the site.
+                // This preserves the intended user outcome even if timestamps change.
+                console.warn(
+                  'Undo revoke failed; falling back to allowSiteAlways.',
+                  err
+                );
+                await allowSiteAlways(row.site);
+              }
               await refresh();
+              focusSiteRow(row.site);
             },
           });
         }
