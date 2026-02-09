@@ -4,6 +4,7 @@ import {
   ApiEnvelope,
 } from '@btraut/browser-bridge-shared';
 import { ZodError, z } from 'zod';
+import { CoreClientError } from './core-client';
 
 type OutputOptions = {
   json: boolean;
@@ -60,6 +61,10 @@ export const outputEnvelope = (
 
 const toErrorInfo = (error: unknown): ErrorInfo => {
   if (error instanceof CliError) {
+    return error.info;
+  }
+
+  if (error instanceof CoreClientError) {
     return error.info;
   }
 

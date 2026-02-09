@@ -1,4 +1,4 @@
-import { ApiEnvelope } from '@btraut/browser-bridge-shared';
+import { ApiEnvelope, ErrorInfo } from '@btraut/browser-bridge-shared';
 import { spawn } from 'node:child_process';
 import { resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
@@ -6,6 +6,16 @@ import { setTimeout as delay } from 'node:timers/promises';
 type FetchLike = typeof fetch;
 
 type SpawnLike = typeof spawn;
+
+export class CoreClientError extends Error {
+  readonly info: ErrorInfo;
+
+  constructor(info: ErrorInfo) {
+    super(info.message);
+    this.name = 'CoreClientError';
+    this.info = info;
+  }
+}
 
 export type CoreClientOptions = {
   host?: string;
@@ -105,14 +115,34 @@ export const createCoreClient = (
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
     try {
-      const response = await fetchImpl(`${baseUrl}${normalizePath(path)}`, {
-        method,
-        headers: {
-          'content-type': 'application/json',
-        },
-        body: body === undefined ? undefined : JSON.stringify(body),
-        signal: controller.signal,
-      });
+      let response: Response;
+      try {
+        response = await fetchImpl(`${baseUrl}${normalizePath(path)}`, {
+          method,
+          headers: {
+            'content-type': 'application/json',
+          },
+          body: body === undefined ? undefined : JSON.stringify(body),
+          signal: controller.signal,
+        });
+      } catch (error) {
+        if (
+          controller.signal.aborted ||
+          (error instanceof Error && error.name === 'AbortError')
+        ) {
+          throw new CoreClientError({
+            code: 'TIMEOUT',
+            message: `Core request timed out after ${timeoutMs}ms.`,
+            retryable: true,
+            details: {
+              timeout_ms: timeoutMs,
+              base_url: baseUrl,
+              path: normalizePath(path),
+            },
+          });
+        }
+        throw error;
+      }
 
       const raw = await response.text();
       if (!raw) {
@@ -136,10 +166,21 @@ export const createCoreClient = (
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), timeoutMs);
       try {
-        const response = await fetchImpl(`${baseUrl}/health`, {
-          method: 'GET',
-          signal: controller.signal,
-        });
+        let response: Response;
+        try {
+          response = await fetchImpl(`${baseUrl}/health`, {
+            method: 'GET',
+            signal: controller.signal,
+          });
+        } catch (error) {
+          if (
+            controller.signal.aborted ||
+            (error instanceof Error && error.name === 'AbortError')
+          ) {
+            return false;
+          }
+          throw error;
+        }
         if (!response.ok) {
           return false;
         }

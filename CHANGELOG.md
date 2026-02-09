@@ -17,16 +17,19 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 ### Fixed
 
 - Increase the default Core client timeout (CLI + MCP) so extension permission prompts do not time out prematurely.
+- CLI: classify aborted Core requests as `TIMEOUT` (with timeout details) instead of a generic `INTERNAL` error.
 - Increase the site-permissions prompt popup size to avoid clipping controls.
 - Make permission-decline failures more actionable for agent clients by returning `PERMISSION_DENIED` with next-step guidance.
 - Fix extension popup/options buttons by loading UI scripts as modules; simplify the popup styling (no gradients/ALL CAPS) and replace About ellipsis with an external-link icon.
 - Fix a small extension popup bottom-clipping issue; add a subtle header icon for personality without gradients.
+- Options page: make Undo revoke more robust by verifying the allowlist restore.
 
 ### Changed
 
 - When `tab_id` is omitted in drive commands, Browser Bridge now creates (and reuses) a dedicated Chrome window/tab so agent activity stays separate from the user's current window.
 - The dedicated agent tab is grouped under a `🌉 Browser Bridge` tab group when created.
 - Approved sites options page: switch to a settings-style list with right-aligned revoke actions and an Undo toast.
+- Increase the default site-permissions prompt wait to 30 seconds.
 
 ## [0.4.3] - 2026-02-07
 

@@ -1,6 +1,6 @@
 export const SITE_ALLOWLIST_KEY = 'siteAllowlist';
 export const PERMISSION_PROMPT_WAIT_MS_KEY = 'permissionPromptWaitMs';
-export const DEFAULT_PERMISSION_PROMPT_WAIT_MS = 10_000;
+export const DEFAULT_PERMISSION_PROMPT_WAIT_MS = 30_000;
 
 export type SiteAllowlistEntry = {
   createdAt: string; // ISO

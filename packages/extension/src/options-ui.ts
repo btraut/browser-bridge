@@ -179,6 +179,10 @@ const render = (rows: Row[]): void => {
             onUndo: async () => {
               try {
                 await upsertAllowlistedSites({ [row.site]: entry });
+                const after = await getAllowlistedSites();
+                if (!after[row.site] && !after[row.site.toLowerCase()]) {
+                  await allowSiteAlways(row.site);
+                }
               } catch (err) {
                 // If restore fails for any reason, fall back to re-adding the site.
                 // This preserves the intended user outcome even if timestamps change.
