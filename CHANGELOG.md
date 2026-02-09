@@ -16,7 +16,7 @@ _TBD_
 
 ### Changed
 
-- Docs: document extension per-site permissions prompts, approved-sites allowlist, and bypass mode in the README.
+_TBD_
 
 ## [0.6.0] - 2026-02-09
 
