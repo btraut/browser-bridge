@@ -210,32 +210,40 @@ body.bb-page--popup .bb-menu {
   color: var(--bb-ink-2);
 }
 
-.bb-list {
-  background: transparent;
-  border-top: 1px solid var(--bb-border-2);
+.bb-options {
+  max-width: 860px;
+  margin: 0 auto;
+}
+
+.bb-options-head {
+  margin: 8px 0 12px;
+}
+
+.bb-menu--list {
   margin-top: 12px;
 }
 
-.bb-list-row {
+.bb-site-row {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 14px 0;
+  padding: 10px 12px;
 }
 
-.bb-list-row + .bb-list-row {
+.bb-site-row + .bb-site-row {
   border-top: 1px solid var(--bb-border-2);
 }
 
-.bb-list-left {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  min-width: 0;
+.bb-site-row:hover {
+  background: var(--bb-hover);
 }
 
-.bb-list-main {
+.bb-site-row:active {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.bb-site-main {
   min-width: 0;
 }
 
@@ -248,7 +256,7 @@ body.bb-page--popup .bb-menu {
   max-width: 520px;
 }
 
-.bb-list-meta {
+.bb-site-meta {
   margin-top: 4px;
   font-size: 12px;
   color: var(--bb-ink-2);
@@ -258,10 +266,10 @@ body.bb-page--popup .bb-menu {
   max-width: 640px;
 }
 
-.bb-list-right {
-  flex: 0 0 auto;
-  align-self: center;
-  padding-top: 0;
+.bb-site-empty {
+  padding: 10px 12px;
+  font-size: 13px;
+  color: var(--bb-ink-2);
 }
 
 .bb-link-button {

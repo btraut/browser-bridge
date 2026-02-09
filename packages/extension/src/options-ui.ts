@@ -105,33 +105,27 @@ const render = (rows: Row[]): void => {
 
   if (rows.length === 0) {
     const empty = document.createElement('div');
-    empty.className = 'bb-empty';
+    empty.className = 'bb-site-empty';
     empty.textContent = 'No approved sites yet.';
     container.appendChild(empty);
     return;
   }
 
-  const list = document.createElement('div');
-  list.className = 'bb-list';
-  list.setAttribute('role', 'list');
-
   for (const row of rows) {
     const item = elFromHtml(`
-      <div class="bb-list-row" role="listitem">
-        <div class="bb-list-left">
-          <div class="bb-list-main">
+      <div class="bb-site-row" role="listitem">
+        <div class="bb-site-main">
             <div class="bb-site-key"></div>
-            <div class="bb-list-meta"></div>
-          </div>
+            <div class="bb-site-meta"></div>
         </div>
-        <div class="bb-list-right">
-          <button class="bb-link-button bb-link-button-danger" type="button">Revoke</button>
-        </div>
+        <button class="bb-link-button bb-link-button-danger" type="button">
+          Revoke
+        </button>
       </div>
     `);
 
     const key = item.querySelector('.bb-site-key') as HTMLElement | null;
-    const meta = item.querySelector('.bb-list-meta') as HTMLElement | null;
+    const meta = item.querySelector('.bb-site-meta') as HTMLElement | null;
     const revokeBtn = item.querySelector('button') as HTMLButtonElement | null;
     if (!key || !meta || !revokeBtn) {
       throw new Error('List row missing required elements.');
@@ -168,10 +162,8 @@ const render = (rows: Row[]): void => {
       })();
     });
 
-    list.appendChild(item);
+    container.appendChild(item);
   }
-
-  container.appendChild(list);
 };
 
 const refresh = async (): Promise<void> => {

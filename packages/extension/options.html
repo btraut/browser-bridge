@@ -7,20 +7,17 @@
     <link rel="stylesheet" href="assets/ui.css" />
   </head>
   <body class="bb-page">
-    <main class="bb-card" role="main">
-      <header class="bb-header">
+    <main class="bb-options" role="main">
+      <header class="bb-options-head">
         <h1 class="bb-title">Approved sites</h1>
-      </header>
-
-      <section class="bb-body">
         <p class="bb-lead">
           You have allowed Browser Bridge to take action (browse, click, type)
           on the following sites.
         </p>
-      </section>
+      </header>
 
       <section aria-label="Approved sites list">
-        <div id="bb-sites"></div>
+        <div id="bb-sites" class="bb-menu bb-menu--list" role="list"></div>
       </section>
     </main>
 
