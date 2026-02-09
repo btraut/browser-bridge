@@ -235,10 +235,6 @@ body.bb-page--popup .bb-menu {
   border-top: 1px solid var(--bb-border-2);
 }
 
-.bb-site-row:hover {
-  background: var(--bb-hover);
-}
-
 .bb-site-row:active {
   background: rgba(0, 0, 0, 0.06);
 }
