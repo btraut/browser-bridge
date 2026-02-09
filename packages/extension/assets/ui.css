@@ -213,6 +213,7 @@ body.bb-page--popup .bb-menu {
 .bb-list {
   background: transparent;
   border-top: 1px solid var(--bb-border-2);
+  margin-top: 12px;
 }
 
 .bb-list-row {
