@@ -17,10 +17,8 @@ type Row = {
 type ModeEls = {
   granular: HTMLInputElement;
   bypass: HTMLInputElement;
-  warning: HTMLElement;
   sitesDetails: HTMLDetailsElement;
   sitesSummary: HTMLElement;
-  sitesIgnored: HTMLElement;
 };
 
 const byId = (id: string): HTMLElement => {
@@ -115,10 +113,8 @@ const toast = createToast();
 const getModeEls = (): ModeEls => {
   const granular = byId('bb-mode-granular') as HTMLInputElement;
   const bypass = byId('bb-mode-bypass') as HTMLInputElement;
-  const warning = byId('bb-bypass-warning');
   const sitesDetails = byId('bb-sites-details') as HTMLDetailsElement;
   const sitesSummary = byId('bb-sites-summary');
-  const sitesIgnored = byId('bb-sites-ignored');
 
   if (granular.type !== 'radio' || bypass.type !== 'radio') {
     throw new Error('Expected radio inputs for permissions mode.');
@@ -130,10 +126,8 @@ const getModeEls = (): ModeEls => {
   return {
     granular,
     bypass,
-    warning,
     sitesDetails,
     sitesSummary,
-    sitesIgnored,
   };
 };
 
@@ -145,21 +139,14 @@ const applyMode = (mode: SitePermissionsMode): void => {
   els.granular.checked = mode === 'granular';
   els.bypass.checked = mode === 'bypass';
 
-  els.warning.hidden = mode !== 'bypass';
-  els.sitesIgnored.hidden = mode !== 'bypass';
-
+  // Always show the disclosure + allowlist UI in both modes.
+  els.sitesSummary.textContent = 'Approved sites';
   if (mode === 'bypass') {
-    els.sitesSummary.textContent = 'Approved sites (ignored in bypass mode)';
-    els.sitesDetails.classList.remove('bb-sites-details--no-summary');
     if (lastMode !== 'bypass') {
       els.sitesDetails.open = false;
     }
-  } else {
-    els.sitesSummary.textContent = 'Approved sites';
-    els.sitesDetails.classList.add('bb-sites-details--no-summary');
-    if (lastMode !== 'granular') {
-      els.sitesDetails.open = true;
-    }
+  } else if (lastMode !== 'granular') {
+    els.sitesDetails.open = true;
   }
 
   lastMode = mode;
@@ -193,26 +180,21 @@ const focusSiteRow = (site: string): void => {
 const render = (rows: Row[]): void => {
   const container = byId('bb-sites');
   container.innerHTML = '';
+  container.hidden = false;
 
   if (rows.length === 0) {
     const empty = document.createElement('div');
-    empty.className = 'bb-empty';
+    empty.className = 'bb-site-empty';
 
     const line1 = document.createElement('div');
     const title = document.createElement('strong');
     title.textContent = 'No approved sites yet.';
     line1.appendChild(title);
-    line1.appendChild(
-      document.createTextNode(
-        ' Sites show up here after you approve them in a permission prompt (click "Always allow actions on this site").'
-      )
-    );
+    empty.appendChild(line1);
 
     const line2 = document.createElement('div');
     line2.textContent =
-      'If you want zero prompts, switch Permission mode to "Bypass (dangerous)".';
-
-    empty.appendChild(line1);
+      'Sites show up here after you approve them in a permission prompt.';
     empty.appendChild(line2);
     container.appendChild(empty);
     return;
@@ -310,13 +292,16 @@ const setMode = async (mode: SitePermissionsMode): Promise<void> => {
   try {
     await writeSitePermissionsMode(mode);
     applyMode(mode);
+    await refresh();
   } finally {
     modeWriteInProgress = false;
   }
 };
 
 const refreshAll = async (): Promise<void> => {
-  await Promise.all([refresh(), refreshMode()]);
+  // Mode impacts how we want to render the empty state, so apply it first.
+  await refreshMode();
+  await refresh();
 };
 
 const main = (): void => {

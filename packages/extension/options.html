@@ -20,7 +20,7 @@
         <fieldset class="bb-fieldset">
           <legend class="bb-fieldset-legend">Permission mode</legend>
           <div
-            class="bb-menu"
+            class="bb-menu bb-menu--shadow"
             role="radiogroup"
             aria-describedby="bb-mode-help"
           >
@@ -62,35 +62,20 @@
             Restricted URLs (for example, chrome:// and file://) are still
             blocked.
           </p>
-          <div id="bb-bypass-warning" class="bb-warning" hidden>
-            Bypass mode is intentionally unsafe: the agent can click/type on any
-            website without per-site consent prompts.
-          </div>
         </fieldset>
       </section>
 
-      <details
-        id="bb-sites-details"
-        class="bb-sites-details bb-sites-details--no-summary"
-        open
-      >
+      <details id="bb-sites-details" class="bb-sites-details" open>
         <summary id="bb-sites-summary" class="bb-sites-summary">
           Approved sites
         </summary>
-        <p id="bb-sites-ignored" class="bb-sites-ignored" hidden>
-          Bypass is enabled, so this allowlist is ignored.
-        </p>
         <section aria-label="Approved sites list">
           <div id="bb-sites" class="bb-menu bb-menu--list" role="list">
-            <div class="bb-empty" role="listitem">
+            <div class="bb-site-empty" role="listitem">
+              <div><strong>No approved sites yet.</strong></div>
               <div>
-                <strong>No approved sites yet.</strong> Sites show up here after
-                you approve them in a permission prompt (click "Always allow
-                actions on this site").
-              </div>
-              <div>
-                If you want zero prompts, switch Permission mode to "Bypass
-                (dangerous)".
+                Sites show up here after you approve them in a permission
+                prompt.
               </div>
             </div>
           </div>
