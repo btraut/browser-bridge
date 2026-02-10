@@ -27,6 +27,7 @@ describe('mcp-adapter tools', () => {
       url: 'https://example.com',
     });
     expect(result.structuredContent).toEqual(envelope);
+    expect(result.isError).toBe(false);
     const first = result.content[0];
     expect(first?.type).toBe('text');
     if (first && first.type === 'text') {
@@ -34,7 +35,7 @@ describe('mcp-adapter tools', () => {
     }
   });
 
-  it('propagates error envelopes without modification', async () => {
+  it('marks error envelopes as MCP tool errors', async () => {
     const envelope = {
       ok: false as const,
       error: {
@@ -52,6 +53,7 @@ describe('mcp-adapter tools', () => {
     const result = await handler({}, {} as never);
 
     expect(result.structuredContent).toEqual(envelope);
+    expect(result.isError).toBe(true);
   });
 
   it('registers all tools and forwards to core paths', async () => {

@@ -1,5 +1,5 @@
 import {
-  apiEnvelopeSchema,
+  successEnvelopeSchema,
   ArtifactsScreenshotInputSchema,
   ArtifactsScreenshotOutputSchema,
   DiagnosticsDoctorInputSchema,
@@ -99,14 +99,16 @@ type ToolConfig = {
 
 type ToolRegistrar = Pick<McpServer, 'registerTool'>;
 
-type EnvelopeInput = Parameters<typeof apiEnvelopeSchema>[0];
+type EnvelopeInput = Parameters<typeof successEnvelopeSchema>[0];
 
 const toToolResult = (payload: unknown): ToolResult => {
   const content = [{ type: 'text' as const, text: JSON.stringify(payload) }];
   if (payload && typeof payload === 'object') {
+    const isErrorEnvelope = ErrorEnvelopeSchema.safeParse(payload).success;
     return {
       content,
       structuredContent: payload as Record<string, unknown>,
+      isError: isErrorEnvelope,
     };
   }
   return { content };
@@ -121,7 +123,7 @@ const toInternalErrorEnvelope = (error: unknown) => ({
   },
 });
 
-const envelope = (schema: EnvelopeInput) => apiEnvelopeSchema(schema);
+const envelope = (schema: EnvelopeInput) => successEnvelopeSchema(schema);
 
 export const TOOL_DEFINITIONS: Array<{ name: string; config: ToolConfig }> = [
   {

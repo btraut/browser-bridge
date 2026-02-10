@@ -1,8 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import type { CoreClient } from './core-client';
 import { createMcpServer, startMcpHttpServer, startMcpServer } from './server';
+import { MCP_TOOL_FIXTURES } from './tool-fixtures';
 import { TOOL_DEFINITIONS } from './tools';
 
 describe('mcp-adapter server', () => {
@@ -47,6 +50,52 @@ describe('mcp-adapter server', () => {
       expect(handle.transport).toBeInstanceOf(StdioServerTransport);
     } finally {
       connectSpy.mockRestore();
+    }
+  });
+
+  it('handles tool calls through MCP client transport without output-schema crashes', async () => {
+    const fixturesByPath = new Map(
+      MCP_TOOL_FIXTURES.map((fixture) => [fixture.corePath, fixture])
+    );
+    const coreClient: CoreClient = {
+      baseUrl: 'http://core',
+      post: vi.fn().mockImplementation(async (path: string, body?: unknown) => {
+        const fixture = fixturesByPath.get(path);
+        if (!fixture) {
+          throw new Error(`Missing fixture for ${path}`);
+        }
+        expect(body).toEqual(fixture.input);
+        return fixture.successEnvelope;
+      }),
+    };
+
+    const { server } = createMcpServer({ coreClient });
+    const [clientTransport, serverTransport] =
+      InMemoryTransport.createLinkedPair();
+    const client = new Client(
+      { name: 'vitest-client', version: '0.0.0' },
+      { capabilities: {} }
+    );
+
+    try {
+      await Promise.all([
+        server.connect(serverTransport),
+        client.connect(clientTransport),
+      ]);
+
+      const tools = await client.listTools();
+      expect(tools.tools.length).toBe(TOOL_DEFINITIONS.length);
+
+      const result = await client.callTool({
+        name: 'session.create',
+        arguments: {},
+      });
+      expect(result.isError).not.toBe(true);
+      expect(result.structuredContent).toEqual(
+        fixturesByPath.get('/session/create')?.successEnvelope
+      );
+    } finally {
+      await Promise.allSettled([client.close(), server.close()]);
     }
   });
 

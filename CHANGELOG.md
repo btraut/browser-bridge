@@ -8,6 +8,12 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 
 _TBD_
 
+## [0.7.0] - 2026-02-10
+
+### Fixed
+
+- MCP adapter: avoid SDK `_zod` crashes on tool calls by registering object-shaped output schemas and flagging `ok: false` envelopes as MCP errors.
+
 ## [0.6.1] - 2026-02-10
 
 ### Added
