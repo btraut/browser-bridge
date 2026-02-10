@@ -103,6 +103,7 @@ Note: MCP still requires `browser-bridge` to be on PATH, since the client invoke
 
 - Always store and reuse the `session_id` for subsequent calls.
 - Drive operations are single-flight; do not overlap drive calls.
+- Drive actions are permission-gated per site (safe-by-default). The first time you target a new site, Chrome will open a permission prompt that the user must approve.
 - After navigation/clicks that trigger page loads, wait for the page to settle:
   - MCP: `drive.wait_for`
   - CLI: `browser-bridge drive wait-for ...`
@@ -112,3 +113,30 @@ Note: MCP still requires `browser-bridge` to be on PATH, since the client invoke
 - If drive/inspect fails, run diagnostics and include the output:
   - MCP: `diagnostics.doctor`
   - CLI: `browser-bridge diagnostics doctor`
+
+### Site Permissions (Drive Actions)
+
+Browser Bridge gates `drive.*` actions on a per-site allowlist.
+
+- `inspect.*` is not gated, so you can inspect freely and only ask for permission when it is time to click/type.
+- The first time a `drive.*` action targets a new site, Chrome opens a small permission prompt.
+  - **Allow this action**: allow once (does not add to allowlist)
+  - **Always allow actions on this site**: adds the site to the allowlist
+  - **Decline**: command fails with `PERMISSION_DENIED` (non-retryable)
+- If the prompt is ignored, the command fails with `PERMISSION_PROMPT_TIMEOUT` (retryable). Default wait is 30 seconds; approve the prompt, then retry the command.
+
+Manage approvals (and bypass mode):
+
+- Open the extension options page (via `chrome://extensions` -> Browser Bridge -> Extension options, or from the Extensions toolbar menu).
+- Review/revoke sites under **Approved sites**.
+- Switch **Permission mode** to **Bypass (dangerous)** to skip prompts/allowlist entirely.
+  - Restricted URLs (for example `chrome://` and `file://`) are still blocked.
+
+### Error Handling (Structured Envelopes)
+
+When you use JSON output (CLI `--json`, or MCP tool results), errors have stable codes and an explicit retry hint:
+
+- `ok: false` with `{ error: { code, message, retryable, details? } }`
+- Handle permission-gating errors explicitly:
+  - `PERMISSION_PROMPT_TIMEOUT` (retryable): user needs to approve the prompt; then retry.
+  - `PERMISSION_DENIED` (not retryable): user declined; ask them to allow/always-allow (or add the site in extension options), then retry.
