@@ -6,6 +6,10 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 
 ## [Unreleased]
 
+_TBD_
+
+## [0.6.1] - 2026-02-10
+
 ### Added
 
 - README: competitor feature comparison table.
