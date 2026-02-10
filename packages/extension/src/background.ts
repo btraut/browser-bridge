@@ -1122,24 +1122,9 @@ class DriveSocket {
           if (tabId === undefined) {
             tabId = await getDefaultTabId();
           }
-          try {
-            const isBack =
-              message.action === 'drive.go_back' ||
-              message.action === 'drive.back';
-            await wrapChromeVoid((callback) => {
-              if (isBack) {
-                chrome.tabs.goBack(tabId as number, () => callback());
-              } else {
-                chrome.tabs.goForward(tabId as number, () => callback());
-              }
-            });
-          } catch (error) {
-            respondError({
-              code: 'FAILED_PRECONDITION',
-              message:
-                error instanceof Error ? error.message : 'No history entry.',
-              retryable: false,
-            });
+          const result = await sendToTab(tabId as number, message.action);
+          if (!result.ok) {
+            respondError(result.error);
             return;
           }
           markTabActive(tabId as number);
