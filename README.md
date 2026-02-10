@@ -82,7 +82,7 @@ What makes it different:
 - **Recovery-first**: sessions have an explicit state machine with `session.recover()` and `diagnostics doctor`.
 - **Inspect beyond screenshots**: DOM snapshots (AX + HTML) and `inspect dom-diff` to detect page changes.
 
-## Feature Comparison
+## 🆚 Feature Comparison
 
 | Category | Browser Bridge | Playwright MCP | agent-browser | mcp-chrome | Claude Code + Chrome |
 | --- | --- | --- | --- | --- | --- |
