@@ -38,25 +38,65 @@
     <h1 id="smoke-title">Smoke Ready</h1>
 
     <div class="row">
-      <button id="click-target">Click Target</button>
-      <button id="hover-target">Hover Target</button>
+      <button id="click-target" data-testid="click-target">Click Target</button>
+      <button id="hover-target" data-testid="hover-target">Hover Target</button>
+      <div
+        id="role-target"
+        data-testid="role-target"
+        role="button"
+        aria-label="Role Target"
+        style="display: inline-block; padding: 6px 10px; border: 1px solid #999"
+      >
+        Role Target
+      </div>
       <button id="open-alert">Open Alert</button>
       <button id="open-confirm">Open Confirm</button>
       <button id="open-prompt">Open Prompt</button>
     </div>
 
-    <div class="row">
-      <label for="text-input">Text Input</label>
-      <input id="text-input" name="email" placeholder="Email" />
-    </div>
+    <form id="smoke-form">
+      <div class="row">
+        <label for="text-input">Text Input</label>
+        <input
+          id="text-input"
+          name="email"
+          placeholder="Email"
+          data-testid="text-input"
+        />
+        <button id="submit-button" type="submit" data-testid="submit-button">
+          Submit
+        </button>
+        <span id="form-status" data-testid="form-status">Not submitted</span>
+      </div>
 
-    <div class="row">
-      <label for="select-input">Select Input</label>
-      <select id="select-input">
-        <option value="alpha">Alpha</option>
-        <option value="beta">Beta</option>
-      </select>
-    </div>
+      <div class="row">
+        <label for="select-input">Select Input</label>
+        <select id="select-input" data-testid="select-input">
+          <option value="alpha">Alpha</option>
+          <option value="beta">Beta</option>
+        </select>
+      </div>
+
+      <div class="row">
+        <label for="check-input">Checkbox</label>
+        <input id="check-input" type="checkbox" data-testid="check-input" />
+      </div>
+
+      <div class="row">
+        <label for="ce-input">Content Editable</label>
+        <div
+          id="ce-input"
+          data-testid="ce-input"
+          contenteditable="true"
+          style="
+            min-width: 240px;
+            min-height: 26px;
+            border: 1px solid #999;
+            padding: 4px;
+          "
+        ></div>
+      </div>
+    </form>
 
     <div class="row">
       <div id="drag-source" draggable="true">Drag Source</div>
@@ -96,6 +136,15 @@
 
       document.getElementById('open-prompt').addEventListener('click', () => {
         prompt('Smoke prompt', '');
+      });
+
+      document.getElementById('role-target').addEventListener('click', () => {
+        document.getElementById('role-target').textContent = 'Role Clicked';
+      });
+
+      document.getElementById('smoke-form').addEventListener('submit', (e) => {
+        e.preventDefault();
+        document.getElementById('form-status').textContent = 'Submitted';
       });
     </script>
   </body>

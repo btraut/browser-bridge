@@ -154,6 +154,23 @@ describe('content drive actions', () => {
     expect(count).toBe(3);
   });
 
+  it('uses window history for back/forward', async () => {
+    const backSpy = vi
+      .spyOn(globalThis.history, 'back')
+      .mockImplementation(() => {});
+    const forwardSpy = vi
+      .spyOn(globalThis.history, 'forward')
+      .mockImplementation(() => {});
+
+    const backResult = await runDriveAction('drive.go_back', {});
+    expect(backResult.ok).toBe(true);
+    expect(backSpy).toHaveBeenCalledTimes(1);
+
+    const forwardResult = await runDriveAction('drive.go_forward', {});
+    expect(forwardResult.ok).toBe(true);
+    expect(forwardSpy).toHaveBeenCalledTimes(1);
+  });
+
   it('drags between elements', async () => {
     const from = document.createElement('div');
     from.id = 'from';

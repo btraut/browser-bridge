@@ -950,6 +950,18 @@ export const runDriveAction = async (
           tick();
         });
       }
+      case 'drive.go_back':
+      case 'drive.back': {
+        // chrome.tabs.goBack appears unreliable in some Chrome builds/profiles.
+        // Driving history from within the page is more consistent.
+        history.back();
+        return ok();
+      }
+      case 'drive.go_forward':
+      case 'drive.forward': {
+        history.forward();
+        return ok();
+      }
       default:
         return buildError('INVALID_ARGUMENT', `Unsupported action ${action}.`);
     }

@@ -21,7 +21,7 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 
 ### Changed
 
-_TBD_
+- Expand `scripts/cli-full-tool-smoke.sh` coverage (health-check, locator variants, ref reuse, more dom-snapshot modes, more screenshot options).
 
 ## [0.6.0] - 2026-02-09
 
