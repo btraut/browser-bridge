@@ -6,7 +6,9 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 
 ## [Unreleased]
 
-_TBD_
+### Fixed
+
+- README: restore competitor feature comparison table.
 
 ## [0.6.1] - 2026-02-10
 

@@ -82,6 +82,21 @@ What makes it different:
 - **Recovery-first**: sessions have an explicit state machine with `session.recover()` and `diagnostics doctor`.
 - **Inspect beyond screenshots**: DOM snapshots (AX + HTML) and `inspect dom-diff` to detect page changes.
 
+## Feature Comparison
+
+| Category | Browser Bridge | Playwright MCP | agent-browser | mcp-chrome | Claude Code + Chrome |
+| --- | --- | --- | --- | --- | --- |
+| Uses your real, already-logged-in Chrome (tabs/cookies) | ✅ | ❌ | ❌ | ✅ | ✅ |
+| Visible browser (not headless) | ✅ | ✅ | ❌ | ✅ | ✅ |
+| Per-site permission prompts / allowlist | ✅ | ❌ | ❌ | ❌ | ✅ |
+| Drive/Inspect split (inspect without racing input) | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Token-efficient inspection (element refs, bounded output, cleanup) | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Structured errors + retry hints | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Explicit recovery + doctor-style diagnostics | ✅ | ❌ | ❌ | ❌ | ❌ |
+| DOM diff (change detection) | ✅ | ❌ | ❌ | ❌ | ❌ |
+| HAR / network export | ✅ | ✅ | ✅ | ✅ | ❌ |
+| Open source | ✅ | ✅ | ✅ | ✅ | ❌ |
+
 ## 🔒 Site Permissions (Drive Actions)
 
 Browser Bridge is intentionally safe: **drive actions** (`drive.navigate`, click, type, etc.) require **per-site approval**. `inspect.*` is not gated, so agents can inspect first and only ask for permission when it's time to click/type.
