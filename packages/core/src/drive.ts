@@ -49,6 +49,11 @@ export class DriveController {
     this.lastErrorAt = new Date().toISOString();
   }
 
+  private clearLastError(): void {
+    this.lastError = undefined;
+    this.lastErrorAt = undefined;
+  }
+
   async execute<T>(
     sessionId: string,
     action: DriveAction,
@@ -96,6 +101,7 @@ export class DriveController {
             timeoutMs
           );
           if (response.status === 'ok') {
+            this.clearLastError();
             return {
               ok: true,
               result: response.result as T,

@@ -1018,6 +1018,7 @@ export class InspectService {
   }
 
   private markInspectConnected(sessionId: string): void {
+    this.clearLastError();
     try {
       const session = this.registry.require(sessionId);
       if (
@@ -1036,6 +1037,11 @@ export class InspectService {
   private recordError(error: InspectError): void {
     this.lastError = error;
     this.lastErrorAt = new Date().toISOString();
+  }
+
+  private clearLastError(): void {
+    this.lastError = undefined;
+    this.lastErrorAt = undefined;
   }
 
   private buildUnavailableError(): InspectError {

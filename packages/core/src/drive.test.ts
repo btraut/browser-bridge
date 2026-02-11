@@ -73,4 +73,40 @@ describe('DriveController', () => {
       SessionState.DEGRADED_DRIVE
     );
   });
+
+  it('clears last error after a successful retry', async () => {
+    const registry = new SessionRegistry();
+    const session = registry.create();
+    const bridge = {
+      isConnected: () => false,
+      request: vi
+        .fn()
+        .mockResolvedValueOnce({
+          id: 'req-1',
+          action: 'drive.tab_list',
+          status: 'error',
+          error: {
+            code: 'TIMEOUT',
+            message: 'Timed out.',
+            retryable: false,
+          },
+        })
+        .mockResolvedValueOnce({
+          id: 'req-2',
+          action: 'drive.tab_list',
+          status: 'ok',
+          result: { tabs: [] },
+        }),
+    } as unknown as ExtensionBridge;
+
+    const controller = new DriveController(bridge, registry);
+
+    const first = await controller.execute(session.id, 'drive.tab_list', {});
+    expect(first.ok).toBe(false);
+    expect(controller.getLastError()).toBeDefined();
+
+    const second = await controller.execute(session.id, 'drive.tab_list', {});
+    expect(second.ok).toBe(true);
+    expect(controller.getLastError()).toBeUndefined();
+  });
 });

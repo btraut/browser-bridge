@@ -8,6 +8,13 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 
 _TBD_
 
+## [0.7.1] - 2026-02-11
+
+### Fixed
+
+- Diagnostics doctor: stop failing by default when `session_id` is omitted, treat detached debugger as expected idle behavior, and downgrade stale drive/inspect errors to warnings.
+- Core error latching: clear drive/inspect/debugger `last_error` state after successful operations so recovered sessions report healthy diagnostics.
+
 ## [0.7.0] - 2026-02-10
 
 ### Fixed

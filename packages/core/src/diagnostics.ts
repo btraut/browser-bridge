@@ -101,6 +101,16 @@ export type DiagnosticsContext = {
   recoveryMetrics?: RecoveryMetrics;
 };
 
+const STALE_ERROR_THRESHOLD_MS = 2 * 60 * 1000;
+
+const getErrorAgeMs = (timestamp: string): number | undefined => {
+  const parsed = Date.parse(timestamp);
+  if (!Number.isFinite(parsed)) {
+    return undefined;
+  }
+  return Math.max(0, Date.now() - parsed);
+};
+
 export const buildDiagnosticReport = (
   sessionId?: string,
   context: DiagnosticsContext = {}
@@ -108,6 +118,8 @@ export const buildDiagnosticReport = (
   const extensionConnected = context.extension?.connected ?? false;
   const debuggerAttached = context.debugger?.attached ?? false;
   const sessionState = context.sessionState;
+  const hasSessionId = Boolean(sessionId);
+  const warnings: string[] = [];
 
   const checks: DiagnosticCheck[] = [
     {
@@ -119,17 +131,17 @@ export const buildDiagnosticReport = (
     },
     {
       name: 'debugger.attached',
-      ok: debuggerAttached,
+      ok: true,
       message: debuggerAttached
         ? 'Debugger is attached.'
-        : 'Debugger is not attached.',
+        : 'Debugger is not attached (inspect is idle).',
     },
     {
       name: 'session.state',
-      ok: Boolean(sessionState),
+      ok: hasSessionId ? Boolean(sessionState) : true,
       message: sessionState
         ? `Session state is ${sessionState}.`
-        : sessionId
+        : hasSessionId
           ? 'Session state unavailable.'
           : 'Session id not provided.',
       details: {
@@ -140,27 +152,43 @@ export const buildDiagnosticReport = (
   ];
 
   if (context.driveLastError) {
+    const ageMs = getErrorAgeMs(context.driveLastError.at);
+    const isStale = ageMs !== undefined && ageMs > STALE_ERROR_THRESHOLD_MS;
+    if (isStale) {
+      warnings.push(
+        `Ignoring stale drive error (${Math.round(ageMs / 1000)}s old): ${context.driveLastError.message}`
+      );
+    }
     checks.push({
       name: 'drive.last_error',
-      ok: false,
+      ok: isStale,
       message: context.driveLastError.message,
       details: {
         code: context.driveLastError.code,
         retryable: context.driveLastError.retryable,
         at: context.driveLastError.at,
+        ...(ageMs !== undefined ? { age_ms: ageMs } : {}),
       },
     });
   }
 
   if (context.inspectLastError) {
+    const ageMs = getErrorAgeMs(context.inspectLastError.at);
+    const isStale = ageMs !== undefined && ageMs > STALE_ERROR_THRESHOLD_MS;
+    if (isStale) {
+      warnings.push(
+        `Ignoring stale inspect error (${Math.round(ageMs / 1000)}s old): ${context.inspectLastError.message}`
+      );
+    }
     checks.push({
       name: 'inspect.last_error',
-      ok: false,
+      ok: isStale,
       message: context.inspectLastError.message,
       details: {
         code: context.inspectLastError.code,
         retryable: context.inspectLastError.retryable,
         at: context.inspectLastError.at,
+        ...(ageMs !== undefined ? { age_ms: ageMs } : {}),
       },
     });
   }
@@ -240,6 +268,7 @@ export const buildDiagnosticReport = (
               : {}),
           }
         : undefined,
+    ...(warnings.length > 0 ? { warnings } : {}),
     notes: ['Diagnostics include runtime status; some checks may be stubbed.'],
   };
 

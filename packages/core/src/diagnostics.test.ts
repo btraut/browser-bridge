@@ -17,7 +17,11 @@ describe('buildDiagnosticReport', () => {
     const debuggerCheck = report.checks?.find(
       (check) => check.name === 'debugger.attached'
     );
-    expect(debuggerCheck?.ok).toBe(false);
+    expect(debuggerCheck?.ok).toBe(true);
+    const sessionCheck = report.checks?.find(
+      (check) => check.name === 'session.state'
+    );
+    expect(sessionCheck?.ok).toBe(true);
   });
 
   it('emits debugger settings using snake_case fields', () => {
@@ -81,5 +85,57 @@ describe('buildDiagnosticReport', () => {
     expect(parsed.sessions?.count).toBe(2);
     expect(parsed.sessions?.max_age_ms).toBe(1234);
     expect(parsed.sessions?.max_idle_ms).toBe(5678);
+  });
+
+  it('treats stale drive and inspect errors as warnings', () => {
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+
+    const report = buildDiagnosticReport('session-123', {
+      sessionState: SessionState.DRIVE_READY,
+      extension: { connected: true },
+      driveLastError: {
+        code: 'TIMEOUT',
+        message: 'stale drive timeout',
+        retryable: false,
+        at: fiveMinutesAgo,
+      },
+      inspectLastError: {
+        code: 'INSPECT_UNAVAILABLE',
+        message: 'stale inspect error',
+        retryable: false,
+        at: fiveMinutesAgo,
+      },
+    });
+
+    expect(report.ok).toBe(true);
+    const driveCheck = report.checks?.find(
+      (check) => check.name === 'drive.last_error'
+    );
+    const inspectCheck = report.checks?.find(
+      (check) => check.name === 'inspect.last_error'
+    );
+    expect(driveCheck?.ok).toBe(true);
+    expect(inspectCheck?.ok).toBe(true);
+    expect(report.warnings?.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('keeps fresh errors as failing checks', () => {
+    const now = new Date().toISOString();
+    const report = buildDiagnosticReport('session-123', {
+      sessionState: SessionState.DRIVE_READY,
+      extension: { connected: true },
+      driveLastError: {
+        code: 'TIMEOUT',
+        message: 'fresh drive timeout',
+        retryable: false,
+        at: now,
+      },
+    });
+
+    expect(report.ok).toBe(false);
+    const driveCheck = report.checks?.find(
+      (check) => check.name === 'drive.last_error'
+    );
+    expect(driveCheck?.ok).toBe(false);
   });
 });

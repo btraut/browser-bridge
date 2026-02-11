@@ -179,6 +179,7 @@ export class DebuggerBridge {
 
       state.attached = true;
       this.touch(tabId, state);
+      this.clearLastError();
       return { ok: true, result: { attached: true } };
     } catch (error) {
       const info = this.handleBridgeError(error);
@@ -212,6 +213,7 @@ export class DebuggerBridge {
       }
 
       this.markDetached(tabId);
+      this.clearLastError();
       return { ok: true, result: { attached: false } };
     } catch (error) {
       const info = this.handleBridgeError(error);
@@ -255,6 +257,7 @@ export class DebuggerBridge {
       }
 
       this.touch(tabId, this.ensureTab(tabId));
+      this.clearLastError();
       return { ok: true, result: response.result as T };
     } catch (error) {
       const info = this.handleBridgeError(error);
@@ -352,6 +355,11 @@ export class DebuggerBridge {
   private recordError(error: DriveErrorInfo): void {
     this.lastError = error;
     this.lastErrorAt = new Date().toISOString();
+  }
+
+  private clearLastError(): void {
+    this.lastError = undefined;
+    this.lastErrorAt = undefined;
   }
 
   private handleBridgeError(error: unknown): DriveErrorInfo {

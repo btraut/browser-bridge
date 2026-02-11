@@ -93,4 +93,49 @@ describe('DebuggerBridge', () => {
       debuggerBridge.shutdown();
     }
   });
+
+  it('clears last error after a successful attach', async () => {
+    const requestDebugger = vi
+      .fn()
+      .mockResolvedValueOnce({
+        id: 'req-1',
+        action: 'debugger.attach',
+        status: 'error',
+        error: {
+          code: 'INSPECT_UNAVAILABLE',
+          message: 'Attach failed.',
+          retryable: false,
+        },
+      })
+      .mockResolvedValueOnce({
+        id: 'req-2',
+        action: 'debugger.attach',
+        status: 'ack',
+        result: { ok: true },
+      });
+
+    const bridge = {
+      requestDebugger,
+      onDebuggerEvent: () => () => undefined,
+    } as unknown as ExtensionBridge;
+
+    const debuggerBridge = new DebuggerBridge({
+      extensionBridge: bridge,
+      consoleBufferSize: 5,
+      networkBufferSize: 5,
+      idleTimeoutMs: 10000,
+    });
+
+    try {
+      const failed = await debuggerBridge.attach(1);
+      expect(failed.ok).toBe(false);
+      expect(debuggerBridge.getLastError()).toBeDefined();
+
+      const succeeded = await debuggerBridge.attach(1);
+      expect(succeeded.ok).toBe(true);
+      expect(debuggerBridge.getLastError()).toBeUndefined();
+    } finally {
+      debuggerBridge.shutdown();
+    }
+  });
 });

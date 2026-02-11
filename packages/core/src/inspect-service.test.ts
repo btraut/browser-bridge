@@ -80,6 +80,46 @@ describe('InspectService', () => {
     ).rejects.toMatchObject({ code: 'INSPECT_UNAVAILABLE' });
   });
 
+  it('clears last error after reconnect succeeds', async () => {
+    const registry = new SessionRegistry();
+    const session = registry.create();
+    let attachCall = 0;
+
+    const service = new InspectService({
+      registry,
+      extensionBridge: {
+        isConnected: () => true,
+        getStatus: () => ({ tabs: [DEFAULT_TAB] }),
+      },
+      debuggerBridge: {
+        hasAttachments: () => false,
+        getLastError: () => undefined,
+        attach: async () => {
+          attachCall += 1;
+          if (attachCall === 1) {
+            return {
+              ok: false as const,
+              error: {
+                code: 'INSPECT_UNAVAILABLE',
+                message: 'Attach failed.',
+                retryable: false,
+              },
+            };
+          }
+          return { ok: true as const, result: { attached: true } };
+        },
+      } as unknown as DebuggerBridge,
+    });
+
+    const first = await service.reconnect(session.id);
+    expect(first).toBe(false);
+    expect(service.getLastError()).toBeDefined();
+
+    const second = await service.reconnect(session.id);
+    expect(second).toBe(true);
+    expect(service.getLastError()).toBeUndefined();
+  });
+
   it('includes exception details + stack frames in console output', async () => {
     const registry = new SessionRegistry();
     const session = registry.create();
