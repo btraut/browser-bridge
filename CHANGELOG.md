@@ -6,7 +6,9 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 
 ## [Unreleased]
 
-_TBD_
+### Fixed
+
+- Core debugger bridge now self-heals stale attach state: when a command fails with "Debugger is not attached to the requested tab.", it marks the tab detached, re-attaches once, and retries the command once. It also clears cached attachment state after extension disconnects to avoid false "attached" assumptions that can trigger inspect recovery loops/timeouts.
 
 ## [0.7.1] - 2026-02-11
 

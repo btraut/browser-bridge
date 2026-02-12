@@ -234,15 +234,30 @@ export class DebuggerBridge {
     }
 
     try {
-      const response: DebuggerResponse<T> = await this.bridge.requestDebugger(
-        'debugger.command',
-        {
-          tab_id: tabId,
-          method,
-          params,
-        },
-        timeoutMs
-      );
+      const runCommand = async (): Promise<DebuggerResponse<T>> =>
+        await this.bridge.requestDebugger(
+          'debugger.command',
+          {
+            tab_id: tabId,
+            method,
+            params,
+          },
+          timeoutMs
+        );
+
+      let response = await runCommand();
+
+      if (
+        response.status === 'error' &&
+        this.shouldRetryAfterStaleAttach(response.error)
+      ) {
+        this.markDetached(tabId);
+        const reattach = await this.attach(tabId);
+        if (!reattach.ok) {
+          return reattach as DebuggerResult<T>;
+        }
+        response = await runCommand();
+      }
 
       if (response.status === 'error') {
         const error =
@@ -364,6 +379,9 @@ export class DebuggerBridge {
 
   private handleBridgeError(error: unknown): DriveErrorInfo {
     if (error instanceof ExtensionBridgeError) {
+      if (error.code === 'EXTENSION_DISCONNECTED') {
+        this.markAllDetached();
+      }
       const info = toDriveError(error);
       this.recordError(info);
       return info;
@@ -377,5 +395,23 @@ export class DebuggerBridge {
     };
     this.recordError(info);
     return info;
+  }
+
+  private shouldRetryAfterStaleAttach(error?: DriveErrorInfo): boolean {
+    if (!error) return false;
+    if (
+      error.code !== 'FAILED_PRECONDITION' &&
+      error.code !== 'INSPECT_UNAVAILABLE'
+    ) {
+      return false;
+    }
+
+    return error.message.toLowerCase().includes('not attached');
+  }
+
+  private markAllDetached(): void {
+    for (const tabId of this.tabs.keys()) {
+      this.markDetached(tabId);
+    }
   }
 }
