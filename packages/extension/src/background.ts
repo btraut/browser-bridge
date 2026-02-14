@@ -43,6 +43,11 @@ type DebuggerSession = {
   initialized?: boolean;
 };
 
+type ScreenPoint = {
+  x: number;
+  y: number;
+};
+
 const DEFAULT_CORE_PORT = 3210;
 const CORE_PORT_KEY = 'corePort';
 const CORE_WS_PATH = '/drive';
@@ -1284,43 +1289,15 @@ class DriveSocket {
             return;
           }
 
-          const point = await sendToTab(
+          const pointResult = await this.resolveLocatorPoint(
             tabId as number,
-            'drive.locator_point',
-            {
-              locator: params.locator,
-            }
+            params.locator
           );
-          if (!point.ok) {
-            respondError(point.error);
+          if (!pointResult.ok) {
+            respondError(pointResult.error);
             return;
           }
-
-          const payload = point.result;
-          if (!payload || typeof payload !== 'object') {
-            respondError({
-              code: 'EVALUATION_FAILED',
-              message: 'Invalid locator point payload.',
-              retryable: false,
-            });
-            return;
-          }
-          const record = payload as Record<string, unknown>;
-          const x = record.x;
-          const y = record.y;
-          if (
-            typeof x !== 'number' ||
-            !Number.isFinite(x) ||
-            typeof y !== 'number' ||
-            !Number.isFinite(y)
-          ) {
-            respondError({
-              code: 'EVALUATION_FAILED',
-              message: 'Invalid locator point coordinates.',
-              retryable: false,
-            });
-            return;
-          }
+          const { x, y } = pointResult.point;
 
           // JS dialogs can block the tab event loop; dispatch click events on
           // the next tick so we can acknowledge the command immediately.
@@ -1334,11 +1311,122 @@ class DriveSocket {
           respondOk({ ok: true });
           return;
         }
-        case 'drive.hover':
+        case 'drive.hover': {
+          const params = (message.params ?? {}) as Record<string, unknown>;
+          let tabId = params.tab_id;
+          if (tabId !== undefined && typeof tabId !== 'number') {
+            respondError({
+              code: 'INVALID_ARGUMENT',
+              message: 'tab_id must be a number when provided.',
+              retryable: false,
+            });
+            return;
+          }
+          if (tabId === undefined) {
+            tabId = await getDefaultTabId();
+          }
+
+          const error = await this.ensureDebuggerAttached(tabId as number);
+          if (error) {
+            respondError(error);
+            return;
+          }
+          const pointResult = await this.resolveLocatorPoint(
+            tabId as number,
+            params.locator
+          );
+          if (!pointResult.ok) {
+            respondError(pointResult.error);
+            return;
+          }
+          const { x, y } = pointResult.point;
+
+          const waitMs =
+            typeof params.delay_ms === 'number' &&
+            Number.isFinite(params.delay_ms)
+              ? Math.min(Math.max(params.delay_ms, 0), 10000)
+              : 0;
+          try {
+            await this.dispatchCdpMouseMove(tabId as number, x, y, 0);
+            if (waitMs > 0) {
+              await delayMs(waitMs);
+            }
+            const snapshot = await sendToTab(
+              tabId as number,
+              'drive.snapshot_html'
+            );
+            if (!snapshot.ok) {
+              respondError(snapshot.error);
+              return;
+            }
+            respondOk(snapshot.result ?? { format: 'html', snapshot: '' });
+          } catch (error) {
+            const info = mapDebuggerErrorMessage(
+              error instanceof Error ? error.message : 'Hover dispatch failed.'
+            );
+            respondError(info);
+          }
+          return;
+        }
+        case 'drive.drag': {
+          const params = (message.params ?? {}) as Record<string, unknown>;
+          let tabId = params.tab_id;
+          if (tabId !== undefined && typeof tabId !== 'number') {
+            respondError({
+              code: 'INVALID_ARGUMENT',
+              message: 'tab_id must be a number when provided.',
+              retryable: false,
+            });
+            return;
+          }
+          if (tabId === undefined) {
+            tabId = await getDefaultTabId();
+          }
+
+          const error = await this.ensureDebuggerAttached(tabId as number);
+          if (error) {
+            respondError(error);
+            return;
+          }
+          const fromResult = await this.resolveLocatorPoint(
+            tabId as number,
+            params.from
+          );
+          if (!fromResult.ok) {
+            respondError(fromResult.error);
+            return;
+          }
+          const toResult = await this.resolveLocatorPoint(
+            tabId as number,
+            params.to
+          );
+          if (!toResult.ok) {
+            respondError(toResult.error);
+            return;
+          }
+          const steps =
+            typeof params.steps === 'number' && Number.isFinite(params.steps)
+              ? Math.max(1, Math.min(50, Math.floor(params.steps)))
+              : 12;
+          try {
+            await this.dispatchCdpDrag(
+              tabId as number,
+              fromResult.point,
+              toResult.point,
+              steps
+            );
+            respondOk({ ok: true });
+          } catch (error) {
+            const info = mapDebuggerErrorMessage(
+              error instanceof Error ? error.message : 'Drag dispatch failed.'
+            );
+            respondError(info);
+          }
+          return;
+        }
         case 'drive.select':
         case 'drive.type':
         case 'drive.fill_form':
-        case 'drive.drag':
         case 'drive.key':
         case 'drive.key_press':
         case 'drive.scroll':
@@ -1880,17 +1968,7 @@ class DriveSocket {
     y: number,
     clickCount: number
   ): Promise<void> {
-    await this.sendDebuggerCommand(
-      tabId,
-      'Input.dispatchMouseEvent',
-      {
-        type: 'mouseMoved',
-        x,
-        y,
-        button: 'none',
-      },
-      DEFAULT_DEBUGGER_COMMAND_TIMEOUT_MS
-    );
+    await this.dispatchCdpMouseMove(tabId, x, y, 0);
 
     for (let i = 0; i < clickCount; i += 1) {
       const normalizedClickCount = i + 1;
@@ -1920,6 +1998,113 @@ class DriveSocket {
       );
     }
     this.touchDebuggerSession(tabId);
+  }
+
+  private async dispatchCdpMouseMove(
+    tabId: number,
+    x: number,
+    y: number,
+    buttons: number
+  ): Promise<void> {
+    await this.sendDebuggerCommand(
+      tabId,
+      'Input.dispatchMouseEvent',
+      {
+        type: 'mouseMoved',
+        x,
+        y,
+        button: 'none',
+        buttons,
+      },
+      DEFAULT_DEBUGGER_COMMAND_TIMEOUT_MS
+    );
+  }
+
+  private async dispatchCdpDrag(
+    tabId: number,
+    from: ScreenPoint,
+    to: ScreenPoint,
+    steps: number
+  ): Promise<void> {
+    await this.dispatchCdpMouseMove(tabId, from.x, from.y, 0);
+    await this.sendDebuggerCommand(
+      tabId,
+      'Input.dispatchMouseEvent',
+      {
+        type: 'mousePressed',
+        x: from.x,
+        y: from.y,
+        button: 'left',
+        clickCount: 1,
+      },
+      DEFAULT_DEBUGGER_COMMAND_TIMEOUT_MS
+    );
+
+    for (let i = 1; i <= steps; i += 1) {
+      const progress = i / steps;
+      const x = from.x + (to.x - from.x) * progress;
+      const y = from.y + (to.y - from.y) * progress;
+      await this.dispatchCdpMouseMove(tabId, x, y, 1);
+      await delayMs(10);
+    }
+
+    await this.sendDebuggerCommand(
+      tabId,
+      'Input.dispatchMouseEvent',
+      {
+        type: 'mouseReleased',
+        x: to.x,
+        y: to.y,
+        button: 'left',
+        clickCount: 1,
+      },
+      DEFAULT_DEBUGGER_COMMAND_TIMEOUT_MS
+    );
+    this.touchDebuggerSession(tabId);
+  }
+
+  private async resolveLocatorPoint(
+    tabId: number,
+    locator: unknown
+  ): Promise<
+    { ok: true; point: ScreenPoint } | { ok: false; error: DriveErrorInfo }
+  > {
+    const point = await sendToTab(tabId, 'drive.locator_point', {
+      locator,
+    });
+    if (!point.ok) {
+      return point;
+    }
+    const payload = point.result;
+    if (!payload || typeof payload !== 'object') {
+      return {
+        ok: false,
+        error: {
+          code: 'EVALUATION_FAILED',
+          message: 'Invalid locator point payload.',
+          retryable: false,
+        },
+      };
+    }
+    const record = payload as Record<string, unknown>;
+    const x = record.x;
+    const y = record.y;
+    if (
+      typeof x !== 'number' ||
+      !Number.isFinite(x) ||
+      typeof y !== 'number' ||
+      !Number.isFinite(y)
+    ) {
+      return {
+        ok: false,
+        error: {
+          code: 'EVALUATION_FAILED',
+          message: 'Invalid locator point coordinates.',
+          retryable: false,
+        },
+      };
+    }
+    return { ok: true, point: { x, y } };
   }
 
   private async handleDebuggerRequest(message: DebuggerRequest): Promise<void> {

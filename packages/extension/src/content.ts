@@ -441,6 +441,10 @@ export const runDriveAction = async (
           y: rect.top + rect.height / 2,
         });
       }
+      case 'drive.snapshot_html': {
+        const html = document.documentElement?.outerHTML ?? '';
+        return ok({ format: 'html', snapshot: html });
+      }
       case 'drive.click': {
         const { locator, click_count } = parseParams();
         const target = resolveLocator(locator as Record<string, unknown>);

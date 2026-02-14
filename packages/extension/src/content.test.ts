@@ -72,6 +72,23 @@ describe('content drive actions', () => {
     }
   });
 
+  it('returns html snapshot payload', async () => {
+    const target = document.createElement('div');
+    target.id = 'snapshot-me';
+    document.body.appendChild(target);
+
+    const result = await runDriveAction('drive.snapshot_html', {});
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.result).toEqual(
+        expect.objectContaining({ format: 'html' })
+      );
+      const payload = result.result as { snapshot?: string };
+      expect(payload.snapshot).toContain('snapshot-me');
+    }
+  });
+
   it('focuses input elements when clicked', async () => {
     vi.useFakeTimers();
     try {
