@@ -12,6 +12,7 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 - `drive.hover` and `drive.drag` now run through CDP mouse movement/press/release events in the extension background path, with HTML snapshot capture handled as a separate internal content action.
 - `drive.key`, `drive.key_press`, and `drive.type` now route through CDP keyboard/text input commands in the extension background path, while content script target helpers only resolve/validate editable targets.
 - `drive.select` and `drive.fill_form` now run CDP-backed focus/typing primitives first, with explicit content-script fallback for control-specific operations that CDP does not map directly.
+- Added `docs/cdp-input-model.md` plus stronger assertions in `scripts/cli-full-tool-smoke.sh` to validate focus/value/drag side effects during CDP-input smoke runs.
 
 ## [0.7.3] - 2026-02-14
 

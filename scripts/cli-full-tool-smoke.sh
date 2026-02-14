@@ -115,6 +115,16 @@ extract_first_ref() {
   node -e "const fs=require('fs');const data=JSON.parse(fs.readFileSync(0,'utf8'));const matches=data.result?.matches ?? data.result?.result?.matches ?? []; if(!Array.isArray(matches) || matches.length===0 || !matches[0]?.ref){ process.exit(1);} process.stdout.write(matches[0].ref);"
 }
 
+assert_eval_true() {
+  local expression=$1
+  local label=$2
+  local output
+  output=$(run_json inspect evaluate --session-id "$session_id" --expression "$expression")
+  if ! printf '%s' "$output" | node -e "const fs=require('fs');const data=JSON.parse(fs.readFileSync(0,'utf8'));const v=data.result?.value ?? data.result?.result?.value ?? data.value; if(v!==true){ console.error('ASSERT FAIL:', process.argv[1], '=>', JSON.stringify(v)); process.exit(1); }" "$label"; then
+    exit 1
+  fi
+}
+
 retry_json() {
   local tries=$1
   shift
@@ -180,20 +190,30 @@ run_json drive forward --session-id "$session_id" --tab-id "$tab_id"
 run_json drive click --session-id "$session_id" --tab-id "$tab_id" --locator-css "#click-target"
 run_json drive click --session-id "$session_id" --tab-id "$tab_id" --locator-testid "click-target"
 run_json drive click --session-id "$session_id" --tab-id "$tab_id" --locator-role "button" --locator-role-value "Role Target"
+assert_eval_true "document.getElementById('role-target')?.textContent === 'Role Clicked'" "role-target click updates text"
 run_json drive click --session-id "$session_id" --tab-id "$tab_id" --locator-css "#click-target" --click-count 2
 run_json drive hover --session-id "$session_id" --tab-id "$tab_id" --locator-css "#hover-target" --delay-ms 100
 run_json drive type --session-id "$session_id" --tab-id "$tab_id" --locator-css "#text-input" --text "hello" --clear
+assert_eval_true "document.activeElement?.id === 'text-input'" "type focuses text input"
+assert_eval_true "document.getElementById('text-input')?.value === 'hello'" "type sets text input value"
 run_json drive type --session-id "$session_id" --tab-id "$tab_id" --locator-css "#text-input" --text " submit" --submit
+assert_eval_true "document.getElementById('form-status')?.textContent === 'Submitted'" "type submit triggers form submit"
 run_json drive fill-form --session-id "$session_id" --tab-id "$tab_id" --fields '[{"selector":"#text-input","value":"smoke","type":"text"},{"locator":{"css":"#select-input"},"value":"beta","type":"select"},{"selector":"#check-input","value":true,"type":"checkbox"},{"selector":"#ce-input","value":"editable","type":"contentEditable"},{"selector":"#text-input","value":" done","type":"text","submit":true}]'
+assert_eval_true "document.getElementById('text-input')?.value.includes(' done')" "fill-form updates text field"
+assert_eval_true "document.getElementById('select-input')?.value === 'beta'" "fill-form updates select field"
+assert_eval_true "document.getElementById('check-input')?.checked === true" "fill-form updates checkbox"
+assert_eval_true "document.getElementById('ce-input')?.textContent?.includes('editable') === true" "fill-form updates contentEditable"
 run_json drive select --session-id "$session_id" --tab-id "$tab_id" --locator-css "#select-input" --value "beta"
 run_json drive select --session-id "$session_id" --tab-id "$tab_id" --locator-css "#select-input" --text "Alpha"
 run_json drive select --session-id "$session_id" --tab-id "$tab_id" --locator-css "#select-input" --index 1
+assert_eval_true "document.getElementById('select-input')?.value === 'beta'" "select supports value/text/index operations"
 run_json drive key-press --session-id "$session_id" --tab-id "$tab_id" --key Enter --ctrl
 run_json drive key --session-id "$session_id" --tab-id "$tab_id" --key Enter --modifier shift --repeat 2
 run_json drive scroll --session-id "$session_id" --tab-id "$tab_id" --delta-y 200 --behavior smooth
 run_json drive scroll --session-id "$session_id" --tab-id "$tab_id" --delta-x 10 --behavior auto
 run_json drive scroll --session-id "$session_id" --tab-id "$tab_id" --top 0 --left 0 --behavior auto
 run_json drive drag --session-id "$session_id" --tab-id "$tab_id" --from-locator-css "#drag-source" --to-locator-css "#drag-target" --steps 5
+assert_eval_true "document.getElementById('drag-target')?.textContent === 'Dropped'" "drag drops onto target"
 
 ensure_debugger_attached
 run_json drive click --session-id "$session_id" --tab-id "$tab_id" --locator-css "#open-alert"

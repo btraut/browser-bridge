@@ -82,6 +82,14 @@ What makes it different:
 - **Recovery-first**: sessions have an explicit state machine with `session.recover()` and `diagnostics doctor`.
 - **Inspect beyond screenshots**: DOM snapshots (AX + HTML) and `inspect dom-diff` to detect page changes.
 
+## Input Semantics
+
+Drive input actions are CDP-first (Chrome DevTools Protocol `Input.*`) so click, hover, drag, key, and type behavior follows Chrome's native input pipeline instead of synthetic DOM event dispatch.
+
+High-level helpers (`drive.select`, `drive.fill_form`) still use explicit fallback branches for control-specific operations that CDP does not model directly (for example selecting by option value/text/index).
+
+See `docs/cdp-input-model.md` for details and smoke verification.
+
 ## 🆚 Feature Comparison
 
 | Category | Browser Bridge | Playwright MCP | agent-browser | mcp-chrome | Claude Code + Chrome |
