@@ -17,6 +17,8 @@ const ENV_VISION_PORT = 'BROWSER_VISION_CORE_PORT';
 
 export const RUNTIME_METADATA_RELATIVE_PATH =
   '.context/browser-bridge/dev.json';
+export const DEFAULT_LOG_DIRECTORY_RELATIVE_PATH =
+  '.context/logs/browser-bridge';
 
 export type RuntimeMetadata = {
   host?: string;
@@ -269,6 +271,34 @@ export const resolveRuntimeMetadataPath = ({
   }
   const root = gitRoot ?? findGitRoot(resolvedCwd) ?? resolvedCwd;
   return join(root, RUNTIME_METADATA_RELATIVE_PATH);
+};
+
+export const resolveLogDirectory = ({
+  cwd,
+  gitRoot,
+  logDir,
+}: {
+  cwd?: string;
+  gitRoot?: string | null;
+  logDir?: string;
+} = {}): string => {
+  const resolvedCwd = resolveCwd(cwd);
+  const providedPath = resolveOptionalPath(resolvedCwd, logDir);
+  if (providedPath) {
+    return providedPath;
+  }
+
+  const resolvedGitRoot =
+    gitRoot === undefined
+      ? findGitRoot(resolvedCwd)
+      : gitRoot
+        ? resolve(gitRoot)
+        : null;
+
+  return join(
+    resolvedGitRoot ?? resolvedCwd,
+    DEFAULT_LOG_DIRECTORY_RELATIVE_PATH
+  );
 };
 
 export const readRuntimeMetadata = ({

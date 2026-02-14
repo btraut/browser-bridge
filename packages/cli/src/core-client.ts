@@ -1,6 +1,8 @@
 import {
   ApiEnvelope,
   ErrorInfo,
+  JsonlLogger,
+  createJsonlLogger,
   resolveCoreRuntime,
 } from '@btraut/browser-bridge-shared';
 import { spawn } from 'node:child_process';
@@ -29,6 +31,7 @@ export type CoreClientOptions = {
   timeoutMs?: number;
   fetchImpl?: FetchLike;
   spawnImpl?: SpawnLike;
+  logger?: JsonlLogger;
 };
 
 export type CoreClient = {
@@ -66,9 +69,19 @@ const resolveTimeoutMs = (timeoutMs?: number): number => {
 const normalizePath = (path: string): string =>
   path.startsWith('/') ? path : `/${path}`;
 
+const durationMs = (startedAt: bigint): number =>
+  Number((Number(process.hrtime.bigint() - startedAt) / 1_000_000).toFixed(3));
+
 export const createCoreClient = (
   options: CoreClientOptions = {}
 ): CoreClient => {
+  const logger =
+    options.logger ??
+    createJsonlLogger({
+      stream: 'cli',
+      cwd: options.cwd,
+    }).child({ scope: 'core-client' });
+
   let runtime = resolveCoreRuntime({
     host: options.host,
     port: options.port,
@@ -104,12 +117,20 @@ export const createCoreClient = (
     path: string,
     body?: unknown
   ): Promise<T> => {
+    const requestPath = normalizePath(path);
+    const startedAt = process.hrtime.bigint();
+    logger.debug('cli.core.request.start', {
+      method,
+      path: requestPath,
+      base_url: baseUrl,
+    });
+
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
     try {
       let response: Response;
       try {
-        response = await fetchImpl(`${baseUrl}${normalizePath(path)}`, {
+        response = await fetchImpl(`${baseUrl}${requestPath}`, {
           method,
           headers: {
             'content-type': 'application/json',
@@ -122,6 +143,13 @@ export const createCoreClient = (
           controller.signal.aborted ||
           (error instanceof Error && error.name === 'AbortError')
         ) {
+          logger.warn('cli.core.request.timeout', {
+            method,
+            path: requestPath,
+            base_url: baseUrl,
+            timeout_ms: timeoutMs,
+            duration_ms: durationMs(startedAt),
+          });
           throw new CoreClientError({
             code: 'TIMEOUT',
             message: `Core request timed out after ${timeoutMs}ms.`,
@@ -129,23 +157,53 @@ export const createCoreClient = (
             details: {
               timeout_ms: timeoutMs,
               base_url: baseUrl,
-              path: normalizePath(path),
+              path: requestPath,
             },
           });
         }
+        logger.error('cli.core.request.failed', {
+          method,
+          path: requestPath,
+          base_url: baseUrl,
+          duration_ms: durationMs(startedAt),
+          error,
+        });
         throw error;
       }
 
       const raw = await response.text();
       if (!raw) {
+        logger.warn('cli.core.request.empty_response', {
+          method,
+          path: requestPath,
+          base_url: baseUrl,
+          status: response.status,
+          duration_ms: durationMs(startedAt),
+        });
         throw new Error(`Empty response from Core (${response.status}).`);
       }
 
       try {
-        return JSON.parse(raw) as T;
+        const parsed = JSON.parse(raw) as T;
+        logger.debug('cli.core.request.end', {
+          method,
+          path: requestPath,
+          base_url: baseUrl,
+          status: response.status,
+          duration_ms: durationMs(startedAt),
+        });
+        return parsed;
       } catch (error) {
         const message =
           error instanceof Error ? error.message : 'Unknown JSON parse error';
+        logger.error('cli.core.request.invalid_json', {
+          method,
+          path: requestPath,
+          base_url: baseUrl,
+          status: response.status,
+          duration_ms: durationMs(startedAt),
+          error,
+        });
         throw new Error(`Failed to parse Core response: ${message}`);
       }
     } finally {
@@ -169,21 +227,43 @@ export const createCoreClient = (
             controller.signal.aborted ||
             (error instanceof Error && error.name === 'AbortError')
           ) {
+            logger.warn('cli.core.health.timeout', {
+              base_url: baseUrl,
+              timeout_ms: timeoutMs,
+            });
             return false;
           }
+          logger.warn('cli.core.health.fetch_failed', {
+            base_url: baseUrl,
+            error,
+          });
           throw error;
         }
         if (!response.ok) {
+          logger.warn('cli.core.health.non_ok', {
+            base_url: baseUrl,
+            status: response.status,
+          });
           return false;
         }
         const data = (await response.json().catch(() => null)) as {
           ok?: boolean;
         } | null;
-        return Boolean(data?.ok);
+        const ok = Boolean(data?.ok);
+        if (!ok) {
+          logger.warn('cli.core.health.not_ready', {
+            base_url: baseUrl,
+          });
+        }
+        return ok;
       } finally {
         clearTimeout(timeout);
       }
-    } catch {
+    } catch (error) {
+      logger.warn('cli.core.health.error', {
+        base_url: baseUrl,
+        error,
+      });
       return false;
     }
   };
@@ -203,10 +283,25 @@ export const createCoreClient = (
       ', '
     )} })\n  .catch((err) => { console.error(err); process.exit(1); });`;
 
+    logger.info('cli.core.spawn.start', {
+      host: runtime.host,
+      port: runtime.port,
+      host_source: runtime.hostSource,
+      port_source: runtime.portSource,
+    });
+
     const child = spawnImpl(process.execPath, ['-e', script], {
       detached: true,
       stdio: 'ignore',
       env: { ...process.env },
+    });
+
+    child.on('error', (error) => {
+      logger.error('cli.core.spawn.error', {
+        host: runtime.host,
+        port: runtime.port,
+        error,
+      });
     });
 
     child.unref();
@@ -215,6 +310,9 @@ export const createCoreClient = (
   const ensureCoreRunning = async (): Promise<void> => {
     refreshRuntime();
     if (await checkHealth()) {
+      logger.debug('cli.core.ensure_ready.already_running', {
+        base_url: baseUrl,
+      });
       return;
     }
 
@@ -224,10 +322,19 @@ export const createCoreClient = (
       await delay(HEALTH_RETRY_MS);
       refreshRuntime();
       if (await checkHealth()) {
+        logger.info('cli.core.ensure_ready.ready', {
+          base_url: baseUrl,
+          attempts: attempt + 1,
+        });
         return;
       }
     }
 
+    logger.error('cli.core.ensure_ready.failed', {
+      host: runtime.host,
+      port: runtime.port,
+      attempts: HEALTH_ATTEMPTS,
+    });
     throw new Error(
       `Core daemon failed to start on ${runtime.host}:${runtime.port}.`
     );

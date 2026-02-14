@@ -3,11 +3,13 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
+  DEFAULT_LOG_DIRECTORY_RELATIVE_PATH,
   createBoundedPortProbeSequence,
   findGitRoot,
   readRuntimeMetadata,
   resolveCoreRuntime,
   resolveDeterministicCorePort,
+  resolveLogDirectory,
   resolveRuntimeMetadataPath,
   resolveWorktreeId,
   writeRuntimeMetadata,
@@ -126,6 +128,23 @@ describe('runtime-config', () => {
       git_root: undefined,
       updated_at: undefined,
     });
+  });
+
+  it('resolves default log directory from git root', () => {
+    const root = createGitRoot('runtime-config-log-dir-root-');
+    const nested = path.join(root, 'nested', 'dir');
+    mkdirSync(nested, { recursive: true });
+
+    expect(resolveLogDirectory({ cwd: nested })).toBe(
+      path.join(root, DEFAULT_LOG_DIRECTORY_RELATIVE_PATH)
+    );
+  });
+
+  it('falls back to cwd for default log directory when not in a git repo', () => {
+    const cwd = createTempDir('runtime-config-log-dir-cwd-');
+    expect(resolveLogDirectory({ cwd })).toBe(
+      path.join(cwd, DEFAULT_LOG_DIRECTORY_RELATIVE_PATH)
+    );
   });
 
   it('builds bounded probe sequences', () => {
