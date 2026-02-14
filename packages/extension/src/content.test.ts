@@ -56,6 +56,27 @@ describe('content drive actions', () => {
     }
   });
 
+  it('focuses input elements when clicked', async () => {
+    vi.useFakeTimers();
+    try {
+      const input = document.createElement('input');
+      input.id = 'focus-me';
+      document.body.appendChild(input);
+
+      const result = await runDriveAction('drive.click', {
+        locator: { css: '#focus-me' },
+      });
+
+      expect(result.ok).toBe(true);
+      expect(document.activeElement).toBe(document.body);
+
+      await vi.runAllTimersAsync();
+      expect(document.activeElement).toBe(input);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('hovers and returns a snapshot', async () => {
     const target = document.createElement('div');
     target.id = 'card';

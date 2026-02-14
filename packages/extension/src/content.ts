@@ -445,6 +445,13 @@ export const runDriveAction = async (
         // we can respond immediately.
         window.setTimeout(() => {
           try {
+            if (target instanceof HTMLElement) {
+              try {
+                target.focus({ preventScroll: true });
+              } catch {
+                target.focus();
+              }
+            }
             for (let i = 0; i < count; i += 1) {
               (target as HTMLElement).click();
             }
