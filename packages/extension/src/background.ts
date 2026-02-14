@@ -56,6 +56,10 @@ const DEBUGGER_PROTOCOL_VERSION = '1.3';
 const DEBUGGER_IDLE_TIMEOUT_KEY = 'debuggerIdleTimeoutMs';
 const DEFAULT_DEBUGGER_IDLE_TIMEOUT_MS = 15000;
 const DEFAULT_DEBUGGER_COMMAND_TIMEOUT_MS = 10000;
+const DEFAULT_SEND_TO_TAB_TIMEOUT_MS = 10000;
+const HISTORY_DISPATCH_TIMEOUT_MS = 2000;
+const HISTORY_NAVIGATION_SIGNAL_TIMEOUT_MS = 8000;
+const HISTORY_POST_NAV_DOM_GRACE_TIMEOUT_MS = 2000;
 
 const AGENT_TAB_ID_KEY = 'agentTabId';
 const AGENT_TAB_GROUP_TITLE = '🌉 Browser Bridge';
@@ -543,15 +547,48 @@ const getDefaultTabId = async (): Promise<number> => {
 const sendToTab = async (
   tabId: number,
   action: string,
-  params?: Record<string, unknown>
+  params?: Record<string, unknown>,
+  options?: { timeoutMs?: number }
 ): Promise<ContentResult> => {
+  const timeoutMs =
+    typeof options?.timeoutMs === 'number' && Number.isFinite(options.timeoutMs)
+      ? Math.max(1, Math.floor(options.timeoutMs))
+      : DEFAULT_SEND_TO_TAB_TIMEOUT_MS;
+
   const attemptSend = async (): Promise<ContentResult> => {
     return await new Promise<ContentResult>((resolve) => {
       const message: ContentRequest = { action, params };
+      let settled = false;
+      const finish = (result: ContentResult) => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        if (timeout !== undefined) {
+          clearTimeout(timeout);
+        }
+        resolve(result);
+      };
+      let timeout: number | undefined;
+      timeout = self.setTimeout(() => {
+        finish({
+          ok: false,
+          error: {
+            code: 'TIMEOUT',
+            message: `Timed out waiting for content response after ${timeoutMs}ms.`,
+            retryable: true,
+            details: {
+              action,
+              tab_id: tabId,
+              timeout_ms: timeoutMs,
+            },
+          },
+        });
+      }, timeoutMs);
       chrome.tabs.sendMessage(tabId, message, (response: ContentResult) => {
         const error = chrome.runtime.lastError;
         if (error) {
-          resolve({
+          finish({
             ok: false,
             error: {
               code: 'EVALUATION_FAILED',
@@ -562,7 +599,7 @@ const sendToTab = async (
           return;
         }
         if (!response || typeof response !== 'object') {
-          resolve({
+          finish({
             ok: false,
             error: {
               code: 'EVALUATION_FAILED',
@@ -572,7 +609,7 @@ const sendToTab = async (
           });
           return;
         }
-        resolve(response);
+        finish(response);
       });
     });
   };
@@ -604,6 +641,86 @@ const sendToTab = async (
       retryable: false,
     },
   };
+};
+
+const waitForHistoryNavigationSignal = async (
+  tabId: number,
+  timeoutMs: number
+): Promise<void> => {
+  return await new Promise<void>((resolve, reject) => {
+    let timeout: number | undefined;
+    const cleanup = () => {
+      if (timeout !== undefined) {
+        clearTimeout(timeout);
+      }
+      chrome.webNavigation.onCommitted.removeListener(onCommitted);
+      chrome.webNavigation.onHistoryStateUpdated.removeListener(
+        onHistoryStateUpdated
+      );
+      chrome.webNavigation.onReferenceFragmentUpdated.removeListener(
+        onReferenceFragmentUpdated
+      );
+      chrome.tabs.onUpdated.removeListener(onTabUpdated);
+    };
+
+    const resolveSignal = () => {
+      cleanup();
+      resolve();
+    };
+
+    const onCommitted = (details: { tabId: number; frameId: number }) => {
+      if (details.tabId !== tabId || details.frameId !== 0) {
+        return;
+      }
+      resolveSignal();
+    };
+
+    const onHistoryStateUpdated = (details: {
+      tabId: number;
+      frameId: number;
+    }) => {
+      if (details.tabId !== tabId || details.frameId !== 0) {
+        return;
+      }
+      resolveSignal();
+    };
+
+    const onReferenceFragmentUpdated = (details: {
+      tabId: number;
+      frameId: number;
+    }) => {
+      if (details.tabId !== tabId || details.frameId !== 0) {
+        return;
+      }
+      resolveSignal();
+    };
+
+    const onTabUpdated = (
+      updatedTabId: number,
+      changeInfo: Record<string, unknown>
+    ) => {
+      if (updatedTabId !== tabId) {
+        return;
+      }
+      if (typeof changeInfo.url !== 'string' || changeInfo.url.length === 0) {
+        return;
+      }
+      resolveSignal();
+    };
+
+    chrome.webNavigation.onCommitted.addListener(onCommitted);
+    chrome.webNavigation.onHistoryStateUpdated.addListener(
+      onHistoryStateUpdated
+    );
+    chrome.webNavigation.onReferenceFragmentUpdated.addListener(
+      onReferenceFragmentUpdated
+    );
+    chrome.tabs.onUpdated.addListener(onTabUpdated);
+    timeout = self.setTimeout(() => {
+      cleanup();
+      reject(new Error('Timed out waiting for history navigation signal.'));
+    }, timeoutMs);
+  });
 };
 
 const waitForDomContentLoaded = async (
@@ -1127,22 +1244,39 @@ class DriveSocket {
           if (tabId === undefined) {
             tabId = await getDefaultTabId();
           }
-          const result = await sendToTab(tabId as number, message.action);
-          if (!result.ok) {
+          const navigationSignal = waitForHistoryNavigationSignal(
+            tabId as number,
+            HISTORY_NAVIGATION_SIGNAL_TIMEOUT_MS
+          );
+          const result = await sendToTab(
+            tabId as number,
+            message.action,
+            undefined,
+            {
+              timeoutMs: HISTORY_DISPATCH_TIMEOUT_MS,
+            }
+          );
+          if (!result.ok && result.error.code !== 'TIMEOUT') {
             respondError(result.error);
             return;
           }
           markTabActive(tabId as number);
           try {
-            await waitForDomContentLoaded(tabId as number, 30000);
-          } catch (error) {
-            respondError({
-              code: 'TIMEOUT',
-              message:
-                error instanceof Error ? error.message : 'Timed out waiting.',
-              retryable: true,
-            });
-            return;
+            await navigationSignal;
+            try {
+              await waitForDomContentLoaded(
+                tabId as number,
+                HISTORY_POST_NAV_DOM_GRACE_TIMEOUT_MS
+              );
+            } catch {
+              // BFCache/history restores can skip DOMContentLoaded; proceed once
+              // we have a confirmed top-level navigation signal.
+            }
+          } catch {
+            if (!result.ok) {
+              respondError(result.error);
+              return;
+            }
           }
           respondOk({ ok: true });
           return;
@@ -1770,10 +1904,19 @@ class DriveSocket {
           if (tabId === undefined) {
             tabId = await getDefaultTabId();
           }
+          const timeoutMs =
+            message.action === 'drive.wait_for' &&
+            typeof params.timeout_ms === 'number' &&
+            Number.isFinite(params.timeout_ms)
+              ? Math.max(1, Math.floor(params.timeout_ms) + 1000)
+              : undefined;
           const result = await sendToTab(
             tabId as number,
             message.action,
-            params
+            params,
+            {
+              timeoutMs,
+            }
           );
           if (result.ok) {
             respondOk(result.result ?? { ok: true });

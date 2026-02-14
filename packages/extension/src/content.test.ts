@@ -252,21 +252,30 @@ describe('content drive actions', () => {
     expect(count).toBe(3);
   });
 
-  it('uses window history for back/forward', async () => {
-    const backSpy = vi
-      .spyOn(globalThis.history, 'back')
-      .mockImplementation(() => {});
-    const forwardSpy = vi
-      .spyOn(globalThis.history, 'forward')
-      .mockImplementation(() => {});
+  it('defers window history back/forward until after response', async () => {
+    vi.useFakeTimers();
+    try {
+      const backSpy = vi
+        .spyOn(globalThis.history, 'back')
+        .mockImplementation(() => {});
+      const forwardSpy = vi
+        .spyOn(globalThis.history, 'forward')
+        .mockImplementation(() => {});
 
-    const backResult = await runDriveAction('drive.go_back', {});
-    expect(backResult.ok).toBe(true);
-    expect(backSpy).toHaveBeenCalledTimes(1);
+      const backResult = await runDriveAction('drive.go_back', {});
+      expect(backResult.ok).toBe(true);
+      expect(backSpy).not.toHaveBeenCalled();
+      await vi.runOnlyPendingTimersAsync();
+      expect(backSpy).toHaveBeenCalledTimes(1);
 
-    const forwardResult = await runDriveAction('drive.go_forward', {});
-    expect(forwardResult.ok).toBe(true);
-    expect(forwardSpy).toHaveBeenCalledTimes(1);
+      const forwardResult = await runDriveAction('drive.go_forward', {});
+      expect(forwardResult.ok).toBe(true);
+      expect(forwardSpy).not.toHaveBeenCalled();
+      await vi.runOnlyPendingTimersAsync();
+      expect(forwardSpy).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('drags between elements', async () => {

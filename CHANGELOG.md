@@ -16,6 +16,10 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 - Runtime metadata now supports persisted `extension_id` so extension targeting can survive across sessions/worktrees.
 - Extension options activation flow now applies `corePort` from activation query params via `chrome.storage.local` and then clears the query string to prevent repeated re-application on refresh.
 
+### Fixed
+
+- `drive.go_back` / `drive.go_forward` no longer hang when history navigation unloads the page before content-script messaging completes; history dispatch is deferred, background completion waits for deterministic top-level navigation signals, and tab messaging now has an explicit timeout guard.
+
 ## [0.8.0] - 2026-02-14
 
 ### Changed
