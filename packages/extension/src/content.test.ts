@@ -197,6 +197,22 @@ describe('content drive actions', () => {
     expect(checkbox.checked).toBe(true);
   });
 
+  it('detects field type for locator', async () => {
+    const checkbox = document.createElement('input');
+    checkbox.id = 'marketing';
+    checkbox.type = 'checkbox';
+    document.body.appendChild(checkbox);
+
+    const result = await runDriveAction('drive.detect_field_type', {
+      locator: { css: '#marketing' },
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.result).toEqual({ fieldType: 'checkbox' });
+    }
+  });
+
   it('dispatches key press', async () => {
     const input = document.createElement('input');
     document.body.appendChild(input);

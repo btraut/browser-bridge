@@ -1549,79 +1549,212 @@ class DriveSocket {
             respondError(error);
             return;
           }
-          const targetPoint = await sendToTab(
+          const result = await this.performCdpType(tabId as number, {
+            locator: params.locator,
+            text,
+            clear: Boolean(params.clear),
+            submit: Boolean(params.submit),
+          });
+          if (!result.ok) {
+            respondError(result.error);
+            return;
+          }
+          respondOk({ ok: true });
+          return;
+        }
+        case 'drive.select': {
+          const params = (message.params ?? {}) as Record<string, unknown>;
+          let tabId = params.tab_id;
+          if (tabId !== undefined && typeof tabId !== 'number') {
+            respondError({
+              code: 'INVALID_ARGUMENT',
+              message: 'tab_id must be a number when provided.',
+              retryable: false,
+            });
+            return;
+          }
+          if (tabId === undefined) {
+            tabId = await getDefaultTabId();
+          }
+          const error = await this.ensureDebuggerAttached(tabId as number);
+          if (error) {
+            respondError(error);
+            return;
+          }
+          const pointResult = await this.resolveLocatorPoint(
             tabId as number,
-            'drive.type_target_point',
-            { locator: params.locator }
+            params.locator
           );
-          if (!targetPoint.ok) {
-            respondError(targetPoint.error);
-            return;
-          }
-          const payload = targetPoint.result;
-          if (!payload || typeof payload !== 'object') {
-            respondError({
-              code: 'EVALUATION_FAILED',
-              message: 'Invalid type target payload.',
-              retryable: false,
-            });
-            return;
-          }
-          const record = payload as Record<string, unknown>;
-          const x = record.x;
-          const y = record.y;
-          if (
-            typeof x !== 'number' ||
-            !Number.isFinite(x) ||
-            typeof y !== 'number' ||
-            !Number.isFinite(y)
-          ) {
-            respondError({
-              code: 'EVALUATION_FAILED',
-              message: 'Invalid type target coordinates.',
-              retryable: false,
-            });
+          if (!pointResult.ok) {
+            respondError(pointResult.error);
             return;
           }
           try {
-            await this.dispatchCdpClick(tabId as number, x, y, 1);
-            if (params.clear) {
-              const clearResult = await sendToTab(
-                tabId as number,
-                'drive.clear_active_editable'
-              );
-              if (!clearResult.ok) {
-                respondError(clearResult.error);
-                return;
-              }
-            }
-            if (text.length > 0) {
-              await this.sendDebuggerCommand(
-                tabId as number,
-                'Input.insertText',
-                { text },
-                DEFAULT_DEBUGGER_COMMAND_TIMEOUT_MS
-              );
-            }
-            if (params.submit) {
-              await this.dispatchCdpKeyPress(
-                tabId as number,
-                'Enter',
-                undefined
-              );
-            }
-            this.touchDebuggerSession(tabId as number);
-            respondOk({ ok: true });
+            await this.dispatchCdpClick(
+              tabId as number,
+              pointResult.point.x,
+              pointResult.point.y,
+              1
+            );
           } catch (error) {
             const info = mapDebuggerErrorMessage(
-              error instanceof Error ? error.message : 'Type dispatch failed.'
+              error instanceof Error ? error.message : 'Select click failed.'
             );
             respondError(info);
+            return;
           }
+          // CDP has no direct "select option by value/text/index" primitive.
+          // Fall back explicitly to the existing select helper after CDP focus.
+          const selectResult = await sendToTab(
+            tabId as number,
+            'drive.select',
+            params
+          );
+          if (!selectResult.ok) {
+            respondError(selectResult.error);
+            return;
+          }
+          respondOk(selectResult.result ?? { ok: true });
           return;
         }
-        case 'drive.select':
-        case 'drive.fill_form':
+        case 'drive.fill_form': {
+          const params = (message.params ?? {}) as Record<string, unknown>;
+          const fields = params.fields;
+          if (!Array.isArray(fields) || fields.length === 0) {
+            respondError({
+              code: 'INVALID_ARGUMENT',
+              message: 'fields must be a non-empty array.',
+              retryable: false,
+            });
+            return;
+          }
+          let tabId = params.tab_id;
+          if (tabId !== undefined && typeof tabId !== 'number') {
+            respondError({
+              code: 'INVALID_ARGUMENT',
+              message: 'tab_id must be a number when provided.',
+              retryable: false,
+            });
+            return;
+          }
+          if (tabId === undefined) {
+            tabId = await getDefaultTabId();
+          }
+          const error = await this.ensureDebuggerAttached(tabId as number);
+          if (error) {
+            respondError(error);
+            return;
+          }
+          let filled = 0;
+          const errors: string[] = [];
+          for (let index = 0; index < fields.length; index += 1) {
+            const field = fields[index];
+            if (!field || typeof field !== 'object') {
+              errors.push(`Field ${index} is not an object.`);
+              continue;
+            }
+            const record = field as Record<string, unknown>;
+            const value = record.value;
+            if (typeof value !== 'string' && typeof value !== 'boolean') {
+              errors.push(`Field ${index} has invalid value.`);
+              continue;
+            }
+            const selector =
+              typeof record.selector === 'string' ? record.selector : undefined;
+            const locator =
+              record.locator && typeof record.locator === 'object'
+                ? (record.locator as Record<string, unknown>)
+                : selector
+                  ? ({ css: selector } as Record<string, unknown>)
+                  : undefined;
+            let resolvedType =
+              typeof record.type === 'string' && record.type.length > 0
+                ? record.type
+                : 'auto';
+            if (resolvedType === 'auto') {
+              const detected = await sendToTab(
+                tabId as number,
+                'drive.detect_field_type',
+                { locator: record.locator, selector }
+              );
+              if (!detected.ok) {
+                errors.push(`Field ${index} could not be resolved.`);
+                continue;
+              }
+              const payload = detected.result;
+              if (!payload || typeof payload !== 'object') {
+                errors.push(`Field ${index} returned invalid type payload.`);
+                continue;
+              }
+              const detectedType = (payload as Record<string, unknown>)
+                .fieldType;
+              if (
+                typeof detectedType !== 'string' ||
+                detectedType.length === 0
+              ) {
+                errors.push(`Field ${index} returned invalid field type.`);
+                continue;
+              }
+              resolvedType = detectedType;
+            }
+
+            if (
+              (resolvedType === 'text' || resolvedType === 'contentEditable') &&
+              locator
+            ) {
+              const typed = await this.performCdpType(tabId as number, {
+                locator,
+                text: String(value),
+                clear: true,
+                submit: Boolean(record.submit),
+              });
+              if (!typed.ok) {
+                errors.push(
+                  `Field ${index} could not be filled: ${typed.error.message}`
+                );
+                continue;
+              }
+              filled += 1;
+              continue;
+            }
+
+            // Explicit fallback for controls not yet modeled via CDP-first helper.
+            const fallback = await sendToTab(
+              tabId as number,
+              'drive.fill_form',
+              {
+                fields: [field],
+              }
+            );
+            if (!fallback.ok) {
+              errors.push(
+                `Field ${index} could not be filled: ${fallback.error.message}`
+              );
+              continue;
+            }
+            const payload = fallback.result;
+            if (!payload || typeof payload !== 'object') {
+              errors.push(`Field ${index} returned invalid fallback payload.`);
+              continue;
+            }
+            const fallbackFilled = (payload as Record<string, unknown>).filled;
+            if (
+              typeof fallbackFilled === 'number' &&
+              Number.isFinite(fallbackFilled) &&
+              fallbackFilled > 0
+            ) {
+              filled += 1;
+              continue;
+            }
+            errors.push(`Field ${index} could not be filled.`);
+          }
+          respondOk({
+            filled,
+            attempted: fields.length,
+            errors: errors.length > 0 ? errors : [],
+          });
+          return;
+        }
         case 'drive.scroll':
         case 'drive.wait_for': {
           const params = (message.params ?? {}) as Record<string, unknown>;
@@ -2298,6 +2431,84 @@ class DriveSocket {
       };
     }
     return { ok: true, point: { x, y } };
+  }
+
+  private async performCdpType(
+    tabId: number,
+    options: {
+      locator: unknown;
+      text: string;
+      clear: boolean;
+      submit: boolean;
+    }
+  ): Promise<{ ok: true } | { ok: false; error: DriveErrorInfo }> {
+    const targetPoint = await sendToTab(tabId, 'drive.type_target_point', {
+      locator: options.locator,
+    });
+    if (!targetPoint.ok) {
+      return targetPoint;
+    }
+    const payload = targetPoint.result;
+    if (!payload || typeof payload !== 'object') {
+      return {
+        ok: false,
+        error: {
+          code: 'EVALUATION_FAILED',
+          message: 'Invalid type target payload.',
+          retryable: false,
+        },
+      };
+    }
+    const record = payload as Record<string, unknown>;
+    const x = record.x;
+    const y = record.y;
+    if (
+      typeof x !== 'number' ||
+      !Number.isFinite(x) ||
+      typeof y !== 'number' ||
+      !Number.isFinite(y)
+    ) {
+      return {
+        ok: false,
+        error: {
+          code: 'EVALUATION_FAILED',
+          message: 'Invalid type target coordinates.',
+          retryable: false,
+        },
+      };
+    }
+    try {
+      await this.dispatchCdpClick(tabId, x, y, 1);
+      if (options.clear) {
+        const clearResult = await sendToTab(
+          tabId,
+          'drive.clear_active_editable'
+        );
+        if (!clearResult.ok) {
+          return clearResult;
+        }
+      }
+      if (options.text.length > 0) {
+        await this.sendDebuggerCommand(
+          tabId,
+          'Input.insertText',
+          { text: options.text },
+          DEFAULT_DEBUGGER_COMMAND_TIMEOUT_MS
+        );
+      }
+      if (options.submit) {
+        await this.dispatchCdpKeyPress(tabId, 'Enter', undefined);
+      }
+      this.touchDebuggerSession(tabId);
+      return { ok: true };
+    } catch (error) {
+      return {
+        ok: false,
+        error: mapDebuggerErrorMessage(
+          error instanceof Error ? error.message : 'Type dispatch failed.'
+        ),
+      };
+    }
   }
 
   private normalizeModifierMask(modifiers: unknown): number {

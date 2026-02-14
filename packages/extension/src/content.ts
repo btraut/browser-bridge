@@ -646,6 +646,19 @@ export const runDriveAction = async (
 
         return ok();
       }
+      case 'drive.detect_field_type': {
+        const { locator, selector } = parseParams();
+        let target = resolveLocator(
+          locator as Record<string, unknown> | undefined
+        );
+        if (!target && typeof selector === 'string' && selector.length > 0) {
+          target = document.querySelector(selector);
+        }
+        if (!target) {
+          return buildError('LOCATOR_NOT_FOUND', 'Failed to resolve locator.');
+        }
+        return ok({ fieldType: detectFieldType(target) });
+      }
       case 'drive.fill_form': {
         const { fields } = parseParams();
         if (!Array.isArray(fields) || fields.length === 0) {
