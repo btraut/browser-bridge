@@ -6,6 +6,8 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-02-14
+
 ### Changed
 
 - `drive.click` now dispatches deferred clicks through CDP `Input.dispatchMouseEvent` in the extension background path, with locator point resolution coming from the content script.
