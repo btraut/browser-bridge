@@ -2,6 +2,7 @@ import { Command } from 'commander';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CLI_TOOL_FIXTURES } from '../tool-fixtures';
 import { registerArtifactsCommands } from './artifacts';
+import { registerDevCommands } from './dev';
 import { registerDiagnosticsCommands } from './diagnostics';
 import { registerDialogCommands } from './dialog';
 import { registerDriveCommands } from './drive';
@@ -34,6 +35,7 @@ const buildProgram = (): Command => {
   registerArtifactsCommands(program);
   registerDiagnosticsCommands(program);
   registerDialogCommands(program);
+  registerDevCommands(program);
   registerOpenArtifactsCommand(program);
   registerMcpCommand(program);
   registerSkillCommands(program);

@@ -234,12 +234,12 @@ Codex:
 codex mcp add browser-bridge -- browser-bridge mcp
 ```
 
-Optional custom host/port:
+Optional custom host/port (use `browser-bridge dev info` to get the current worktree port):
 
 ```bash
 codex mcp add browser-bridge \
   --env BROWSER_BRIDGE_CORE_HOST=127.0.0.1 \
-  --env BROWSER_BRIDGE_CORE_PORT=3210 \
+  --env BROWSER_BRIDGE_CORE_PORT=<port-from-dev-info> \
   -- browser-bridge mcp
 ```
 
@@ -249,16 +249,53 @@ Claude Code:
 claude mcp add --transport stdio browser-bridge -- browser-bridge mcp
 ```
 
-Optional custom host/port:
+Optional custom host/port (use `browser-bridge dev info` to get the current worktree port):
 
 ```bash
 claude mcp add --transport stdio browser-bridge \
   --env BROWSER_BRIDGE_CORE_HOST=127.0.0.1 \
-  --env BROWSER_BRIDGE_CORE_PORT=3210 \
+  --env BROWSER_BRIDGE_CORE_PORT=<port-from-dev-info> \
   -- browser-bridge mcp
 ```
 
 </details>
+
+## 🔁 Multi-Worktree Dev Loop
+
+Use this loop any time you switch worktrees.
+
+1. Resolve runtime for the current worktree:
+
+```bash
+browser-bridge dev info --json
+```
+
+Use the `port`, `worktreeId`, `metadataPath`, and `logDir` from output.
+
+2. Activate extension routing for this worktree (required for extension-driving tasks):
+
+```bash
+browser-bridge dev activate --extension-id <id>
+```
+
+After the first run, you can usually omit `--extension-id` because it is saved in `.context/browser-bridge/dev.json`.
+
+3. Run your CLI/MCP workflow in this worktree.
+
+## 🧯 Worktree Troubleshooting
+
+- Missing extension id: Run `browser-bridge dev activate --extension-id <id>`. Or set `BROWSER_BRIDGE_EXTENSION_ID=<id>`. You can copy the id from `chrome://extensions` (enable Developer mode to see ids).
+- Activation URL did not open in Chrome: Run `browser-bridge dev activate --json`, copy `result.activationUrl`, and open it directly in Chrome. `dev activate` uses the OS URL opener, so your default browser setting matters.
+- Logs and per-stream JSONL inspection: Logs are under `.context/logs/browser-bridge/`. Common streams: `cli.jsonl`, `core.jsonl`, `mcp-adapter.jsonl` (plus rotated files like `core.1.jsonl`).
+
+```bash
+ls -1 .context/logs/browser-bridge
+tail -n 80 .context/logs/browser-bridge/cli.jsonl
+tail -n 80 .context/logs/browser-bridge/core.jsonl
+tail -n 80 .context/logs/browser-bridge/mcp-adapter.jsonl
+```
+
+- Do not assume port `3210` across worktrees: Default port is deterministic per worktree and may differ. Always check `browser-bridge dev info` (or pass explicit `--port` / `BROWSER_BRIDGE_CORE_PORT`).
 
 ## 🩺 Diagnostics
 

@@ -21,6 +21,9 @@ type ModeEls = {
   sitesSummary: HTMLElement;
 };
 
+const ACTIVATION_FLAG_PARAM = 'bb_activate';
+const ACTIVATION_PORT_PARAM = 'corePort';
+
 const byId = (id: string): HTMLElement => {
   const el = document.getElementById(id);
   if (!el) {
@@ -54,6 +57,64 @@ const formatTime = (iso: string): string => {
     }).format(d);
   } catch {
     return iso;
+  }
+};
+
+const parseActivationPort = (value: string | null): number | null => {
+  if (!value) {
+    return null;
+  }
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return null;
+  }
+  return Math.floor(parsed);
+};
+
+const clearActivationQueryParams = (): void => {
+  const url = new URL(window.location.href);
+  if (!url.search) {
+    return;
+  }
+  url.search = '';
+  window.history.replaceState(
+    null,
+    document.title,
+    `${url.pathname}${url.hash}`
+  );
+};
+
+const writeCorePort = async (corePort: number): Promise<void> => {
+  await new Promise<void>((resolve, reject) => {
+    chrome.storage.local.set({ corePort }, () => {
+      const error = chrome.runtime.lastError;
+      if (error) {
+        reject(new Error(error.message));
+        return;
+      }
+      resolve();
+    });
+  });
+};
+
+const applyActivationQueryParams = async (): Promise<void> => {
+  const url = new URL(window.location.href);
+  const params = url.searchParams;
+  if (params.get(ACTIVATION_FLAG_PARAM) !== '1') {
+    return;
+  }
+
+  const corePort = parseActivationPort(params.get(ACTIVATION_PORT_PARAM));
+  try {
+    if (corePort !== null) {
+      await writeCorePort(corePort);
+    } else {
+      console.warn('Ignoring dev activation request with invalid corePort.');
+    }
+  } catch (error) {
+    console.warn('Failed to apply dev activation corePort.', error);
+  } finally {
+    clearActivationQueryParams();
   }
 };
 
@@ -305,7 +366,10 @@ const refreshAll = async (): Promise<void> => {
 };
 
 const main = (): void => {
-  void refreshAll();
+  void (async () => {
+    await applyActivationQueryParams();
+    await refreshAll();
+  })();
 
   const { granular, bypass } = getModeEls();
   granular.addEventListener('change', () => {
