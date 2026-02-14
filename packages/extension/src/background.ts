@@ -1257,7 +1257,83 @@ class DriveSocket {
           }
           return;
         }
-        case 'drive.click':
+        case 'drive.click': {
+          const params = (message.params ?? {}) as Record<string, unknown>;
+          let tabId = params.tab_id;
+          if (tabId !== undefined && typeof tabId !== 'number') {
+            respondError({
+              code: 'INVALID_ARGUMENT',
+              message: 'tab_id must be a number when provided.',
+              retryable: false,
+            });
+            return;
+          }
+          if (tabId === undefined) {
+            tabId = await getDefaultTabId();
+          }
+
+          const clickCount = params.click_count;
+          const count =
+            typeof clickCount === 'number' && Number.isFinite(clickCount)
+              ? Math.max(1, Math.floor(clickCount))
+              : 1;
+
+          const error = await this.ensureDebuggerAttached(tabId as number);
+          if (error) {
+            respondError(error);
+            return;
+          }
+
+          const point = await sendToTab(
+            tabId as number,
+            'drive.locator_point',
+            {
+              locator: params.locator,
+            }
+          );
+          if (!point.ok) {
+            respondError(point.error);
+            return;
+          }
+
+          const payload = point.result;
+          if (!payload || typeof payload !== 'object') {
+            respondError({
+              code: 'EVALUATION_FAILED',
+              message: 'Invalid locator point payload.',
+              retryable: false,
+            });
+            return;
+          }
+          const record = payload as Record<string, unknown>;
+          const x = record.x;
+          const y = record.y;
+          if (
+            typeof x !== 'number' ||
+            !Number.isFinite(x) ||
+            typeof y !== 'number' ||
+            !Number.isFinite(y)
+          ) {
+            respondError({
+              code: 'EVALUATION_FAILED',
+              message: 'Invalid locator point coordinates.',
+              retryable: false,
+            });
+            return;
+          }
+
+          // JS dialogs can block the tab event loop; dispatch click events on
+          // the next tick so we can acknowledge the command immediately.
+          self.setTimeout(() => {
+            void this.dispatchCdpClick(tabId as number, x, y, count).catch(
+              (error) => {
+                console.debug('Deferred CDP click failed.', error);
+              }
+            );
+          }, 0);
+          respondOk({ ok: true });
+          return;
+        }
         case 'drive.hover':
         case 'drive.select':
         case 'drive.type':
@@ -1796,6 +1872,54 @@ class DriveSocket {
         retryable: false,
       });
     }
+  }
+
+  private async dispatchCdpClick(
+    tabId: number,
+    x: number,
+    y: number,
+    clickCount: number
+  ): Promise<void> {
+    await this.sendDebuggerCommand(
+      tabId,
+      'Input.dispatchMouseEvent',
+      {
+        type: 'mouseMoved',
+        x,
+        y,
+        button: 'none',
+      },
+      DEFAULT_DEBUGGER_COMMAND_TIMEOUT_MS
+    );
+
+    for (let i = 0; i < clickCount; i += 1) {
+      const normalizedClickCount = i + 1;
+      await this.sendDebuggerCommand(
+        tabId,
+        'Input.dispatchMouseEvent',
+        {
+          type: 'mousePressed',
+          x,
+          y,
+          button: 'left',
+          clickCount: normalizedClickCount,
+        },
+        DEFAULT_DEBUGGER_COMMAND_TIMEOUT_MS
+      );
+      await this.sendDebuggerCommand(
+        tabId,
+        'Input.dispatchMouseEvent',
+        {
+          type: 'mouseReleased',
+          x,
+          y,
+          button: 'left',
+          clickCount: normalizedClickCount,
+        },
+        DEFAULT_DEBUGGER_COMMAND_TIMEOUT_MS
+      );
+    }
+    this.touchDebuggerSession(tabId);
   }
 
   private async handleDebuggerRequest(message: DebuggerRequest): Promise<void> {

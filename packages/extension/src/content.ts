@@ -429,6 +429,18 @@ export const runDriveAction = async (
         window.location.href = url;
         return ok();
       }
+      case 'drive.locator_point': {
+        const { locator } = parseParams();
+        const target = resolveLocator(locator as Record<string, unknown>);
+        if (!target) {
+          return buildError('LOCATOR_NOT_FOUND', 'Failed to resolve locator.');
+        }
+        const rect = target.getBoundingClientRect();
+        return ok({
+          x: rect.left + rect.width / 2,
+          y: rect.top + rect.height / 2,
+        });
+      }
       case 'drive.click': {
         const { locator, click_count } = parseParams();
         const target = resolveLocator(locator as Record<string, unknown>);

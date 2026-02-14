@@ -56,6 +56,22 @@ describe('content drive actions', () => {
     }
   });
 
+  it('returns locator center coordinates', async () => {
+    const target = document.createElement('div');
+    target.id = 'point-me';
+    document.body.appendChild(target);
+    setRect(target, new DOMRect(10, 20, 30, 40));
+
+    const result = await runDriveAction('drive.locator_point', {
+      locator: { css: '#point-me' },
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.result).toEqual({ x: 25, y: 40 });
+    }
+  });
+
   it('focuses input elements when clicked', async () => {
     vi.useFakeTimers();
     try {
