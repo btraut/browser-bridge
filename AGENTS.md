@@ -20,6 +20,16 @@ This project uses **bd (beads)** for issue tracking. Run `bd onboard` to get sta
 - When you see unrelated unstaged/uncommitted files, ignore them. Do not touch, stage, or revert them.
 - You do not need to mention unrelated uncommitted files in your responses.
 
+## Browser Bridge Worktree Runtime (Mandatory)
+
+For Browser Bridge tasks, run this flow in the active worktree:
+
+1. Run `browser-bridge dev info` first to get resolved host/port/worktree/log paths.
+2. Run `browser-bridge dev activate` for extension-driving tasks.
+   - Use `--extension-id <id>` when needed.
+3. Check `.context/logs/browser-bridge/` before ad-hoc debugging.
+   - Inspect per-stream JSONL files (`cli.jsonl`, `core.jsonl`, `mcp-adapter.jsonl`) first.
+
 ## Working from specs
 
 - When executing a spec, the moment you finish a step in that spec, mark it with a green check mark emoji (✅) and add any relevant implementation notes right beside the step.
