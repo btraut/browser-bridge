@@ -6,6 +6,16 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 
 ## [Unreleased]
 
+### Added
+
+- CLI: `browser-bridge dev info` now prints resolved runtime details (host/port + source, deterministic port, worktree id, metadata path, log dir, and metadata snapshot).
+- CLI: `browser-bridge dev activate` now resolves runtime, persists metadata for the current worktree, and opens extension options with activation query params.
+
+### Changed
+
+- Runtime metadata now supports persisted `extension_id` so extension targeting can survive across sessions/worktrees.
+- Extension options activation flow now applies `corePort` from activation query params via `chrome.storage.local` and then clears the query string to prevent repeated re-application on refresh.
+
 ## [0.8.0] - 2026-02-14
 
 ### Changed

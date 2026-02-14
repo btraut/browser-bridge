@@ -113,6 +113,7 @@ describe('runtime-config', () => {
         host: '127.0.0.9',
         port: 4123,
         worktree_id: 'feature-abc',
+        extension_id: 'abcdefghijklmnopabcdefghijklmnop',
       },
       { cwd: root }
     );
@@ -126,8 +127,38 @@ describe('runtime-config', () => {
       port: 4123,
       worktree_id: 'feature-abc',
       git_root: undefined,
+      extension_id: 'abcdefghijklmnopabcdefghijklmnop',
       updated_at: undefined,
     });
+  });
+
+  it('supports persisted extension id metadata and ignores invalid values', () => {
+    const root = createGitRoot('runtime-config-extension-id-root-');
+
+    writeRuntimeMetadata(
+      {
+        extension_id: 'abcdefghijklmnopabcdefghijklmnop',
+      },
+      { cwd: root }
+    );
+
+    expect(readRuntimeMetadata({ cwd: root })).toEqual({
+      host: undefined,
+      port: undefined,
+      git_root: undefined,
+      worktree_id: undefined,
+      extension_id: 'abcdefghijklmnopabcdefghijklmnop',
+      updated_at: undefined,
+    });
+
+    const metadataPath = resolveRuntimeMetadataPath({ cwd: root });
+    writeFileSync(
+      metadataPath,
+      JSON.stringify({ extension_id: '   ', host: '' }),
+      'utf8'
+    );
+
+    expect(readRuntimeMetadata({ cwd: root })).toBeNull();
   });
 
   it('resolves default log directory from git root', () => {

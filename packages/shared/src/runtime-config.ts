@@ -25,6 +25,7 @@ export type RuntimeMetadata = {
   port?: number;
   git_root?: string;
   worktree_id?: string;
+  extension_id?: string;
   updated_at?: string;
 };
 
@@ -192,9 +193,17 @@ const sanitizeMetadata = (raw: unknown): RuntimeMetadata | null => {
   const port = parsePort(candidate.port, 'port', 'ignore');
   const gitRoot = normalizeHost(candidate.git_root);
   const worktreeId = normalizeHost(candidate.worktree_id);
+  const extensionId = normalizeHost(candidate.extension_id);
   const updatedAt = normalizeHost(candidate.updated_at);
 
-  if (!host && port === undefined && !gitRoot && !worktreeId && !updatedAt) {
+  if (
+    !host &&
+    port === undefined &&
+    !gitRoot &&
+    !worktreeId &&
+    !extensionId &&
+    !updatedAt
+  ) {
     return null;
   }
 
@@ -203,6 +212,7 @@ const sanitizeMetadata = (raw: unknown): RuntimeMetadata | null => {
     port,
     git_root: gitRoot,
     worktree_id: worktreeId,
+    extension_id: extensionId,
     updated_at: updatedAt,
   };
 };
