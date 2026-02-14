@@ -6,6 +6,10 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 
 ## [Unreleased]
 
+_TBD_
+
+## [0.7.3] - 2026-02-14
+
 ### Fixed
 
 - `drive.click` now focuses the target element before dispatching the deferred click, so clicking inputs updates `document.activeElement` as expected.
