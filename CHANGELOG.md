@@ -6,6 +6,8 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-02-14
+
 ### Added
 
 - CLI: `browser-bridge dev info` now prints resolved runtime details (host/port + source, deterministic port, worktree id, metadata path, log dir, and metadata snapshot).
