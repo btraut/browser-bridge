@@ -1,4 +1,8 @@
-import { ApiEnvelope, ErrorInfo } from '@btraut/browser-bridge-shared';
+import {
+  ApiEnvelope,
+  ErrorInfo,
+  resolveCoreRuntime,
+} from '@btraut/browser-bridge-shared';
 import { spawn } from 'node:child_process';
 import { resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
@@ -20,6 +24,7 @@ export class CoreClientError extends Error {
 export type CoreClientOptions = {
   host?: string;
   port?: number | string;
+  cwd?: string;
   ensureDaemon?: boolean;
   timeoutMs?: number;
   fetchImpl?: FetchLike;
@@ -32,45 +37,10 @@ export type CoreClient = {
   post: <T>(path: string, body?: unknown) => Promise<ApiEnvelope<T>>;
 };
 
-const DEFAULT_HOST = '127.0.0.1';
-const DEFAULT_PORT = 3210;
 // Must be long enough to accommodate user-approval prompts in the extension.
 const DEFAULT_TIMEOUT_MS = 30000;
 const HEALTH_RETRY_MS = 250;
 const HEALTH_ATTEMPTS = 20;
-
-const resolveHost = (host?: string): string => {
-  const candidate =
-    host?.trim() ||
-    process.env.BROWSER_BRIDGE_CORE_HOST ||
-    process.env.BROWSER_VISION_CORE_HOST;
-  if (candidate && candidate.length > 0) {
-    return candidate;
-  }
-  return DEFAULT_HOST;
-};
-
-const resolvePort = (port?: number | string): number => {
-  const candidate =
-    port ??
-    (process.env.BROWSER_BRIDGE_CORE_PORT
-      ? Number.parseInt(process.env.BROWSER_BRIDGE_CORE_PORT, 10)
-      : process.env.BROWSER_VISION_CORE_PORT
-        ? Number.parseInt(process.env.BROWSER_VISION_CORE_PORT, 10)
-        : undefined);
-
-  if (candidate === undefined || candidate === null) {
-    return DEFAULT_PORT;
-  }
-
-  const parsed =
-    typeof candidate === 'number' ? candidate : Number.parseInt(candidate, 10);
-  if (!Number.isFinite(parsed) || parsed <= 0) {
-    throw new Error(`Invalid port: ${String(candidate)}`);
-  }
-
-  return parsed;
-};
 
 const resolveTimeoutMs = (timeoutMs?: number): number => {
   const candidate =
@@ -99,13 +69,35 @@ const normalizePath = (path: string): string =>
 export const createCoreClient = (
   options: CoreClientOptions = {}
 ): CoreClient => {
-  const host = resolveHost(options.host);
-  const port = resolvePort(options.port);
-  const baseUrl = `http://${host}:${port}`;
+  let runtime = resolveCoreRuntime({
+    host: options.host,
+    port: options.port,
+    cwd: options.cwd,
+    strictEnvPort: true,
+  });
+  let baseUrl = `http://${runtime.host}:${runtime.port}`;
   const timeoutMs = resolveTimeoutMs(options.timeoutMs);
   const fetchImpl = options.fetchImpl ?? fetch;
   const spawnImpl = options.spawnImpl ?? spawn;
   const ensureDaemon = options.ensureDaemon ?? true;
+  const allowRuntimeRefresh =
+    options.host === undefined &&
+    options.port === undefined &&
+    process.env.BROWSER_BRIDGE_CORE_HOST === undefined &&
+    process.env.BROWSER_VISION_CORE_HOST === undefined &&
+    process.env.BROWSER_BRIDGE_CORE_PORT === undefined &&
+    process.env.BROWSER_VISION_CORE_PORT === undefined;
+
+  const refreshRuntime = (): void => {
+    if (!allowRuntimeRefresh) {
+      return;
+    }
+    runtime = resolveCoreRuntime({
+      cwd: options.cwd,
+      strictEnvPort: true,
+    });
+    baseUrl = `http://${runtime.host}:${runtime.port}`;
+  };
 
   const requestJson = async <T>(
     method: 'GET' | 'POST',
@@ -198,28 +190,30 @@ export const createCoreClient = (
 
   const spawnDaemon = (): void => {
     const coreEntry = resolve(__dirname, 'api.js');
+    const startOptions: string[] = [];
+    if (runtime.hostSource === 'option' || runtime.hostSource === 'env') {
+      startOptions.push(`host: ${JSON.stringify(runtime.host)}`);
+    }
+    if (runtime.portSource === 'option' || runtime.portSource === 'env') {
+      startOptions.push(`port: ${runtime.port}`);
+    }
     const script = `const { startCoreServer } = require(${JSON.stringify(
       coreEntry
-    )});\nstartCoreServer({ host: ${JSON.stringify(
-      host
-    )}, port: ${port} })\n  .catch((err) => { console.error(err); process.exit(1); });`;
+    )});\nstartCoreServer({ ${startOptions.join(
+      ', '
+    )} })\n  .catch((err) => { console.error(err); process.exit(1); });`;
 
     const child = spawnImpl(process.execPath, ['-e', script], {
       detached: true,
       stdio: 'ignore',
-      env: {
-        ...process.env,
-        BROWSER_BRIDGE_CORE_HOST: host,
-        BROWSER_BRIDGE_CORE_PORT: String(port),
-        BROWSER_VISION_CORE_HOST: host,
-        BROWSER_VISION_CORE_PORT: String(port),
-      },
+      env: { ...process.env },
     });
 
     child.unref();
   };
 
   const ensureCoreRunning = async (): Promise<void> => {
+    refreshRuntime();
     if (await checkHealth()) {
       return;
     }
@@ -228,12 +222,15 @@ export const createCoreClient = (
 
     for (let attempt = 0; attempt < HEALTH_ATTEMPTS; attempt += 1) {
       await delay(HEALTH_RETRY_MS);
+      refreshRuntime();
       if (await checkHealth()) {
         return;
       }
     }
 
-    throw new Error(`Core daemon failed to start on ${host}:${port}.`);
+    throw new Error(
+      `Core daemon failed to start on ${runtime.host}:${runtime.port}.`
+    );
   };
 
   let ensurePromise: Promise<void> | null = null;
@@ -252,8 +249,15 @@ export const createCoreClient = (
     body?: unknown
   ): Promise<ApiEnvelope<T>> => {
     await ensureReady();
+    refreshRuntime();
     return requestJson<ApiEnvelope<T>>('POST', path, body);
   };
 
-  return { baseUrl, ensureReady, post };
+  return {
+    get baseUrl() {
+      return baseUrl;
+    },
+    ensureReady,
+    post,
+  };
 };

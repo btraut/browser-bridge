@@ -1,5 +1,10 @@
 import { createServer } from 'http';
 import express, { Express } from 'express';
+import {
+  createBoundedPortProbeSequence,
+  resolveCoreRuntime,
+  writeRuntimeMetadata,
+} from '@btraut/browser-bridge-shared';
 import { createSessionRouter } from './routes/session';
 import { registerArtifactsRoutes } from './routes/artifacts';
 import { registerDiagnosticsRoutes } from './routes/diagnostics';
@@ -100,21 +105,7 @@ export type CoreServerHandle = {
   port: number;
 };
 
-const resolveCorePort = (portOverride?: number): number => {
-  if (portOverride !== undefined) {
-    return portOverride;
-  }
-  const env =
-    process.env.BROWSER_BRIDGE_CORE_PORT ||
-    process.env.BROWSER_VISION_CORE_PORT;
-  if (env) {
-    const parsed = Number(env);
-    if (Number.isFinite(parsed) && parsed > 0) {
-      return parsed;
-    }
-  }
-  return 3210;
-};
+const CORE_PORT_PROBE_ATTEMPTS = 20;
 
 const resolveSessionTtlMs = (): number => {
   const env =
@@ -145,42 +136,127 @@ const resolveSessionCleanupIntervalMs = (ttlMs: number): number => {
   return Math.min(60 * 1000, Math.max(1000, Math.floor(ttlMs / 2)));
 };
 
-export const startCoreServer = (
+const isAddressInUseError = (error: unknown): boolean =>
+  Boolean(
+    error &&
+    typeof error === 'object' &&
+    'code' in error &&
+    (error as { code?: string }).code === 'EADDRINUSE'
+  );
+
+const listenOnPort = (
+  app: Express,
+  extensionBridge: ExtensionBridge,
+  host: string,
+  port: number
+): Promise<ReturnType<typeof createServer>> =>
+  new Promise((resolve, reject) => {
+    const server = createServer(app);
+    extensionBridge.attach(server);
+
+    const onError = (error: unknown) => {
+      server.off('listening', onListening);
+      reject(error);
+    };
+
+    const onListening = () => {
+      server.off('error', onError);
+      resolve(server);
+    };
+
+    server.once('error', onError);
+    server.once('listening', onListening);
+    server.listen(port, host);
+  });
+
+const maybeStartSessionCleanup = (
+  server: ReturnType<typeof createServer>,
+  registry: SessionRegistry
+): void => {
+  const ttlMs = resolveSessionTtlMs();
+  if (ttlMs <= 0) {
+    return;
+  }
+  const intervalMs = resolveSessionCleanupIntervalMs(ttlMs);
+  const timer = setInterval(() => {
+    try {
+      registry.cleanupIdleSessions(ttlMs);
+    } catch (error) {
+      console.warn('Session cleanup failed:', error);
+    }
+  }, intervalMs);
+  timer.unref();
+  server.on('close', () => clearInterval(timer));
+};
+
+export const startCoreServer = async (
   options: CoreServerStartOptions = {}
 ): Promise<CoreServerHandle> => {
-  const host = options.host ?? '127.0.0.1';
-  const port = resolveCorePort(options.port);
+  const runtime = resolveCoreRuntime({
+    host: options.host,
+    port: options.port,
+    strictEnvPort: false,
+  });
+
   const { app, registry, extensionBridge } = createCoreServer({
     registry: options.registry,
   });
 
-  return new Promise((resolve, reject) => {
-    const server = createServer(app);
-    extensionBridge.attach(server);
-    server.listen(port, host, () => {
+  const probePorts =
+    runtime.portSource === 'metadata' || runtime.portSource === 'deterministic'
+      ? createBoundedPortProbeSequence(runtime.port, CORE_PORT_PROBE_ATTEMPTS)
+      : [runtime.port];
+
+  let lastAddressInUseError: unknown;
+  for (const candidatePort of probePorts) {
+    try {
+      const server = await listenOnPort(
+        app,
+        extensionBridge,
+        runtime.host,
+        candidatePort
+      );
       const address = server.address();
       const resolvedPort =
-        typeof address === 'object' && address !== null ? address.port : port;
+        typeof address === 'object' && address !== null
+          ? address.port
+          : candidatePort;
 
-      const ttlMs = resolveSessionTtlMs();
-      if (ttlMs > 0) {
-        const intervalMs = resolveSessionCleanupIntervalMs(ttlMs);
-        const timer = setInterval(() => {
-          try {
-            registry.cleanupIdleSessions(ttlMs);
-          } catch (error) {
-            console.warn('Session cleanup failed:', error);
-          }
-        }, intervalMs);
-        timer.unref();
-        server.on('close', () => clearInterval(timer));
+      maybeStartSessionCleanup(server, registry);
+
+      try {
+        writeRuntimeMetadata(
+          {
+            host: runtime.host,
+            port: resolvedPort,
+            git_root: runtime.gitRoot ?? undefined,
+            worktree_id: runtime.worktreeId ?? undefined,
+            updated_at: new Date().toISOString(),
+          },
+          { metadataPath: runtime.metadataPath }
+        );
+      } catch (error) {
+        console.warn('Failed to persist runtime metadata:', error);
       }
 
-      resolve({ app, registry, server, host, port: resolvedPort });
-    });
+      return {
+        app,
+        registry,
+        server,
+        host: runtime.host,
+        port: resolvedPort,
+      };
+    } catch (error) {
+      if (isAddressInUseError(error) && probePorts.length > 1) {
+        lastAddressInUseError = error;
+        continue;
+      }
+      throw error;
+    }
+  }
 
-    server.on('error', (error) => {
-      reject(error);
-    });
-  });
+  throw (
+    lastAddressInUseError ??
+    new Error(`Unable to bind Core server on ${runtime.host}:${runtime.port}.`)
+  );
 };

@@ -1,10 +1,11 @@
-import { ApiEnvelope } from '@btraut/browser-bridge-shared';
+import { ApiEnvelope, resolveCoreRuntime } from '@btraut/browser-bridge-shared';
 
 type FetchLike = typeof fetch;
 
 export type CoreClientOptions = {
   host?: string;
   port?: number | string;
+  cwd?: string;
   timeoutMs?: number;
   fetchImpl?: FetchLike;
 };
@@ -14,43 +15,8 @@ export type CoreClient = {
   post: <T>(path: string, body?: unknown) => Promise<ApiEnvelope<T>>;
 };
 
-const DEFAULT_HOST = '127.0.0.1';
-const DEFAULT_PORT = 3210;
 // Must be long enough to accommodate user-approval prompts in the extension.
 const DEFAULT_TIMEOUT_MS = 30000;
-
-const resolveHost = (host?: string): string => {
-  const candidate =
-    host?.trim() ||
-    process.env.BROWSER_BRIDGE_CORE_HOST ||
-    process.env.BROWSER_VISION_CORE_HOST;
-  if (candidate && candidate.length > 0) {
-    return candidate;
-  }
-  return DEFAULT_HOST;
-};
-
-const resolvePort = (port?: number | string): number => {
-  const candidate =
-    port ??
-    (process.env.BROWSER_BRIDGE_CORE_PORT
-      ? Number.parseInt(process.env.BROWSER_BRIDGE_CORE_PORT, 10)
-      : process.env.BROWSER_VISION_CORE_PORT
-        ? Number.parseInt(process.env.BROWSER_VISION_CORE_PORT, 10)
-        : undefined);
-
-  if (candidate === undefined || candidate === null) {
-    return DEFAULT_PORT;
-  }
-
-  const parsed =
-    typeof candidate === 'number' ? candidate : Number.parseInt(candidate, 10);
-  if (!Number.isFinite(parsed) || parsed <= 0) {
-    throw new Error(`Invalid port: ${String(candidate)}`);
-  }
-
-  return parsed;
-};
 
 const normalizePath = (path: string): string =>
   path.startsWith('/') ? path : `/${path}`;
@@ -58,8 +24,14 @@ const normalizePath = (path: string): string =>
 export const createCoreClient = (
   options: CoreClientOptions = {}
 ): CoreClient => {
-  const host = resolveHost(options.host);
-  const port = resolvePort(options.port);
+  const runtime = resolveCoreRuntime({
+    host: options.host,
+    port: options.port,
+    cwd: options.cwd,
+    strictEnvPort: true,
+  });
+  const host = runtime.host;
+  const port = runtime.port;
   const baseUrl = `http://${host}:${port}`;
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const fetchImpl = options.fetchImpl ?? fetch;
