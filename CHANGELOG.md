@@ -10,6 +10,7 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 
 - `drive.click` now dispatches deferred clicks through CDP `Input.dispatchMouseEvent` in the extension background path, with locator point resolution coming from the content script.
 - `drive.hover` and `drive.drag` now run through CDP mouse movement/press/release events in the extension background path, with HTML snapshot capture handled as a separate internal content action.
+- `drive.key`, `drive.key_press`, and `drive.type` now route through CDP keyboard/text input commands in the extension background path, while content script target helpers only resolve/validate editable targets.
 
 ## [0.7.3] - 2026-02-14
 

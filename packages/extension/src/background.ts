@@ -1424,11 +1424,204 @@ class DriveSocket {
           }
           return;
         }
+        case 'drive.key_press': {
+          const params = (message.params ?? {}) as Record<string, unknown>;
+          const key = params.key;
+          if (typeof key !== 'string' || key.length === 0) {
+            respondError({
+              code: 'INVALID_ARGUMENT',
+              message: 'key must be a non-empty string.',
+              retryable: false,
+            });
+            return;
+          }
+          let tabId = params.tab_id;
+          if (tabId !== undefined && typeof tabId !== 'number') {
+            respondError({
+              code: 'INVALID_ARGUMENT',
+              message: 'tab_id must be a number when provided.',
+              retryable: false,
+            });
+            return;
+          }
+          if (tabId === undefined) {
+            tabId = await getDefaultTabId();
+          }
+
+          const error = await this.ensureDebuggerAttached(tabId as number);
+          if (error) {
+            respondError(error);
+            return;
+          }
+          try {
+            await this.dispatchCdpKeyPress(
+              tabId as number,
+              key,
+              params.modifiers
+            );
+            respondOk({ ok: true });
+          } catch (error) {
+            const info = mapDebuggerErrorMessage(
+              error instanceof Error
+                ? error.message
+                : 'Keyboard dispatch failed.'
+            );
+            respondError(info);
+          }
+          return;
+        }
+        case 'drive.key': {
+          const params = (message.params ?? {}) as Record<string, unknown>;
+          const key = params.key;
+          if (typeof key !== 'string' || key.length === 0) {
+            respondError({
+              code: 'INVALID_ARGUMENT',
+              message: 'key must be a non-empty string.',
+              retryable: false,
+            });
+            return;
+          }
+          let tabId = params.tab_id;
+          if (tabId !== undefined && typeof tabId !== 'number') {
+            respondError({
+              code: 'INVALID_ARGUMENT',
+              message: 'tab_id must be a number when provided.',
+              retryable: false,
+            });
+            return;
+          }
+          if (tabId === undefined) {
+            tabId = await getDefaultTabId();
+          }
+          const count =
+            typeof params.repeat === 'number' && Number.isFinite(params.repeat)
+              ? Math.max(1, Math.min(50, Math.floor(params.repeat)))
+              : 1;
+          const error = await this.ensureDebuggerAttached(tabId as number);
+          if (error) {
+            respondError(error);
+            return;
+          }
+          try {
+            for (let i = 0; i < count; i += 1) {
+              await this.dispatchCdpKeyPress(
+                tabId as number,
+                key,
+                params.modifiers
+              );
+            }
+            respondOk({ ok: true });
+          } catch (error) {
+            const info = mapDebuggerErrorMessage(
+              error instanceof Error
+                ? error.message
+                : 'Keyboard dispatch failed.'
+            );
+            respondError(info);
+          }
+          return;
+        }
+        case 'drive.type': {
+          const params = (message.params ?? {}) as Record<string, unknown>;
+          const text = params.text;
+          if (typeof text !== 'string') {
+            respondError({
+              code: 'INVALID_ARGUMENT',
+              message: 'text must be a string.',
+              retryable: false,
+            });
+            return;
+          }
+          let tabId = params.tab_id;
+          if (tabId !== undefined && typeof tabId !== 'number') {
+            respondError({
+              code: 'INVALID_ARGUMENT',
+              message: 'tab_id must be a number when provided.',
+              retryable: false,
+            });
+            return;
+          }
+          if (tabId === undefined) {
+            tabId = await getDefaultTabId();
+          }
+          const error = await this.ensureDebuggerAttached(tabId as number);
+          if (error) {
+            respondError(error);
+            return;
+          }
+          const targetPoint = await sendToTab(
+            tabId as number,
+            'drive.type_target_point',
+            { locator: params.locator }
+          );
+          if (!targetPoint.ok) {
+            respondError(targetPoint.error);
+            return;
+          }
+          const payload = targetPoint.result;
+          if (!payload || typeof payload !== 'object') {
+            respondError({
+              code: 'EVALUATION_FAILED',
+              message: 'Invalid type target payload.',
+              retryable: false,
+            });
+            return;
+          }
+          const record = payload as Record<string, unknown>;
+          const x = record.x;
+          const y = record.y;
+          if (
+            typeof x !== 'number' ||
+            !Number.isFinite(x) ||
+            typeof y !== 'number' ||
+            !Number.isFinite(y)
+          ) {
+            respondError({
+              code: 'EVALUATION_FAILED',
+              message: 'Invalid type target coordinates.',
+              retryable: false,
+            });
+            return;
+          }
+          try {
+            await this.dispatchCdpClick(tabId as number, x, y, 1);
+            if (params.clear) {
+              const clearResult = await sendToTab(
+                tabId as number,
+                'drive.clear_active_editable'
+              );
+              if (!clearResult.ok) {
+                respondError(clearResult.error);
+                return;
+              }
+            }
+            if (text.length > 0) {
+              await this.sendDebuggerCommand(
+                tabId as number,
+                'Input.insertText',
+                { text },
+                DEFAULT_DEBUGGER_COMMAND_TIMEOUT_MS
+              );
+            }
+            if (params.submit) {
+              await this.dispatchCdpKeyPress(
+                tabId as number,
+                'Enter',
+                undefined
+              );
+            }
+            this.touchDebuggerSession(tabId as number);
+            respondOk({ ok: true });
+          } catch (error) {
+            const info = mapDebuggerErrorMessage(
+              error instanceof Error ? error.message : 'Type dispatch failed.'
+            );
+            respondError(info);
+          }
+          return;
+        }
         case 'drive.select':
-        case 'drive.type':
         case 'drive.fill_form':
-        case 'drive.key':
-        case 'drive.key_press':
         case 'drive.scroll':
         case 'drive.wait_for': {
           const params = (message.params ?? {}) as Record<string, unknown>;
@@ -2105,6 +2298,121 @@ class DriveSocket {
       };
     }
     return { ok: true, point: { x, y } };
+  }
+
+  private normalizeModifierMask(modifiers: unknown): number {
+    const MOD_ALT = 1;
+    const MOD_CTRL = 2;
+    const MOD_META = 4;
+    const MOD_SHIFT = 8;
+    let mask = 0;
+    if (Array.isArray(modifiers)) {
+      for (const modifier of modifiers) {
+        if (typeof modifier !== 'string') {
+          continue;
+        }
+        const normalized = modifier.toLowerCase();
+        if (normalized === 'alt') {
+          mask |= MOD_ALT;
+        } else if (normalized === 'ctrl') {
+          mask |= MOD_CTRL;
+        } else if (normalized === 'meta') {
+          mask |= MOD_META;
+        } else if (normalized === 'shift') {
+          mask |= MOD_SHIFT;
+        }
+      }
+      return mask;
+    }
+    if (!modifiers || typeof modifiers !== 'object') {
+      return mask;
+    }
+    const record = modifiers as Record<string, unknown>;
+    if (record.alt) {
+      mask |= MOD_ALT;
+    }
+    if (record.ctrl) {
+      mask |= MOD_CTRL;
+    }
+    if (record.meta) {
+      mask |= MOD_META;
+    }
+    if (record.shift) {
+      mask |= MOD_SHIFT;
+    }
+    return mask;
+  }
+
+  private keyToCode(key: string): string {
+    const map: Record<string, string> = {
+      Enter: 'Enter',
+      Tab: 'Tab',
+      Escape: 'Escape',
+      Esc: 'Escape',
+      Backspace: 'Backspace',
+      Delete: 'Delete',
+      ArrowUp: 'ArrowUp',
+      ArrowDown: 'ArrowDown',
+      ArrowLeft: 'ArrowLeft',
+      ArrowRight: 'ArrowRight',
+      Home: 'Home',
+      End: 'End',
+      PageUp: 'PageUp',
+      PageDown: 'PageDown',
+      ' ': 'Space',
+      Space: 'Space',
+    };
+    if (map[key]) {
+      return map[key];
+    }
+    if (key.length === 1) {
+      if (/[a-zA-Z]/.test(key)) {
+        return `Key${key.toUpperCase()}`;
+      }
+      if (/[0-9]/.test(key)) {
+        return `Digit${key}`;
+      }
+    }
+    return key;
+  }
+
+  private async dispatchCdpKeyPress(
+    tabId: number,
+    key: string,
+    modifiers: unknown
+  ): Promise<void> {
+    const code = this.keyToCode(key);
+    const modifierMask = this.normalizeModifierMask(modifiers);
+    const isTextInput = key.length === 1 && (modifierMask & (1 | 2 | 4)) === 0;
+    const keyDownParams: Record<string, unknown> = {
+      type: 'keyDown',
+      key,
+      code,
+      modifiers: modifierMask,
+    };
+    if (isTextInput) {
+      keyDownParams.text = key;
+      keyDownParams.unmodifiedText = key;
+    }
+
+    await this.sendDebuggerCommand(
+      tabId,
+      'Input.dispatchKeyEvent',
+      keyDownParams,
+      DEFAULT_DEBUGGER_COMMAND_TIMEOUT_MS
+    );
+    await this.sendDebuggerCommand(
+      tabId,
+      'Input.dispatchKeyEvent',
+      {
+        type: 'keyUp',
+        key,
+        code,
+        modifiers: modifierMask,
+      },
+      DEFAULT_DEBUGGER_COMMAND_TIMEOUT_MS
+    );
+    this.touchDebuggerSession(tabId);
   }
 
   private async handleDebuggerRequest(message: DebuggerRequest): Promise<void> {

@@ -89,6 +89,34 @@ describe('content drive actions', () => {
     }
   });
 
+  it('resolves editable type target by locator', async () => {
+    const input = document.createElement('input');
+    input.id = 'type-me';
+    document.body.appendChild(input);
+    setRect(input, new DOMRect(5, 15, 20, 10));
+
+    const result = await runDriveAction('drive.type_target_point', {
+      locator: { css: '#type-me' },
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.result).toEqual({ x: 15, y: 20 });
+    }
+  });
+
+  it('clears active editable value', async () => {
+    const input = document.createElement('input');
+    input.value = 'hello';
+    document.body.appendChild(input);
+    input.focus();
+
+    const result = await runDriveAction('drive.clear_active_editable', {});
+
+    expect(result.ok).toBe(true);
+    expect(input.value).toBe('');
+  });
+
   it('focuses input elements when clicked', async () => {
     vi.useFakeTimers();
     try {

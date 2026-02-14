@@ -445,6 +445,59 @@ export const runDriveAction = async (
         const html = document.documentElement?.outerHTML ?? '';
         return ok({ format: 'html', snapshot: html });
       }
+      case 'drive.type_target_point': {
+        const { locator } = parseParams();
+        let target = resolveLocator(
+          locator as Record<string, unknown> | undefined
+        );
+        if (!target) {
+          target = activeEditableElement();
+        }
+        if (!target || !(target instanceof HTMLElement)) {
+          return buildError('LOCATOR_NOT_FOUND', 'Failed to resolve locator.');
+        }
+        const tag = target.tagName.toLowerCase();
+        if (
+          tag !== 'input' &&
+          tag !== 'textarea' &&
+          !target.isContentEditable
+        ) {
+          return buildError(
+            'INVALID_ARGUMENT',
+            'Target is not editable (input, textarea, or contenteditable).'
+          );
+        }
+        const rect = target.getBoundingClientRect();
+        return ok({
+          x: rect.left + rect.width / 2,
+          y: rect.top + rect.height / 2,
+        });
+      }
+      case 'drive.clear_active_editable': {
+        const target = activeEditableElement();
+        if (!target) {
+          return buildError(
+            'INVALID_ARGUMENT',
+            'No active editable target to clear.'
+          );
+        }
+        const tag = target.tagName.toLowerCase();
+        if (tag === 'input' || tag === 'textarea') {
+          const input = target as HTMLInputElement | HTMLTextAreaElement;
+          input.value = '';
+          dispatchValueEvents(input);
+          return ok({ ok: true });
+        }
+        if (target.isContentEditable) {
+          target.textContent = '';
+          dispatchValueEvents(target);
+          return ok({ ok: true });
+        }
+        return buildError(
+          'INVALID_ARGUMENT',
+          'Active target is not editable (input, textarea, or contenteditable).'
+        );
+      }
       case 'drive.click': {
         const { locator, click_count } = parseParams();
         const target = resolveLocator(locator as Record<string, unknown>);
