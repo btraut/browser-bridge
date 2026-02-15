@@ -284,9 +284,9 @@ const render = (rows: Row[]): void => {
 
     key.textContent = row.site;
     meta.textContent = `Last used: ${formatTime(row.lastUsedAt)}`;
-    meta.title = `Approved: ${formatTime(row.createdAt)}\nLast used: ${formatTime(
-      row.lastUsedAt
-    )}`;
+    meta.title = `Approved: ${formatTime(
+      row.createdAt
+    )}\nLast used: ${formatTime(row.lastUsedAt)}`;
 
     revokeBtn.addEventListener('click', () => {
       revokeBtn.disabled = true;
