@@ -17,11 +17,11 @@ const isInspectError = (
 ): error is { name: string; message: string } =>
   Boolean(
     error &&
-      typeof error === 'object' &&
-      'name' in error &&
-      (error as { name?: unknown }).name === 'InspectError' &&
-      'message' in error &&
-      typeof (error as { message?: unknown }).message === 'string'
+    typeof error === 'object' &&
+    'name' in error &&
+    (error as { name?: unknown }).name === 'InspectError' &&
+    'message' in error &&
+    typeof (error as { message?: unknown }).message === 'string'
   );
 
 export const assignRefsToAxSnapshot = (

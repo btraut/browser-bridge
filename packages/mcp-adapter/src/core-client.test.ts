@@ -9,7 +9,7 @@ const makeResponse = (body: unknown, ok = true) =>
     ok,
     status: ok ? 200 : 500,
     text: async () => JSON.stringify(body),
-  } as unknown as Response);
+  }) as unknown as Response;
 
 const trackedTempDirs: string[] = [];
 

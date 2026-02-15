@@ -189,8 +189,8 @@ export const buildHar = (
   });
 
   const startedDateTime = entries.length
-    ? (entries[0] as { startedDateTime?: string }).startedDateTime ??
-      new Date().toISOString()
+    ? ((entries[0] as { startedDateTime?: string }).startedDateTime ??
+      new Date().toISOString())
     : new Date().toISOString();
 
   return {

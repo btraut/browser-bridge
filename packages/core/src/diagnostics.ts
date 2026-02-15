@@ -142,8 +142,8 @@ export const buildDiagnosticReport = (
       message: sessionState
         ? `Session state is ${sessionState}.`
         : hasSessionId
-        ? 'Session state unavailable.'
-        : 'Session id not provided.',
+          ? 'Session state unavailable.'
+          : 'Session id not provided.',
       details: {
         session_id: sessionId || null,
         state: sessionState ?? 'UNKNOWN',

@@ -308,8 +308,8 @@ const renderDataUrlToFormat = async (
       format === 'jpeg'
         ? 'image/jpeg'
         : format === 'webp'
-        ? 'image/webp'
-        : 'image/png';
+          ? 'image/webp'
+          : 'image/png';
     const q =
       typeof quality === 'number' && Number.isFinite(quality)
         ? Math.max(0, Math.min(1, quality / 100))
@@ -1929,8 +1929,8 @@ class DriveSocket {
               record.locator && typeof record.locator === 'object'
                 ? (record.locator as Record<string, unknown>)
                 : selector
-                ? ({ css: selector } as Record<string, unknown>)
-                : undefined;
+                  ? ({ css: selector } as Record<string, unknown>)
+                  : undefined;
             let resolvedType =
               typeof record.type === 'string' && record.type.length > 0
                 ? record.type
@@ -2234,8 +2234,8 @@ class DriveSocket {
               format === 'jpeg'
                 ? 'image/jpeg'
                 : format === 'webp'
-                ? 'image/webp'
-                : 'image/png';
+                  ? 'image/webp'
+                  : 'image/png';
             const q =
               typeof quality === 'number' && Number.isFinite(quality)
                 ? Math.max(0, Math.min(1, quality / 100))

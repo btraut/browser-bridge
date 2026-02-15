@@ -57,13 +57,13 @@ const replaceAxNodes = (snapshot: unknown, nodes: AxNodeRecord[]): unknown => {
 
 export const getAxRole = (node: AxNodeRecord): string => {
   const role =
-    typeof node.role === 'string' ? node.role : node.role?.value ?? '';
+    typeof node.role === 'string' ? node.role : (node.role?.value ?? '');
   return typeof role === 'string' ? role.toLowerCase() : '';
 };
 
 export const getAxName = (node: AxNodeRecord): string => {
   const name =
-    typeof node.name === 'string' ? node.name : node.name?.value ?? '';
+    typeof node.name === 'string' ? node.name : (node.name?.value ?? '');
   return typeof name === 'string' ? name : '';
 };
 
