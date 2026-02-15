@@ -142,8 +142,8 @@ export const buildDiagnosticReport = (
       message: sessionState
         ? `Session state is ${sessionState}.`
         : hasSessionId
-          ? 'Session state unavailable.'
-          : 'Session id not provided.',
+        ? 'Session state unavailable.'
+        : 'Session id not provided.',
       details: {
         session_id: sessionId || null,
         state: sessionState ?? 'UNKNOWN',
@@ -156,7 +156,9 @@ export const buildDiagnosticReport = (
     const isStale = ageMs !== undefined && ageMs > STALE_ERROR_THRESHOLD_MS;
     if (isStale) {
       warnings.push(
-        `Ignoring stale drive error (${Math.round(ageMs / 1000)}s old): ${context.driveLastError.message}`
+        `Ignoring stale drive error (${Math.round(ageMs / 1000)}s old): ${
+          context.driveLastError.message
+        }`
       );
     }
     checks.push({
@@ -177,7 +179,9 @@ export const buildDiagnosticReport = (
     const isStale = ageMs !== undefined && ageMs > STALE_ERROR_THRESHOLD_MS;
     if (isStale) {
       warnings.push(
-        `Ignoring stale inspect error (${Math.round(ageMs / 1000)}s old): ${context.inspectLastError.message}`
+        `Ignoring stale inspect error (${Math.round(ageMs / 1000)}s old): ${
+          context.inspectLastError.message
+        }`
       );
     }
     checks.push({

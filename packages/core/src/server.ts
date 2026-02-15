@@ -160,9 +160,9 @@ const resolveSessionCleanupIntervalMs = (ttlMs: number): number => {
 const isAddressInUseError = (error: unknown): boolean =>
   Boolean(
     error &&
-    typeof error === 'object' &&
-    'code' in error &&
-    (error as { code?: string }).code === 'EADDRINUSE'
+      typeof error === 'object' &&
+      'code' in error &&
+      (error as { code?: string }).code === 'EADDRINUSE'
   );
 
 const listenOnPort = (

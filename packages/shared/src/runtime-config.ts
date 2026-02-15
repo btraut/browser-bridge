@@ -302,8 +302,8 @@ export const resolveLogDirectory = ({
     gitRoot === undefined
       ? findGitRoot(resolvedCwd)
       : gitRoot
-        ? resolve(gitRoot)
-        : null;
+      ? resolve(gitRoot)
+      : null;
 
   return join(
     resolvedGitRoot ?? resolvedCwd,
@@ -387,8 +387,8 @@ export const resolveCoreRuntime = (
     options.gitRoot === undefined
       ? findGitRoot(resolvedCwd)
       : options.gitRoot
-        ? resolve(options.gitRoot)
-        : null;
+      ? resolve(options.gitRoot)
+      : null;
 
   const metadataPath = resolveRuntimeMetadataPath({
     cwd: resolvedCwd,
@@ -414,10 +414,10 @@ export const resolveCoreRuntime = (
   const hostSource: ResolvedCoreRuntime['hostSource'] = optionHost
     ? 'option'
     : envHost
-      ? 'env'
-      : metadataHost
-        ? 'metadata'
-        : 'default';
+    ? 'env'
+    : metadataHost
+    ? 'metadata'
+    : 'default';
 
   const optionPort = parsePort(options.port, 'port', 'throw');
   const envPort = parsePort(

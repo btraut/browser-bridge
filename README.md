@@ -1,4 +1,4 @@
-<img src="docs/assets/readme-header.png" alt="Browser Bridge header graphic" width="720" />
+<img src="https://raw.githubusercontent.com/btraut/browser-bridge/main/docs/assets/readme-header.png" alt="Browser Bridge header graphic" width="720" />
 
 [![npm version](https://img.shields.io/npm/v/@btraut/browser-bridge.svg)](https://www.npmjs.com/package/@btraut/browser-bridge) [![npm downloads](https://img.shields.io/npm/dm/@btraut/browser-bridge.svg)](https://www.npmjs.com/package/@btraut/browser-bridge) [![CI](https://github.com/btraut/browser-bridge/actions/workflows/ci.yml/badge.svg)](https://github.com/btraut/browser-bridge/actions/workflows/ci.yml) [![License](https://img.shields.io/github/license/btraut/browser-bridge.svg)](LICENSE)
 

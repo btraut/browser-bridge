@@ -51,8 +51,8 @@ const resolveTimeoutMs = (timeoutMs?: number): number => {
     (process.env.BROWSER_BRIDGE_CORE_TIMEOUT_MS
       ? Number.parseInt(process.env.BROWSER_BRIDGE_CORE_TIMEOUT_MS, 10)
       : process.env.BROWSER_VISION_CORE_TIMEOUT_MS
-        ? Number.parseInt(process.env.BROWSER_VISION_CORE_TIMEOUT_MS, 10)
-        : undefined);
+      ? Number.parseInt(process.env.BROWSER_VISION_CORE_TIMEOUT_MS, 10)
+      : undefined);
 
   if (candidate === undefined || candidate === null) {
     return DEFAULT_TIMEOUT_MS;

@@ -64,7 +64,9 @@ export const buildActivationOptionsUrl = (options: {
   if (options.worktreeId) {
     search.set(ACTIVATION_WORKTREE_PARAM, options.worktreeId);
   }
-  return `chrome-extension://${options.extensionId}/options.html?${search.toString()}`;
+  return `chrome-extension://${
+    options.extensionId
+  }/options.html?${search.toString()}`;
 };
 
 const buildPersistedRuntimeMetadata = (
