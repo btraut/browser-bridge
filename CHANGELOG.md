@@ -6,6 +6,11 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 
 ## [Unreleased]
 
+### Fixed
+
+- Extension: restore the dedicated agent tab label by bootstrapping new agent windows with a branded `🌉 Browser Bridge` placeholder page and the extension's toolbar robot favicon instead of an untitled blank tab.
+- CI: format `packages/extension/manifest.json` so `npm run format:check` passes again.
+
 ## [0.8.1] - 2026-02-14
 
 ### Added
