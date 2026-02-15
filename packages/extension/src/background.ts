@@ -63,12 +63,17 @@ const HISTORY_POST_NAV_DOM_GRACE_TIMEOUT_MS = 2000;
 
 const AGENT_TAB_ID_KEY = 'agentTabId';
 const AGENT_TAB_GROUP_TITLE = '🌉 Browser Bridge';
-const AGENT_TAB_FAVICON_DATA_URL = `data:image/svg+xml,${encodeURIComponent(
-  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><text x="50%" y="52%" dominant-baseline="middle" text-anchor="middle" font-size="52">🌉</text></svg>'
-)}`;
-const AGENT_TAB_BOOTSTRAP_URL = `data:text/html;charset=UTF-8,${encodeURIComponent(
-  `<!doctype html><html><head><meta charset="utf-8"><title>${AGENT_TAB_GROUP_TITLE}</title><link rel="icon" href="${AGENT_TAB_FAVICON_DATA_URL}"></head><body></body></html>`
-)}`;
+const AGENT_TAB_FAVICON_ASSET_PATH = 'assets/icons/icon-32.png';
+
+const getAgentTabBootstrapUrl = (): string => {
+  const faviconUrl =
+    typeof chrome.runtime?.getURL === 'function'
+      ? chrome.runtime.getURL(AGENT_TAB_FAVICON_ASSET_PATH)
+      : AGENT_TAB_FAVICON_ASSET_PATH;
+  return `data:text/html;charset=UTF-8,${encodeURIComponent(
+    `<!doctype html><html><head><meta charset="utf-8"><title>${AGENT_TAB_GROUP_TITLE}</title><link rel="icon" type="image/png" href="${faviconUrl}"></head><body></body></html>`
+  )}`;
+};
 
 const nowIso = (): string => new Date().toISOString();
 
@@ -455,7 +460,7 @@ const createAgentWindow = async (): Promise<number> => {
   const created = await wrapChromeCallback<Record<string, unknown>>(
     (callback) =>
       chrome.windows.create(
-        { url: AGENT_TAB_BOOTSTRAP_URL, focused: true },
+        { url: getAgentTabBootstrapUrl(), focused: true },
         callback
       )
   );
