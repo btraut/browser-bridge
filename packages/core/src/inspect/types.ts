@@ -16,6 +16,7 @@ export type InspectErrorCode =
   | 'ATTACH_DENIED'
   | 'TAB_NOT_FOUND'
   | 'NOT_SUPPORTED'
+  | 'RATE_LIMITED'
   | 'TIMEOUT'
   | 'EVALUATION_FAILED'
   | 'ARTIFACT_IO_ERROR'

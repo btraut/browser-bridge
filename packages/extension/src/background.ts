@@ -142,6 +142,122 @@ const delayMs = async (ms: number): Promise<void> => {
   });
 };
 
+const CAPTURE_VISIBLE_TAB_MIN_INTERVAL_MS = 400;
+const CAPTURE_VISIBLE_TAB_MAX_RETRIES = 3;
+const CAPTURE_VISIBLE_TAB_RETRY_BASE_DELAY_MS = 500;
+
+let captureVisibleTabQueue: Promise<void> = Promise.resolve();
+let captureVisibleTabLastCallAt = 0;
+
+const isCaptureVisibleTabRateLimitedMessage = (message: string): boolean => {
+  const normalized = message.toLowerCase();
+  const hasCaptureSignal =
+    normalized.includes('capturevisibletab') ||
+    normalized.includes('max_capture_visible_tab_calls_per_second');
+  const hasRateSignal =
+    normalized.includes('too often') ||
+    normalized.includes('rate limit') ||
+    normalized.includes('rate-limit');
+  return hasCaptureSignal && hasRateSignal;
+};
+
+const isCaptureVisibleTabRateLimitedError = (error: unknown): boolean => {
+  return (
+    error instanceof Error &&
+    isCaptureVisibleTabRateLimitedMessage(error.message)
+  );
+};
+
+const randomJitterMs = (maxMs: number): number => {
+  return Math.floor(Math.random() * Math.max(1, maxMs));
+};
+
+const runCaptureVisibleTabOperation = async <T>(
+  operation: () => Promise<T>
+): Promise<T> => {
+  const previous = captureVisibleTabQueue;
+  let releaseQueue: (() => void) | undefined;
+  captureVisibleTabQueue = new Promise<void>((resolve) => {
+    releaseQueue = resolve;
+  });
+
+  await previous.catch(() => undefined);
+  try {
+    return await operation();
+  } finally {
+    releaseQueue?.();
+  }
+};
+
+const captureVisibleTabWithThrottle = async (
+  windowId: number
+): Promise<string> => {
+  return await runCaptureVisibleTabOperation(async () => {
+    for (
+      let attempt = 0;
+      attempt <= CAPTURE_VISIBLE_TAB_MAX_RETRIES;
+      attempt += 1
+    ) {
+      const waitMs =
+        captureVisibleTabLastCallAt +
+        CAPTURE_VISIBLE_TAB_MIN_INTERVAL_MS -
+        Date.now();
+      if (waitMs > 0) {
+        await delayMs(waitMs);
+      }
+
+      try {
+        const dataUrl = await wrapChromeCallback<string>((callback) =>
+          chrome.tabs.captureVisibleTab(windowId, { format: 'png' }, callback)
+        );
+        captureVisibleTabLastCallAt = Date.now();
+        return dataUrl;
+      } catch (error) {
+        captureVisibleTabLastCallAt = Date.now();
+        if (
+          !isCaptureVisibleTabRateLimitedError(error) ||
+          attempt >= CAPTURE_VISIBLE_TAB_MAX_RETRIES
+        ) {
+          throw error;
+        }
+
+        const backoffMs =
+          CAPTURE_VISIBLE_TAB_RETRY_BASE_DELAY_MS * (attempt + 1) +
+          randomJitterMs(120);
+        await delayMs(backoffMs);
+      }
+    }
+    throw new Error('captureVisibleTab failed unexpectedly.');
+  });
+};
+
+const mapScreenshotCaptureError = (
+  error: unknown,
+  fallbackMessage: string
+): DriveErrorInfo => {
+  const message =
+    error instanceof Error && error.message ? error.message : fallbackMessage;
+
+  if (isCaptureVisibleTabRateLimitedError(error)) {
+    return {
+      code: 'RATE_LIMITED',
+      message:
+        'Screenshot capture hit Chrome capture rate limits. Please retry shortly.',
+      retryable: true,
+      details: {
+        reason: 'capture_visible_tab_rate_limited',
+        original_message: message,
+      },
+    };
+  }
+
+  return {
+    code: 'ARTIFACT_IO_ERROR',
+    message,
+    retryable: false,
+  };
+};
+
 const parseDataUrl = (
   dataUrl: string
 ): { mime: string; base64: string } | null => {
@@ -2001,13 +2117,7 @@ class DriveSocket {
           }
 
           const captureVisible = async (): Promise<string> => {
-            return await wrapChromeCallback<string>((callback) =>
-              chrome.tabs.captureVisibleTab(
-                windowId,
-                { format: 'png' },
-                callback
-              )
-            );
+            return await captureVisibleTabWithThrottle(windowId);
           };
 
           const scrollTo = async (top: number, left: number): Promise<void> => {
@@ -2217,14 +2327,12 @@ class DriveSocket {
               );
               respondOk(rendered);
             } catch (error) {
-              respondError({
-                code: 'ARTIFACT_IO_ERROR',
-                message:
-                  error instanceof Error
-                    ? error.message
-                    : 'Failed to capture screenshot.',
-                retryable: false,
-              });
+              respondError(
+                mapScreenshotCaptureError(
+                  error,
+                  'Failed to capture screenshot.'
+                )
+              );
             }
             return;
           }
@@ -2393,14 +2501,12 @@ class DriveSocket {
               );
               respondOk(await canvasToResult(cropCanvas));
             } catch (error) {
-              respondError({
-                code: 'ARTIFACT_IO_ERROR',
-                message:
-                  error instanceof Error
-                    ? error.message
-                    : 'Failed to capture element screenshot.',
-                retryable: false,
-              });
+              respondError(
+                mapScreenshotCaptureError(
+                  error,
+                  'Failed to capture element screenshot.'
+                )
+              );
             } finally {
               try {
                 await scrollTo(metaInfo.scrollY, metaInfo.scrollX);
@@ -2416,14 +2522,12 @@ class DriveSocket {
             const canvas = await captureFullPageCanvas(metaInfo);
             respondOk(await canvasToResult(canvas));
           } catch (error) {
-            respondError({
-              code: 'ARTIFACT_IO_ERROR',
-              message:
-                error instanceof Error
-                  ? error.message
-                  : 'Failed to capture full page screenshot.',
-              retryable: false,
-            });
+            respondError(
+              mapScreenshotCaptureError(
+                error,
+                'Failed to capture full page screenshot.'
+              )
+            );
           }
           return;
         }

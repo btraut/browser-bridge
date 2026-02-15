@@ -2,10 +2,11 @@ import { randomUUID } from 'node:crypto';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { InspectService } from './inspect';
 import { SessionRegistry } from './session';
 import type { DebuggerBridge } from './debugger-bridge';
+import type { DriveAction, DriveResponse } from './drive-protocol';
 
 const DEFAULT_TAB = {
   tab_id: 1,
@@ -480,6 +481,77 @@ describe('InspectService', () => {
 
       const stats = await readFile(result.path);
       expect(stats.byteLength).toBeGreaterThan(0);
+    });
+  });
+
+  it('falls back to CDP when extension full-page capture is rate-limited', async () => {
+    await withTempArtifactsRoot(async () => {
+      const registry = new SessionRegistry();
+      const session = registry.create();
+
+      const pngPayload = Buffer.from('fallback-image-bytes').toString('base64');
+
+      const extensionRequestSpy = vi.fn();
+      const extensionRequest = async <T = unknown>(
+        action: DriveAction
+      ): Promise<DriveResponse<T>> => {
+        extensionRequestSpy(action);
+        return {
+          id: 'test-extension-request',
+          action,
+          status: 'error',
+          error: {
+            code: 'RATE_LIMITED',
+            message: 'MAX_CAPTURE_VISIBLE_TAB_CALLS_PER_SECOND',
+            retryable: true,
+          },
+        } as DriveResponse<T>;
+      };
+
+      const debuggerCommand = vi.fn(async (_tabId: number, method: string) => {
+        if (method === 'Page.getLayoutMetrics') {
+          return {
+            ok: true as const,
+            result: { contentSize: { width: 10, height: 20 } },
+          };
+        }
+        if (method === 'Page.captureScreenshot') {
+          return { ok: true as const, result: { data: pngPayload } };
+        }
+        return { ok: true as const, result: {} };
+      });
+
+      const debuggerBridge = {
+        hasAttachments: () => true,
+        getLastError: () => undefined,
+        command: debuggerCommand,
+      } as unknown as DebuggerBridge;
+
+      const service = new InspectService({
+        registry,
+        extensionBridge: {
+          isConnected: () => true,
+          getStatus: () => ({ tabs: [DEFAULT_TAB] }),
+          request: extensionRequest,
+        },
+        debuggerBridge,
+      });
+
+      const result = await service.screenshot({
+        sessionId: session.id,
+        target: 'full',
+        format: 'png',
+        targetHint: { url: DEFAULT_TAB.url },
+      });
+
+      expect(extensionRequestSpy).toHaveBeenCalledTimes(1);
+      expect(
+        debuggerCommand.mock.calls.some(
+          (call) => call[1] === 'Page.captureScreenshot'
+        )
+      ).toBe(true);
+      expect(result.mime).toBe('image/png');
+      expect((await readFile(result.path)).byteLength).toBeGreaterThan(0);
     });
   });
 

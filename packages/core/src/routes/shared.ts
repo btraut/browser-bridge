@@ -57,6 +57,8 @@ export const errorStatus = (code: string): number => {
       return 503;
     case 'TIMEOUT':
       return 504;
+    case 'RATE_LIMITED':
+      return 429;
     default:
       return 500;
   }

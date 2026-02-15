@@ -37,6 +37,7 @@ type ErrorEnvelope = {
       | 'ATTACH_DENIED'
       | 'TAB_NOT_FOUND'
       | 'NOT_SUPPORTED'
+      | 'RATE_LIMITED'
       | 'TIMEOUT';
     message: string;
     retryable: boolean;
