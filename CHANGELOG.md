@@ -10,6 +10,7 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 
 - Extension: restore the dedicated agent tab label by bootstrapping new agent windows with a branded `🌉 Browser Bridge` placeholder page and the extension's toolbar robot favicon instead of an untitled blank tab.
 - CI: format `packages/extension/manifest.json` so `npm run format:check` passes again.
+- Screenshot capture now queues and paces `chrome.tabs.captureVisibleTab` calls in the extension, retries Chrome quota hits with backoff, reports repeated quota failures as `RATE_LIMITED` (retryable), and allows full-page screenshot requests to fall back to CDP capture when extension capture is rate-limited.
 
 ## [0.8.1] - 2026-02-14
 

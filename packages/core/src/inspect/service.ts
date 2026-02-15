@@ -820,10 +820,12 @@ export class InspectService {
         if (error instanceof InspectError) {
           const code = String(error.code);
           if (
+            !error.retryable &&
             ![
               'NOT_SUPPORTED',
               'NOT_IMPLEMENTED',
               'INSPECT_UNAVAILABLE',
+              'RATE_LIMITED',
             ].includes(code)
           ) {
             throw error;
@@ -1001,6 +1003,7 @@ export class InspectService {
       'ATTACH_DENIED',
       'TAB_NOT_FOUND',
       'NOT_SUPPORTED',
+      'RATE_LIMITED',
       'TIMEOUT',
       'EVALUATION_FAILED',
       'ARTIFACT_IO_ERROR',
