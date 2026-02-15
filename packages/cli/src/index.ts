@@ -10,27 +10,45 @@ import { registerOpenArtifactsCommand } from './commands/open-artifacts';
 import { registerSessionCommands } from './commands/session';
 import { registerSkillCommands } from './commands/skill';
 import { registerInstallCommand } from './commands/install';
+import { readCliPackageVersion } from './installer/package-info';
 
 const program = new Command();
 
-program
-  .name('browser-bridge')
-  .description('Browser Bridge CLI')
-  .option('--host <host>', 'Core host (default: 127.0.0.1)')
-  .option('--port <port>', 'Core port (default: 3210)')
-  .option('--json', 'Output JSON')
-  .option('--no-daemon', 'Disable auto-starting Core');
+const resolveCliVersion = async (): Promise<string> => {
+  try {
+    return await readCliPackageVersion();
+  } catch {
+    return '0.0.0-unknown';
+  }
+};
 
-registerSessionCommands(program);
-registerDriveCommands(program);
-registerInspectCommands(program);
-registerArtifactsCommands(program);
-registerDiagnosticsCommands(program);
-registerDialogCommands(program);
-registerDevCommands(program);
-registerOpenArtifactsCommand(program);
-registerMcpCommand(program);
-registerSkillCommands(program);
-registerInstallCommand(program);
+const main = async (): Promise<void> => {
+  program
+    .name('browser-bridge')
+    .description('Browser Bridge CLI')
+    .version(
+      await resolveCliVersion(),
+      '-v, --version',
+      'Output Browser Bridge CLI version'
+    )
+    .option('--host <host>', 'Core host (default: 127.0.0.1)')
+    .option('--port <port>', 'Core port (default: 3210)')
+    .option('--json', 'Output JSON')
+    .option('--no-daemon', 'Disable auto-starting Core');
 
-void program.parseAsync(process.argv);
+  registerSessionCommands(program);
+  registerDriveCommands(program);
+  registerInspectCommands(program);
+  registerArtifactsCommands(program);
+  registerDiagnosticsCommands(program);
+  registerDialogCommands(program);
+  registerDevCommands(program);
+  registerOpenArtifactsCommand(program);
+  registerMcpCommand(program);
+  registerSkillCommands(program);
+  registerInstallCommand(program);
+
+  await program.parseAsync(process.argv);
+};
+
+void main();

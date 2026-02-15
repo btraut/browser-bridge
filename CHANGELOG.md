@@ -6,6 +6,10 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 
 ## [Unreleased]
 
+### Added
+
+- CLI: support `-v` as a short alias for `--version`, with the value resolved from the installed package metadata.
+
 ## [0.9.0] - 2026-02-15
 
 ### Fixed
