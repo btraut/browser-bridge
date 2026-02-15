@@ -12,8 +12,8 @@
   --bb-accent: #e06b3d;
   --bb-muted: rgba(0, 0, 0, 0.04);
   --bb-hover: rgba(47, 124, 246, 0.12);
-  --bb-font: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial,
-    sans-serif;
+  --bb-font:
+    ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
 }
 
 * {
@@ -324,7 +324,9 @@ body.bb-page--popup .bb-menu {
   border: 1px solid var(--bb-border-2);
   border-radius: 12px;
   background: var(--bb-bg);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06), 0 10px 24px rgba(0, 0, 0, 0.1);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.06),
+    0 10px 24px rgba(0, 0, 0, 0.1);
   padding: 10px 12px;
 }
 
@@ -337,8 +339,14 @@ body.bb-page--popup .bb-menu {
 }
 
 .bb-inline-code {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
-    Liberation Mono, monospace;
+  font-family:
+    ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    Monaco,
+    Consolas,
+    Liberation Mono,
+    monospace;
   font-size: 0.95em;
 }
 

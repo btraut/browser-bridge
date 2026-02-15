@@ -113,7 +113,7 @@ const makeHandler = <T extends { session_id: string }>(
         if (result.ok) {
           const payload =
             result.result === undefined
-              ? options.defaultResult ?? { ok: true }
+              ? (options.defaultResult ?? { ok: true })
               : result.result;
           sendResult(res, payload);
           return;

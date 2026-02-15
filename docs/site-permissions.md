@@ -27,17 +27,14 @@ This document proposes and plans a "soft permissions" model, similar to the Clau
 ## Key Decisions
 
 1. Soft permissions only.
-
    - Keep `host_permissions: ["<all_urls>"]`.
    - Enforce allowlist checks in the extension background before executing drive actions.
 
 2. Gate at the background boundary (single chokepoint).
-
    - Primary enforcement lives in `packages/extension/src/background.ts` inside `handleRequest()`.
    - Rationale: every drive request flows through this switch, so gating is consistent for navigate, history, and DOM actions.
 
 3. User prompt waits up to 10s, then returns a retryable error.
-
    - When a site is not yet approved:
      - Open a small prompt window.
      - Wait up to `permissionPromptWaitMs` (default 10000) for a response.
@@ -49,7 +46,6 @@ This document proposes and plans a "soft permissions" model, similar to the Clau
      - Works even if the user approves after the initial request times out: the next retry succeeds.
 
 4. Permission scope: `hostname[:port]`.
-
    - Store and display `example.com` and `localhost:3000` style keys.
    - Treat `http` vs `https` as equivalent initially (host+port only).
 
@@ -64,7 +60,6 @@ This document proposes and plans a "soft permissions" model, similar to the Clau
 Stored in `chrome.storage.local`:
 
 - `siteAllowlist` (key: `SITE_ALLOWLIST_KEY`)
-
   - Type: `Record<string, { createdAt: string; lastUsedAt: string }>`
   - Key: `hostname[:port]`
 
@@ -80,7 +75,6 @@ Notes:
 ## UX Surfaces
 
 1. Permission prompt window (best match to the screenshots)
-
    - Opened by background via `chrome.windows.create({ type: "popup", url: ... })`.
    - Displays:
      - Header: "New permissions required"
@@ -92,7 +86,6 @@ Notes:
      - Footnote text explaining limits (optional).
 
 2. Options page: "Approved sites"
-
    - Lists allowlist entries with:
      - Site key
      - "Last used" timestamp
@@ -107,7 +100,6 @@ Notes:
 Gate all drive actions that can result in site interaction:
 
 - `drive.navigate`
-
   - Gate on destination URL hostname.
 
 - Actions that operate on the current tab:
@@ -134,7 +126,6 @@ Notes:
 Background components:
 
 - `SitePermissionStore`
-
   - `isAllowed(siteKey): Promise<boolean>`
   - `allowAlways(siteKey): Promise<void>`
   - `touchLastUsed(siteKey): Promise<void>`
@@ -172,7 +163,6 @@ Build system:
 ## Implementation Tasks (Ordered)
 
 1. Spec and docs wiring
-
    - Files:
      - `docs/site-permissions.md` (this doc)
      - `README.md` (link to settings + describe behavior)
@@ -181,7 +171,6 @@ Build system:
      - Documented UX and error behavior is unambiguous.
 
 2. Shared error code for permission gating
-
    - Files:
      - `packages/shared/src/errors.ts` (add `PERMISSION_REQUIRED`)
      - Any schema tests or downstream error mapping tests that rely on enum exhaustiveness
@@ -192,7 +181,6 @@ Build system:
      - `npm test` passes with updated enum.
 
 3. Storage utilities for allowlist
-
    - Files:
      - `packages/extension/src/site-permissions.ts` (new)
    - Changes:
@@ -203,7 +191,6 @@ Build system:
      - `vitest run packages/extension/src/site-permissions.test.ts` (new test file).
 
 4. Permission prompt controller (background)
-
    - Files:
      - `packages/extension/src/permission-prompt.ts` (new, background-side controller)
      - `packages/extension/src/background.ts` (wire in)
@@ -218,7 +205,6 @@ Build system:
      - Manual: trigger a permission-required action and confirm prompt appears and decision is received.
 
 5. Gate drive actions in background
-
    - Files:
      - `packages/extension/src/background.ts`
    - Changes:
@@ -239,7 +225,6 @@ Build system:
      - Manual: approval allows action; revoke removes access.
 
 6. Build and ship UI pages
-
    - Files:
      - `packages/extension/permission.html` (new)
      - `packages/extension/options.html` (new)
@@ -271,7 +256,6 @@ Build system:
 ## Rollout Notes and Risks
 
 - MV3 lifecycle: keep prompt-response path resilient to background suspends.
-
   - Use `chrome.runtime.connect()` port from the prompt page.
   - Keep a retryable error fallback so callers can retry after approval.
 

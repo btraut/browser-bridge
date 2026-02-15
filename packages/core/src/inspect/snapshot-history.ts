@@ -133,11 +133,11 @@ export class SnapshotHistory {
       const role =
         typeof record.role === 'string'
           ? record.role
-          : record.role?.value ?? 'node';
+          : (record.role?.value ?? 'node');
       const name =
         typeof record.name === 'string'
           ? record.name
-          : record.name?.value ?? '';
+          : (record.name?.value ?? '');
       const nodeId =
         record.nodeId ??
         (record.backendDOMNodeId !== undefined
