@@ -10,6 +10,10 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 
 - CLI: support `-v` as a short alias for `--version`, with the value resolved from the installed package metadata.
 
+### Fixed
+
+- README: switch the header image to an absolute GitHub URL so it renders correctly on npm package pages.
+
 ## [0.9.0] - 2026-02-15
 
 ### Fixed
