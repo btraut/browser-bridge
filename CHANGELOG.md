@@ -6,6 +6,8 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-02-15
+
 ### Fixed
 
 - Extension: restore the dedicated agent tab label by bootstrapping new agent windows with a branded `🌉 Browser Bridge` placeholder page and the extension's toolbar robot favicon instead of an untitled blank tab.
