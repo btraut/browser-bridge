@@ -6,6 +6,10 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 
 ## [Unreleased]
 
+### Fixed
+
+- Extension: dedicated agent windows now bootstrap with an extension-owned `agent-tab.html` page so the tab consistently shows the `Browser Bridge` title and robot favicon (instead of blank/new-tab styling).
+
 ## [0.11.0] - 2026-02-16
 
 ### Changed

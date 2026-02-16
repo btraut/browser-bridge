@@ -102,6 +102,10 @@ try {
     path.join(extensionRoot, 'popup.html'),
     path.join(stagingRoot, 'popup.html')
   );
+  await maybeCopyFile(
+    path.join(extensionRoot, 'agent-tab.html'),
+    path.join(stagingRoot, 'agent-tab.html')
+  );
 
   // Zip the staged extension directory.
   run('zip', ['-r', outPath, '.'], { cwd: stagingRoot });
