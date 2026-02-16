@@ -52,7 +52,7 @@ const createRuntime = (
   host: '127.0.0.1',
   port: 4321,
   hostSource: 'default',
-  portSource: 'deterministic',
+  portSource: 'default',
   metadataPath: '/tmp/runtime/dev.json',
   metadata: {
     host: '127.0.0.1',
@@ -62,6 +62,8 @@ const createRuntime = (
   gitRoot: '/tmp/repo',
   worktreeId: 'wt-abc',
   deterministicPort: 4321,
+  isolatedMode: false,
+  isolatedModeSource: 'default',
   ...overrides,
 });
 
@@ -165,7 +167,7 @@ describe('dev commands', () => {
         host: '127.0.0.1',
         hostSource: 'default',
         port: 4321,
-        portSource: 'deterministic',
+        portSource: 'default',
         deterministicPort: 4321,
         worktreeId: 'wt-abc',
         metadataPath: '/tmp/runtime/dev.json',

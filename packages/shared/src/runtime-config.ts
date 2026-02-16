@@ -14,6 +14,8 @@ const ENV_CORE_HOST = 'BROWSER_BRIDGE_CORE_HOST';
 const ENV_VISION_HOST = 'BROWSER_VISION_CORE_HOST';
 const ENV_CORE_PORT = 'BROWSER_BRIDGE_CORE_PORT';
 const ENV_VISION_PORT = 'BROWSER_VISION_CORE_PORT';
+const ENV_ISOLATED_MODE = 'BROWSER_BRIDGE_ISOLATED_MODE';
+const ENV_VISION_ISOLATED_MODE = 'BROWSER_VISION_ISOLATED_MODE';
 
 export const RUNTIME_METADATA_RELATIVE_PATH =
   '.context/browser-bridge/dev.json';
@@ -26,12 +28,14 @@ export type RuntimeMetadata = {
   git_root?: string;
   worktree_id?: string;
   extension_id?: string;
+  isolated_mode?: boolean;
   updated_at?: string;
 };
 
 export type ResolveCoreRuntimeOptions = {
   host?: string;
   port?: number | string;
+  isolatedMode?: boolean;
   cwd?: string;
   gitRoot?: string | null;
   metadataPath?: string;
@@ -44,12 +48,14 @@ export type ResolvedCoreRuntime = {
   host: string;
   port: number;
   hostSource: 'option' | 'env' | 'metadata' | 'default';
-  portSource: 'option' | 'env' | 'metadata' | 'deterministic';
+  portSource: 'option' | 'env' | 'metadata' | 'deterministic' | 'default';
   metadataPath: string;
   metadata: RuntimeMetadata | null;
   gitRoot: string | null;
   worktreeId: string | null;
   deterministicPort: number;
+  isolatedMode: boolean;
+  isolatedModeSource: 'option' | 'env' | 'metadata' | 'default';
 };
 
 const resolveCwd = (cwd?: string): string => resolve(cwd ?? process.cwd());
@@ -70,6 +76,33 @@ const normalizeHost = (value: unknown): string | undefined => {
   }
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : undefined;
+};
+
+const parseBoolean = (value: unknown): boolean | undefined => {
+  if (typeof value === 'boolean') {
+    return value;
+  }
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+  const normalized = value.trim().toLowerCase();
+  if (
+    normalized === '1' ||
+    normalized === 'true' ||
+    normalized === 'yes' ||
+    normalized === 'on'
+  ) {
+    return true;
+  }
+  if (
+    normalized === '0' ||
+    normalized === 'false' ||
+    normalized === 'no' ||
+    normalized === 'off'
+  ) {
+    return false;
+  }
+  return undefined;
 };
 
 const parsePort = (
@@ -184,6 +217,16 @@ const resolveEnvPortRaw = (
   return env[ENV_VISION_PORT];
 };
 
+const resolveEnvIsolatedMode = (
+  env: Record<string, string | undefined>
+): boolean | undefined => {
+  const bridge = parseBoolean(env[ENV_ISOLATED_MODE]);
+  if (bridge !== undefined) {
+    return bridge;
+  }
+  return parseBoolean(env[ENV_VISION_ISOLATED_MODE]);
+};
+
 const sanitizeMetadata = (raw: unknown): RuntimeMetadata | null => {
   if (!raw || typeof raw !== 'object') {
     return null;
@@ -194,6 +237,7 @@ const sanitizeMetadata = (raw: unknown): RuntimeMetadata | null => {
   const gitRoot = normalizeHost(candidate.git_root);
   const worktreeId = normalizeHost(candidate.worktree_id);
   const extensionId = normalizeHost(candidate.extension_id);
+  const isolatedMode = parseBoolean(candidate.isolated_mode);
   const updatedAt = normalizeHost(candidate.updated_at);
 
   if (
@@ -202,6 +246,7 @@ const sanitizeMetadata = (raw: unknown): RuntimeMetadata | null => {
     !gitRoot &&
     !worktreeId &&
     !extensionId &&
+    isolatedMode === undefined &&
     !updatedAt
   ) {
     return null;
@@ -213,6 +258,7 @@ const sanitizeMetadata = (raw: unknown): RuntimeMetadata | null => {
     git_root: gitRoot,
     worktree_id: worktreeId,
     extension_id: extensionId,
+    isolated_mode: isolatedMode,
     updated_at: updatedAt,
   };
 };
@@ -426,6 +472,20 @@ export const resolveCoreRuntime = (
     options.strictEnvPort ? 'throw' : 'ignore'
   );
   const metadataPort = parsePort(metadata?.port, 'port', 'ignore');
+  const optionIsolatedMode = options.isolatedMode;
+  const envIsolatedMode = resolveEnvIsolatedMode(env);
+  const metadataIsolatedMode = metadata?.isolated_mode;
+
+  const isolatedMode =
+    optionIsolatedMode ?? envIsolatedMode ?? metadataIsolatedMode ?? false;
+  const isolatedModeSource: ResolvedCoreRuntime['isolatedModeSource'] =
+    optionIsolatedMode !== undefined
+      ? 'option'
+      : envIsolatedMode !== undefined
+        ? 'env'
+        : metadataIsolatedMode !== undefined
+          ? 'metadata'
+          : 'default';
 
   let port: number;
   let portSource: ResolvedCoreRuntime['portSource'];
@@ -436,12 +496,15 @@ export const resolveCoreRuntime = (
   } else if (envPort !== undefined) {
     port = envPort;
     portSource = 'env';
-  } else if (metadataPort !== undefined) {
+  } else if (metadataPort !== undefined && isolatedMode) {
     port = metadataPort;
     portSource = 'metadata';
-  } else {
+  } else if (isolatedMode) {
     port = deterministicPort;
     portSource = 'deterministic';
+  } else {
+    port = LEGACY_DEFAULT_PORT;
+    portSource = 'default';
   }
 
   return {
@@ -454,5 +517,7 @@ export const resolveCoreRuntime = (
     gitRoot,
     worktreeId: resolveWorktreeId({ cwd: resolvedCwd, gitRoot }),
     deterministicPort,
+    isolatedMode,
+    isolatedModeSource,
   };
 };
