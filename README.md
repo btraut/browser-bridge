@@ -260,9 +260,23 @@ claude mcp add --transport stdio browser-bridge \
 
 </details>
 
-## 🔁 Multi-Worktree Dev Loop
+## ✅ Default Runtime (Normal Usage)
 
-Use this loop any time you switch worktrees.
+For normal usage, Browser Bridge is zero-setup:
+
+- Core and CLI default to `127.0.0.1:3210`.
+- The extension also defaults to `3210`.
+- You do not need `dev activate` unless you intentionally opt into isolated worktree routing.
+
+Optional status check:
+
+```bash
+browser-bridge dev info --json
+```
+
+## 🔁 Isolated Multi-Worktree Dev Loop (Advanced)
+
+Use this loop when you intentionally run multiple worktree instances in parallel.
 
 1. Resolve runtime for the current worktree:
 
@@ -272,7 +286,7 @@ browser-bridge dev info --json
 
 Use the `port`, `worktreeId`, `metadataPath`, and `logDir` from output.
 
-2. Activate extension routing for this worktree (required for extension-driving tasks):
+2. Activate isolated extension routing for this worktree:
 
 ```bash
 browser-bridge dev activate --extension-id <id>
@@ -295,7 +309,7 @@ tail -n 80 .context/logs/browser-bridge/core.jsonl
 tail -n 80 .context/logs/browser-bridge/mcp-adapter.jsonl
 ```
 
-- Do not assume port `3210` across worktrees: Default port is deterministic per worktree and may differ. Always check `browser-bridge dev info` (or pass explicit `--port` / `BROWSER_BRIDGE_CORE_PORT`).
+- Default mode port is `3210`. In isolated mode, port is worktree-specific. Use `browser-bridge dev info` if you are unsure (or pass explicit `--port` / `BROWSER_BRIDGE_CORE_PORT`).
 
 ## 🩺 Diagnostics
 

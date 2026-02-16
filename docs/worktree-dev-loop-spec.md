@@ -6,19 +6,20 @@ Make Browser Bridge development safe and debuggable across multiple git worktree
 
 ## Outcomes
 
+- Normal users can run Browser Bridge without activation (`127.0.0.1:3210` default).
 - Core/CLI/MCP can run in parallel across worktrees without port contention.
-- The single Chrome extension can be switched to the active worktree in one command.
+- The single Chrome extension can be switched to an isolated worktree runtime in one command.
 - Every process writes verbose local logs inside the current worktree.
 
 ## Decisions
 
-- Default port is deterministic per worktree path (with bounded probe fallback if occupied).
+- Default port is global `3210` (single-instance mode).
+- Deterministic per-worktree ports are used only in explicit isolated mode.
 - Runtime metadata is persisted in `.context/browser-bridge/dev.json`.
 - Logs are JSONL in `.context/logs/browser-bridge/`.
 - Log policy: verbose to file, concise stdout.
 - Rotation policy: 10 MB max file size, keep 20 files per stream.
-- Extension targeting is explicit via `browser-bridge dev activate`.
-- New AGENTS guidance makes worktree runtime setup mandatory for Browser Bridge tasks.
+- Extension isolated routing is explicit via `browser-bridge dev activate`.
 
 ## Scope
 
@@ -34,16 +35,17 @@ Make Browser Bridge development safe and debuggable across multiple git worktree
 
 1. Enter the target worktree.
 2. Run `browser-bridge dev info` and read resolved runtime (`port`, `worktreeId`, `metadataPath`, `logDir`).
-3. If work includes extension-driving actions, run `browser-bridge dev activate [--extension-id <id>]`.
-4. Run Core/CLI/MCP work in that same worktree/runtime.
-5. Inspect `.context/logs/browser-bridge/` per stream before deeper debugging.
+3. For default mode, run CLI/MCP directly (no activation).
+4. If you intentionally need isolated parallel worktrees, run `browser-bridge dev activate [--extension-id <id>]`.
+5. Run Core/CLI/MCP work in that same worktree/runtime.
+6. Inspect `.context/logs/browser-bridge/` per stream before deeper debugging.
 
 ## Troubleshooting Playbook
 
 - Extension id missing: run `browser-bridge dev activate --extension-id <id>`, or set `BROWSER_BRIDGE_EXTENSION_ID`.
 - Activation URL does not open in Chrome: run `browser-bridge dev activate --json`, copy `result.activationUrl`, open it directly in Chrome.
 - Logs: use `.context/logs/browser-bridge/` and inspect `cli.jsonl`, `core.jsonl`, `mcp-adapter.jsonl` (plus rotated `*.1.jsonl`, etc.).
-- Port assumptions: do not assume `3210`; defaults are deterministic per worktree. Verify with `browser-bridge dev info`.
+- Port assumptions: default mode is `3210`; isolated mode is worktree-specific. Verify with `browser-bridge dev info`.
 
 ## Out of Scope
 
@@ -53,11 +55,11 @@ Make Browser Bridge development safe and debuggable across multiple git worktree
 
 ## Acceptance Criteria
 
-1. Two worktrees can run Core/CLI concurrently with no default-port conflict.
-2. Deterministic port resolution works without manual config, while explicit overrides still win.
-3. `browser-bridge dev activate` switches extension target to the current worktree.
-4. Core/CLI/MCP write verbose structured logs under `.context/logs/browser-bridge/`.
-5. Rotation enforces 10 MB max file size and 20-file retention per stream.
-6. Existing command behavior remains backward compatible.
-7. `AGENTS.md` contains mandatory worktree runtime + log-first debugging guidance.
-8. Docs include usage and troubleshooting for the new dev loop.
+1. Normal usage works without activation on default `127.0.0.1:3210`.
+2. Two isolated worktrees can run Core/CLI concurrently with no port conflict.
+3. Deterministic port resolution works in isolated mode, while explicit overrides still win.
+4. `browser-bridge dev activate` switches extension target for isolated worktree routing.
+5. Core/CLI/MCP write verbose structured logs under `.context/logs/browser-bridge/`.
+6. Rotation enforces 10 MB max file size and 20-file retention per stream.
+7. Existing command behavior remains backward compatible.
+8. Docs separate default mode vs isolated mode guidance clearly.
