@@ -292,4 +292,27 @@ describe('runtime-config', () => {
     expect(runtime.portSource).toBe('default');
     expect(runtime.isolatedMode).toBe(false);
   });
+
+  it('allows env override to disable isolated mode from persisted metadata', () => {
+    const root = createGitRoot('runtime-config-isolated-override-root-');
+    writeRuntimeMetadata(
+      {
+        port: 5888,
+        isolated_mode: true,
+      },
+      { cwd: root }
+    );
+
+    const runtime = resolveCoreRuntime({
+      cwd: root,
+      env: {
+        BROWSER_BRIDGE_ISOLATED_MODE: 'false',
+      },
+    });
+
+    expect(runtime.isolatedMode).toBe(false);
+    expect(runtime.isolatedModeSource).toBe('env');
+    expect(runtime.port).toBe(3210);
+    expect(runtime.portSource).toBe('default');
+  });
 });

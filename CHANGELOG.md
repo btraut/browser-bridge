@@ -6,6 +6,16 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 
 ## [Unreleased]
 
+### Changed
+
+- Runtime routing now defaults to single-instance mode on `127.0.0.1:3210`; deterministic per-worktree ports are used only in explicit isolated mode.
+- Core startup now probes fallback ports only in isolated mode and preserves existing runtime metadata fields (including `extension_id`) when persisting host/port updates.
+- `browser-bridge dev activate` is now explicitly an isolated-worktree workflow command and persists `isolated_mode: true` in runtime metadata.
+
+### Fixed
+
+- Eliminated normal-workflow extension disconnects caused by hidden default port drift between Core/CLI and extension routing.
+
 ## [0.10.0] - 2026-02-15
 
 ### Added
