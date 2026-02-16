@@ -6,6 +6,8 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-02-16
+
 ### Changed
 
 - Runtime routing now defaults to single-instance mode on `127.0.0.1:3210`; deterministic per-worktree ports are used only in explicit isolated mode.

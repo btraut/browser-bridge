@@ -61,7 +61,7 @@ afterEach(() => {
 });
 
 describe('mcp core client', () => {
-  it('posts to metadata-derived core baseUrl when no env/options are provided', async () => {
+  it('uses metadata host with default port when no env/options are provided', async () => {
     const root = createGitRoot('mcp-core-client-metadata-root-');
     const metadataDir = path.join(root, '.context', 'browser-bridge');
     mkdirSync(metadataDir, { recursive: true });
@@ -83,7 +83,7 @@ describe('mcp core client', () => {
     await client.post('/session/create', {});
 
     expect(fetchImpl).toHaveBeenCalledWith(
-      'http://127.0.0.5:4999/session/create',
+      'http://127.0.0.5:3210/session/create',
       expect.anything()
     );
   });
