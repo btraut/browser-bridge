@@ -73,23 +73,40 @@ const buildPersistedRuntimeMetadata = (
   runtime: ResolvedCoreRuntime,
   extensionId: string
 ): RuntimeMetadata => ({
+  ...(runtime.metadata ?? {}),
   host: runtime.host,
   port: runtime.port,
   git_root: runtime.gitRoot ?? runtime.metadata?.git_root,
   worktree_id: runtime.worktreeId ?? runtime.metadata?.worktree_id,
   extension_id: extensionId,
+  isolated_mode: true,
   updated_at: new Date().toISOString(),
 });
 
-const resolveRuntimeForCommand = (options: {
-  host?: string;
-  port?: number | string;
-}): ResolvedCoreRuntime =>
-  resolveCoreRuntime({
+const resolveRuntimeForCommand = (
+  options: {
+    host?: string;
+    port?: number | string;
+  },
+  overrides: {
+    isolatedMode?: boolean;
+  } = {}
+): ResolvedCoreRuntime => {
+  const runtimeOptions: {
+    host?: string;
+    port?: number | string;
+    isolatedMode?: boolean;
+    strictEnvPort: boolean;
+  } = {
     host: options.host,
     port: options.port,
     strictEnvPort: true,
-  });
+  };
+  if (overrides.isolatedMode !== undefined) {
+    runtimeOptions.isolatedMode = overrides.isolatedMode;
+  }
+  return resolveCoreRuntime(runtimeOptions);
+};
 
 export const registerDevCommands = (program: Command): void => {
   const dev = program.command('dev').description('Development commands');
@@ -121,15 +138,17 @@ export const registerDevCommands = (program: Command): void => {
   dev
     .command('activate')
     .description(
-      'Persist worktree runtime metadata and open extension options for activation'
+      'Enable isolated worktree routing and open extension options for activation'
     )
     .option(
       '--extension-id <id>',
-      'Chrome extension id to activate for this worktree'
+      'Chrome extension id to activate for isolated worktree routing'
     )
     .action(async (options: { extensionId?: string }, command: Command) => {
       await runLocal(command, async (globalOptions) => {
-        const runtime = resolveRuntimeForCommand(globalOptions);
+        const runtime = resolveRuntimeForCommand(globalOptions, {
+          isolatedMode: true,
+        });
         const extension = resolveActivationExtensionId({
           optionExtensionId: options.extensionId,
           envExtensionId: process.env[ENV_EXTENSION_ID],
@@ -140,7 +159,7 @@ export const registerDevCommands = (program: Command): void => {
           throw new CliError({
             code: 'INVALID_ARGUMENT',
             message:
-              'Missing extension id. Provide --extension-id <id>, set BROWSER_BRIDGE_EXTENSION_ID, or persist extension_id in metadata by running dev activate with --extension-id once.',
+              'Missing extension id. Provide --extension-id <id>, set BROWSER_BRIDGE_EXTENSION_ID, or persist extension_id in metadata by running dev activate with --extension-id once (only needed for isolated worktree routing).',
             retryable: false,
             details: {
               metadataPath: runtime.metadataPath,
@@ -167,6 +186,7 @@ export const registerDevCommands = (program: Command): void => {
             extensionIdSource: extension.source,
             host: runtime.host,
             port: runtime.port,
+            isolatedMode: true,
             metadataPath,
             activationUrl,
           },

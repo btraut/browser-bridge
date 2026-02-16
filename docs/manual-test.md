@@ -11,15 +11,17 @@ This checklist validates the Drive + Inspect planes and artifact handling end-to
 4. Open a dedicated Chrome tab you do not mind navigating (example: `about:blank` or `https://example.com`).
 5. Ensure DevTools is closed on the target tab (the debugger cannot attach while DevTools is open).
 
-## Worktree Runtime Setup (Required)
+## Runtime Setup
 
-1. Resolve this worktree runtime first:
+1. Default mode is zero-setup:
+   - Core/CLI/extension use `127.0.0.1:3210` by default.
+2. Resolve runtime details when needed:
    - `node packages/cli/dist/index.js dev info --json`
-2. For tests that drive the extension, activate this worktree:
+3. Only for isolated multi-worktree testing, activate this worktree:
    - `node packages/cli/dist/index.js dev activate --extension-id <id> --json`
-3. Do not assume `3210`:
-   - Use the `port` returned by `dev info` for any manual host/port wiring.
-4. Check logs before ad-hoc debugging:
+4. In isolated mode, do not assume `3210`:
+   - Use the `port` returned by `dev info` for manual host/port wiring.
+5. Check logs before ad-hoc debugging:
    - `ls -1 .context/logs/browser-bridge`
    - `tail -n 80 .context/logs/browser-bridge/cli.jsonl`
    - `tail -n 80 .context/logs/browser-bridge/core.jsonl`
@@ -27,7 +29,7 @@ This checklist validates the Drive + Inspect planes and artifact handling end-to
 
 ### Quick Troubleshooting
 
-- Missing extension id: pass `--extension-id <id>`, set `BROWSER_BRIDGE_EXTENSION_ID`, or persist it once with `dev activate --extension-id`.
+- Missing extension id (isolated mode only): pass `--extension-id <id>`, set `BROWSER_BRIDGE_EXTENSION_ID`, or persist it once with `dev activate --extension-id`.
 - Activation URL did not open in Chrome: rerun with `--json`, copy `result.activationUrl`, and paste it into Chrome.
 - Stream log files: per-stream JSONL files live in `.context/logs/browser-bridge/` with rotations like `core.1.jsonl`.
 

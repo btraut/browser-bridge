@@ -2,6 +2,8 @@ import { createServer } from 'http';
 import express, { Express } from 'express';
 import {
   JsonlLogger,
+  type ResolvedCoreRuntime,
+  type RuntimeMetadata,
   createBoundedPortProbeSequence,
   createJsonlLogger,
   resolveCoreRuntime,
@@ -128,6 +130,36 @@ export type CoreServerHandle = {
 
 const CORE_PORT_PROBE_ATTEMPTS = 20;
 
+export const buildRuntimeMetadataForPersist = (
+  runtime: ResolvedCoreRuntime,
+  resolvedPort: number
+): RuntimeMetadata => ({
+  ...(runtime.metadata ?? {}),
+  host: runtime.host,
+  port: resolvedPort,
+  git_root: runtime.gitRoot ?? runtime.metadata?.git_root,
+  worktree_id: runtime.worktreeId ?? runtime.metadata?.worktree_id,
+  updated_at: new Date().toISOString(),
+});
+
+export const resolveProbePortsForRuntime = (
+  runtime: ResolvedCoreRuntime
+): number[] => {
+  if (!runtime.isolatedMode) {
+    return [runtime.port];
+  }
+  if (
+    runtime.portSource === 'metadata' ||
+    runtime.portSource === 'deterministic'
+  ) {
+    return createBoundedPortProbeSequence(
+      runtime.port,
+      CORE_PORT_PROBE_ATTEMPTS
+    );
+  }
+  return [runtime.port];
+};
+
 const resolveSessionTtlMs = (): number => {
   const env =
     process.env.BROWSER_BRIDGE_SESSION_TTL_MS ||
@@ -251,10 +283,7 @@ export const startCoreServer = async (
     logger,
   });
 
-  const probePorts =
-    runtime.portSource === 'metadata' || runtime.portSource === 'deterministic'
-      ? createBoundedPortProbeSequence(runtime.port, CORE_PORT_PROBE_ATTEMPTS)
-      : [runtime.port];
+  const probePorts = resolveProbePortsForRuntime(runtime);
 
   let lastAddressInUseError: unknown;
   for (const candidatePort of probePorts) {
@@ -284,13 +313,7 @@ export const startCoreServer = async (
 
       try {
         writeRuntimeMetadata(
-          {
-            host: runtime.host,
-            port: resolvedPort,
-            git_root: runtime.gitRoot ?? undefined,
-            worktree_id: runtime.worktreeId ?? undefined,
-            updated_at: new Date().toISOString(),
-          },
+          buildRuntimeMetadataForPersist(runtime, resolvedPort),
           { metadataPath: runtime.metadataPath }
         );
         logger.info('core.runtime_metadata.persisted', {

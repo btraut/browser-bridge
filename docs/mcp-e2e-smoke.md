@@ -9,8 +9,9 @@ This smoke flow validates the MCP adapter against a running Core + Chrome extens
 3. Load the extension from `packages/extension` (repo) or `node_modules/@btraut/browser-bridge/extension` (npm install) in `chrome://extensions`.
 4. Ensure Chrome is running (Browser Bridge will create a dedicated agent window/tab when `tab_id` is omitted).
 5. Ensure DevTools is closed on the agent tab (the debugger cannot attach while DevTools is open).
-6. Resolve this worktree runtime first: `browser-bridge dev info --json`.
-7. For extension-driving checks, activate this worktree before running smoke:
+6. Default mode is zero-setup (`127.0.0.1:3210`); no activation is required.
+7. Resolve this worktree runtime when needed: `browser-bridge dev info --json`.
+8. Only for isolated multi-worktree testing, activate this worktree before smoke:
    - `browser-bridge dev activate --extension-id <id> --json`
 
 ## Run
@@ -41,5 +42,5 @@ This smoke flow validates the MCP adapter against a running Core + Chrome extens
 
 ## Notes
 
-- Do not assume Core port `3210` in worktrees; use the `port` from `browser-bridge dev info`.
+- Default Core port is `3210`. In isolated mode, use the `port` from `browser-bridge dev info`.
 - If Core runs on a custom host/port, set `BROWSER_BRIDGE_CORE_HOST` and `BROWSER_BRIDGE_CORE_PORT` before starting the adapter.

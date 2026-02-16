@@ -128,6 +128,7 @@ describe('runtime-config', () => {
       worktree_id: 'feature-abc',
       git_root: undefined,
       extension_id: 'abcdefghijklmnopabcdefghijklmnop',
+      isolated_mode: undefined,
       updated_at: undefined,
     });
   });
@@ -148,6 +149,7 @@ describe('runtime-config', () => {
       git_root: undefined,
       worktree_id: undefined,
       extension_id: 'abcdefghijklmnopabcdefghijklmnop',
+      isolated_mode: undefined,
       updated_at: undefined,
     });
 
@@ -185,7 +187,7 @@ describe('runtime-config', () => {
     expect(createBoundedPortProbeSequence(65534, 5)).toEqual([65534, 65535]);
   });
 
-  it('applies precedence option > env > metadata > deterministic/default', async () => {
+  it('applies precedence option > env > metadata > default (non-isolated)', async () => {
     const root = createGitRoot('runtime-config-precedence-root-');
     writeRuntimeMetadata({ host: 'metadata.local', port: 4545 }, { cwd: root });
 
@@ -229,22 +231,88 @@ describe('runtime-config', () => {
       async () => {
         const fromMetadata = resolveCoreRuntime({ cwd: root });
         expect(fromMetadata.host).toBe('metadata.local');
-        expect(fromMetadata.port).toBe(4545);
+        expect(fromMetadata.port).toBe(3210);
         expect(fromMetadata.hostSource).toBe('metadata');
-        expect(fromMetadata.portSource).toBe('metadata');
+        expect(fromMetadata.portSource).toBe('default');
       }
     );
 
     rmSync(resolveRuntimeMetadataPath({ cwd: root }), { force: true });
-    const fromDeterministic = resolveCoreRuntime({ cwd: root });
-    expect(fromDeterministic.port).toBe(fromDeterministic.deterministicPort);
-    expect(fromDeterministic.portSource).toBe('deterministic');
-    expect(fromDeterministic.host).toBe('127.0.0.1');
-    expect(fromDeterministic.hostSource).toBe('default');
+    const fromDefault = resolveCoreRuntime({ cwd: root });
+    expect(fromDefault.port).toBe(3210);
+    expect(fromDefault.portSource).toBe('default');
+    expect(fromDefault.host).toBe('127.0.0.1');
+    expect(fromDefault.hostSource).toBe('default');
+    expect(fromDefault.isolatedMode).toBe(false);
+    expect(fromDefault.isolatedModeSource).toBe('default');
 
     const nonGitRoot = createTempDir('runtime-config-precedence-non-git-root-');
     const nonGitRuntime = resolveCoreRuntime({ cwd: nonGitRoot });
     expect(nonGitRuntime.port).toBe(3210);
-    expect(nonGitRuntime.portSource).toBe('deterministic');
+    expect(nonGitRuntime.portSource).toBe('default');
+    expect(nonGitRuntime.isolatedMode).toBe(false);
+  });
+
+  it('uses deterministic and metadata ports when isolated mode is explicit', () => {
+    const root = createGitRoot('runtime-config-isolated-root-');
+
+    writeRuntimeMetadata(
+      {
+        port: 4777,
+        isolated_mode: true,
+      },
+      { cwd: root }
+    );
+
+    const fromMetadata = resolveCoreRuntime({ cwd: root });
+    expect(fromMetadata.port).toBe(4777);
+    expect(fromMetadata.portSource).toBe('metadata');
+    expect(fromMetadata.isolatedMode).toBe(true);
+    expect(fromMetadata.isolatedModeSource).toBe('metadata');
+
+    rmSync(resolveRuntimeMetadataPath({ cwd: root }), { force: true });
+    const fromEnv = resolveCoreRuntime({
+      cwd: root,
+      env: {
+        BROWSER_BRIDGE_ISOLATED_MODE: 'true',
+      },
+    });
+    expect(fromEnv.port).toBe(fromEnv.deterministicPort);
+    expect(fromEnv.portSource).toBe('deterministic');
+    expect(fromEnv.isolatedMode).toBe(true);
+    expect(fromEnv.isolatedModeSource).toBe('env');
+  });
+
+  it('ignores legacy metadata port unless isolated mode is enabled', () => {
+    const root = createGitRoot('runtime-config-legacy-port-root-');
+    writeRuntimeMetadata({ port: 5999 }, { cwd: root });
+
+    const runtime = resolveCoreRuntime({ cwd: root });
+    expect(runtime.port).toBe(3210);
+    expect(runtime.portSource).toBe('default');
+    expect(runtime.isolatedMode).toBe(false);
+  });
+
+  it('allows env override to disable isolated mode from persisted metadata', () => {
+    const root = createGitRoot('runtime-config-isolated-override-root-');
+    writeRuntimeMetadata(
+      {
+        port: 5888,
+        isolated_mode: true,
+      },
+      { cwd: root }
+    );
+
+    const runtime = resolveCoreRuntime({
+      cwd: root,
+      env: {
+        BROWSER_BRIDGE_ISOLATED_MODE: 'false',
+      },
+    });
+
+    expect(runtime.isolatedMode).toBe(false);
+    expect(runtime.isolatedModeSource).toBe('env');
+    expect(runtime.port).toBe(3210);
+    expect(runtime.portSource).toBe('default');
   });
 });

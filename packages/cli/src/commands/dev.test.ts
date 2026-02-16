@@ -52,7 +52,7 @@ const createRuntime = (
   host: '127.0.0.1',
   port: 4321,
   hostSource: 'default',
-  portSource: 'deterministic',
+  portSource: 'default',
   metadataPath: '/tmp/runtime/dev.json',
   metadata: {
     host: '127.0.0.1',
@@ -62,6 +62,8 @@ const createRuntime = (
   gitRoot: '/tmp/repo',
   worktreeId: 'wt-abc',
   deterministicPort: 4321,
+  isolatedMode: false,
+  isolatedModeSource: 'default',
   ...overrides,
 });
 
@@ -165,7 +167,7 @@ describe('dev commands', () => {
         host: '127.0.0.1',
         hostSource: 'default',
         port: 4321,
-        portSource: 'deterministic',
+        portSource: 'default',
         deterministicPort: 4321,
         worktreeId: 'wt-abc',
         metadataPath: '/tmp/runtime/dev.json',
@@ -194,6 +196,12 @@ describe('dev commands', () => {
       'flag-ext',
     ]);
 
+    expect(resolveCoreRuntime).toHaveBeenCalledWith({
+      host: undefined,
+      port: undefined,
+      isolatedMode: true,
+      strictEnvPort: true,
+    });
     expect(vi.mocked(writeRuntimeMetadata)).toHaveBeenCalledWith(
       expect.objectContaining({
         host: '127.0.0.1',
@@ -201,6 +209,7 @@ describe('dev commands', () => {
         git_root: '/tmp/repo',
         worktree_id: 'wt-abc',
         extension_id: 'flag-ext',
+        isolated_mode: true,
         updated_at: expect.any(String),
       }),
       { metadataPath: '/tmp/runtime/dev.json' }
@@ -215,6 +224,7 @@ describe('dev commands', () => {
         extensionIdSource: 'flag',
         host: '127.0.0.1',
         port: 4321,
+        isolatedMode: true,
         metadataPath: '/tmp/runtime/dev.json',
         activationUrl:
           'chrome-extension://flag-ext/options.html?bb_activate=1&corePort=4321&worktreeId=wt-abc',
