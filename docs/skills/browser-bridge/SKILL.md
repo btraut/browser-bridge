@@ -41,10 +41,9 @@ Global option (works on every command):
 Quickstart:
 
 ```bash
-browser-bridge session create
-# Use the session_id from the output for subsequent commands.
+browser-bridge drive navigate --url https://example.com --json
+# Use result.session_id from the navigate output for subsequent session-scoped commands.
 
-browser-bridge drive navigate --session-id <id> --url https://example.com
 browser-bridge drive wait-for --session-id <id> --kind url_matches --value example.com
 
 browser-bridge inspect dom-snapshot --session-id <id> --format ax --interactive --compact --max-nodes 2000
@@ -101,7 +100,7 @@ Note: MCP still requires `browser-bridge` to be on PATH, since the client invoke
 
 ## Practical Guidance (MCP or CLI)
 
-- Always store and reuse the `session_id` for subsequent calls.
+- `drive.navigate` accepts optional `session_id`; omit it to let Core auto-create a session, then store/reuse the returned `session_id` for subsequent calls.
 - Drive operations are single-flight; do not overlap drive calls.
 - Drive actions are permission-gated per site (safe-by-default). The first time you target a new site, Chrome will open a permission prompt that the user must approve.
 - After navigation/clicks that trigger page loads, wait for the page to settle:

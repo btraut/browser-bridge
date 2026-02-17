@@ -5,6 +5,7 @@ This repo keeps MCP and CLI tool coverage synchronized through shared fixtures, 
 ## Source of Truth
 
 - MCP tool list: `packages/shared/src/tooling.ts`
+- `drive.navigate` parity variants (explicit + missing session): `packages/shared/src/tooling.ts` (`DRIVE_NAVIGATE_PARITY_CASES`)
 
 When adding or removing tools, update the shared list first, then keep the adapter and CLI fixtures aligned.
 
@@ -13,7 +14,7 @@ When adding or removing tools, update the shared list first, then keep the adapt
 - Fixtures + coverage matrix: `packages/mcp-adapter/src/tool-fixtures.ts`
 - Contract checks: `packages/mcp-adapter/src/tools.contract.test.ts`
 
-These ensure every MCP tool has a fixture, valid schemas, and tracked coverage.
+These ensure every MCP tool has a fixture, valid schemas, and tracked coverage, including both `drive.navigate` session variants.
 
 ## CLI Coverage
 
@@ -23,7 +24,7 @@ These ensure every MCP tool has a fixture, valid schemas, and tracked coverage.
 - Integration tests (mock Core): `packages/cli/src/commands/commands.integration.test.ts`
 - Local helper test: `packages/cli/src/commands/open-artifacts.test.ts`
 
-The CLI fixture list mirrors the shared MCP tool list and also includes the local-only `open-artifacts` helper.
+The CLI fixture list mirrors the shared MCP tool list and also includes the local-only `open-artifacts` helper. CLI contract checks also validate both `drive.navigate` parity variants against shared input/output schemas.
 
 ## Optional E2E Smoke
 

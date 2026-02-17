@@ -39,7 +39,7 @@ Browser Bridge currently drifts between CLI and MCP behavior for session handlin
 
 - [x] ✅ Remove CLI-only behavior branches that bypass shared contracts. - CLI `drive navigate` no longer creates sessions locally and now forwards directly to Core like MCP.
 - [x] ✅ Ensure MCP and CLI produce identical shape/semantics for the same call. - Both adapters now forward shared `drive.navigate` contracts, and parity contract tests validate required args/output shape against shared schemas.
-- [ ] Align docs/manual test/spec references with the new single policy.
+- [x] ✅ Align docs/manual test/spec references with the new single policy. - Updated `README.md`, `docs/skills/browser-bridge/SKILL.md`, `docs/manual-test.md`, and `docs/tool-coverage.md` to reflect optional-session `drive.navigate` parity and shared contract guardrails.
 
 ### Milestone C - Drift guardrails
 

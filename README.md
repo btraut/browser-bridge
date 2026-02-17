@@ -57,9 +57,8 @@ If Chrome shows a Browser Bridge permissions prompt, approve it, then tell the a
 <summary>CLI sanity check (debugging)</summary>
 
 ```bash
-browser-bridge session create
-# Use the session_id from the output for the next commands.
-browser-bridge drive navigate --session-id <id> --url https://example.com
+browser-bridge drive navigate --url https://example.com --json
+# Copy result.session_id from the response for subsequent session-scoped calls.
 browser-bridge inspect dom-snapshot --session-id <id> --max-nodes 2000
 browser-bridge session close --session-id <id>
 ```
@@ -315,7 +314,7 @@ tail -n 80 .context/logs/browser-bridge/mcp-adapter.jsonl
 
 ## 🩺 Diagnostics
 
-- CLI: `browser-bridge diagnostics doctor --session-id <id>`
+- CLI: `browser-bridge diagnostics doctor [--session-id <id>]`
 - Reports extension and debugger status alongside session state.
 - Includes runtime context for caller, Core, and extension endpoints so mismatch causes are visible in one run.
 - Popup shows a simple `Connected` indicator (`green` when connected, `red` otherwise).
