@@ -6,7 +6,10 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 
 ## [Unreleased]
 
-_TBD_
+### Fixed
+
+- Extension now re-applies the `Browser Bridge` tab-group title for reused dedicated agent tabs, so stale groups no longer stay untitled.
+- Extension now reapplies the toolbar robot icon as the dedicated agent tab favicon after agent-driven navigations.
 
 ## [0.12.1] - 2026-02-17
 

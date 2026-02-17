@@ -30,6 +30,31 @@ beforeEach(() => {
 });
 
 describe('content drive actions', () => {
+  it('applies agent-tab branding favicon to existing icon links', async () => {
+    const link = document.createElement('link');
+    link.rel = 'icon';
+    link.href = 'https://example.com/favicon.ico';
+    document.head.appendChild(link);
+
+    const result = await runDriveAction('drive.agent_tab_branding', {
+      favicon_url: 'chrome-extension://test-id/assets/icons/icon-32.png',
+    });
+
+    expect(result.ok).toBe(true);
+    expect(link.href).toBe(
+      'chrome-extension://test-id/assets/icons/icon-32.png'
+    );
+  });
+
+  it('rejects agent-tab branding without favicon_url', async () => {
+    const result = await runDriveAction('drive.agent_tab_branding', {});
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe('INVALID_ARGUMENT');
+    }
+  });
+
   it('defers click so dialog-triggering clicks do not block responses', async () => {
     vi.useFakeTimers();
     try {
