@@ -1,12 +1,16 @@
 import type { DriveTabInfo } from '../drive-protocol';
 import type { TargetHint } from '../target-matching';
+import {
+  normalizeErrorCode,
+  normalizeErrorInfo,
+} from '@btraut/browser-bridge-shared';
 
 export type ResponseLike = {
   status: (code: number) => ResponseLike;
   json: (body: unknown) => void;
 };
 
-export type ErrorInfo = {
+export type RouteErrorInfo = {
   code: string;
   message: string;
   retryable: boolean;
@@ -16,9 +20,9 @@ export type ErrorInfo = {
 export const sendError = (
   res: ResponseLike,
   status: number,
-  error: ErrorInfo
+  error: RouteErrorInfo
 ): void => {
-  res.status(status).json({ ok: false, error });
+  res.status(status).json({ ok: false, error: normalizeErrorInfo(error) });
 };
 
 export const sendResult = <T>(res: ResponseLike, result: T): void => {
@@ -29,34 +33,23 @@ export const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
 export const errorStatus = (code: string): number => {
-  switch (code) {
+  switch (normalizeErrorCode(code)) {
     case 'INVALID_ARGUMENT':
       return 400;
     case 'UNAUTHORIZED':
       return 401;
     case 'FORBIDDEN':
-    case 'PERMISSION_REQUIRED':
-    case 'PERMISSION_PROMPT_TIMEOUT':
-    case 'PERMISSION_DENIED':
       return 403;
-    case 'SESSION_NOT_FOUND':
-    case 'TAB_NOT_FOUND':
-    case 'LOCATOR_NOT_FOUND':
+    case 'NOT_FOUND':
       return 404;
-    case 'SESSION_CLOSED':
     case 'FAILED_PRECONDITION':
-    case 'DEBUGGER_IN_USE':
       return 409;
-    case 'ATTACH_DENIED':
-      return 403;
-    case 'NOT_SUPPORTED':
     case 'NOT_IMPLEMENTED':
       return 501;
-    case 'EXTENSION_DISCONNECTED':
-    case 'INSPECT_UNAVAILABLE':
+    case 'UNAVAILABLE':
       return 503;
-    case 'NAVIGATION_FAILED':
-      return 502;
+    case 'CONFLICT':
+      return 409;
     case 'TIMEOUT':
       return 504;
     case 'RATE_LIMITED':

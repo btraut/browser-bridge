@@ -89,7 +89,7 @@ HTTP contract version signaling:
 
 ### 4.2 Standardized Error Codes
 
-Locked error code vocabulary (`packages/shared/src/errors.ts`):
+Canonical public error code set (`PublicErrorCodeSchema` in `packages/shared/src/errors.ts`):
 
 - `UNKNOWN`
 - `INVALID_ARGUMENT`
@@ -98,9 +98,6 @@ Locked error code vocabulary (`packages/shared/src/errors.ts`):
 - `FAILED_PRECONDITION`
 - `UNAUTHORIZED`
 - `FORBIDDEN`
-- `PERMISSION_REQUIRED`
-- `PERMISSION_DENIED`
-- `PERMISSION_PROMPT_TIMEOUT`
 - `CONFLICT`
 - `TIMEOUT`
 - `CANCELLED`
@@ -108,20 +105,12 @@ Locked error code vocabulary (`packages/shared/src/errors.ts`):
 - `RATE_LIMITED`
 - `NOT_IMPLEMENTED`
 - `INTERNAL`
-- `SESSION_NOT_FOUND`
-- `SESSION_CLOSED`
-- `SESSION_BROKEN`
-- `DRIVE_UNAVAILABLE`
-- `INSPECT_UNAVAILABLE`
-- `EXTENSION_DISCONNECTED`
-- `DEBUGGER_IN_USE`
-- `ATTACH_DENIED`
-- `TAB_NOT_FOUND`
-- `NOT_SUPPORTED`
-- `LOCATOR_NOT_FOUND`
-- `NAVIGATION_FAILED`
-- `EVALUATION_FAILED`
-- `ARTIFACT_IO_ERROR`
+
+Legacy/internal codes are normalized to the canonical set in route responses via `normalizeErrorInfo`, with typed migration details:
+
+- `details.legacy_code`
+- `details.reason`
+- optional typed context fields (`resource`, `session_id`, `tab_id`, `field`, `retry_after_ms`, `next_step`)
 
 ### 4.3 Retryability Semantics
 

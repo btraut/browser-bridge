@@ -143,4 +143,50 @@ describe('registerDriveRoutes', () => {
       },
     });
   });
+
+  it('normalizes legacy error codes in route responses', async () => {
+    const registry = new SessionRegistry();
+    const session = registry.create();
+    const execute = vi.fn().mockResolvedValue({
+      ok: false,
+      error: {
+        code: 'SESSION_NOT_FOUND',
+        message: 'Session missing.',
+        retryable: false,
+      },
+    });
+    const drive = { execute } as unknown as DriveController;
+
+    const harness = createRouteHarness();
+    registerDriveRoutes(harness.router, { drive, registry });
+
+    const goBack = harness.handlers.get('/drive/go_back');
+    expect(goBack).toBeDefined();
+
+    const response = createResponse();
+    goBack?.(
+      {
+        body: {
+          session_id: session.id,
+        },
+      },
+      response.res
+    );
+    await flushAsync();
+
+    expect(response.statusCode()).toBe(404);
+    expect(response.payload()).toEqual({
+      ok: false,
+      error: {
+        code: 'NOT_FOUND',
+        message: 'Session missing.',
+        retryable: false,
+        details: {
+          legacy_code: 'SESSION_NOT_FOUND',
+          reason: 'session_not_found',
+          resource: 'session',
+        },
+      },
+    });
+  });
 });
