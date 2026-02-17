@@ -12,10 +12,12 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 - MCP adapter now enables Core ensure-ready by default when constructing its client, so first tool calls auto-bootstrap Core after cold start.
 - Diagnostics doctor payload/report now carries runtime endpoint/source/process context for caller, Core, and extension components so endpoint/version mismatches are explicit.
 - Extension hello events now include the endpoint settings they are dialing (`core_host`, `core_port`, `core_port_source`) for mismatch diagnostics.
+- Extension Drive socket now tracks explicit connection states (`connecting`, `connected`, `disconnected`, `backoff`) with a status surface (`drive.connection_status`) for UI diagnostics.
 
 ### Fixed
 
 - MCP adapter now returns bounded retryable `UNAVAILABLE` envelopes when Core ensure-ready cannot establish health, instead of opaque internal failures.
+- Extension reconnect failures now use throttled warning logs to avoid disconnect spam while preserving exponential backoff behavior.
 
 ## [0.11.1] - 2026-02-16
 
