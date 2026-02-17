@@ -75,6 +75,47 @@ export const DiagnosticCheckSchema = z.object({
   details: z.record(z.string(), z.unknown()).optional(),
 });
 
+const DiagnosticsRuntimeEndpointSchema = z.object({
+  host: z.string().optional(),
+  port: z.number().finite().optional(),
+  base_url: z.string().optional(),
+  host_source: z.string().optional(),
+  port_source: z.string().optional(),
+  metadata_path: z.string().optional(),
+  isolated_mode: z.boolean().optional(),
+});
+
+const DiagnosticsRuntimeProcessSchema = z.object({
+  component: z.enum(['cli', 'mcp', 'core']).optional(),
+  version: z.string().optional(),
+  pid: z.number().int().positive().optional(),
+  node_version: z.string().optional(),
+  binary_path: z.string().optional(),
+  argv_entry: z.string().optional(),
+});
+
+const DiagnosticsRuntimeCallerSchema = z.object({
+  endpoint: DiagnosticsRuntimeEndpointSchema.optional(),
+  process: DiagnosticsRuntimeProcessSchema.optional(),
+});
+
+const DiagnosticsRuntimeContextSchema = z.object({
+  caller: DiagnosticsRuntimeCallerSchema.optional(),
+  core: z
+    .object({
+      endpoint: DiagnosticsRuntimeEndpointSchema.optional(),
+      process: DiagnosticsRuntimeProcessSchema.optional(),
+    })
+    .optional(),
+  extension: z
+    .object({
+      version: z.string().optional(),
+      endpoint: DiagnosticsRuntimeEndpointSchema.optional(),
+      port_source: z.enum(['default', 'storage']).optional(),
+    })
+    .optional(),
+});
+
 export const DiagnosticReportSchema = z.object({
   ok: z.boolean(),
   session_id: z.string().optional(),
@@ -138,6 +179,7 @@ export const DiagnosticReportSchema = z.object({
     .optional(),
   warnings: z.array(z.string()).optional(),
   notes: z.array(z.string()).optional(),
+  runtime: DiagnosticsRuntimeContextSchema.optional(),
 });
 
 export const SessionIdSchema = z.object({
@@ -633,5 +675,6 @@ export const HealthCheckOutputSchema = z
 
 export const DiagnosticsDoctorInputSchema = z.object({
   session_id: z.string().min(1).optional(),
+  caller: DiagnosticsRuntimeCallerSchema.optional(),
 });
 export const DiagnosticsDoctorOutputSchema = DiagnosticReportSchema;

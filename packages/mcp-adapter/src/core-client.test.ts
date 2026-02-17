@@ -196,4 +196,41 @@ describe('mcp core client', () => {
       expect.anything()
     );
   });
+
+  it('attaches mcp caller runtime context to diagnostics doctor payload', async () => {
+    let capturedBody: Record<string, unknown> | undefined;
+    const fetchImpl = vi.fn(
+      async (_url: string, init?: Parameters<typeof fetch>[1]) => {
+        if (init?.body && typeof init.body === 'string') {
+          capturedBody = JSON.parse(init.body) as Record<string, unknown>;
+        }
+        return makeResponse({ ok: true, result: { ok: true } });
+      }
+    ) as unknown as typeof fetch;
+
+    const client = createCoreClient({
+      host: '127.0.0.1',
+      port: 3210,
+      ensureDaemon: false,
+      fetchImpl,
+    });
+
+    await client.post('/diagnostics/doctor', { session_id: 'session-1' });
+
+    expect(capturedBody).toEqual(
+      expect.objectContaining({
+        session_id: 'session-1',
+        caller: expect.objectContaining({
+          endpoint: expect.objectContaining({
+            host: '127.0.0.1',
+            port: 3210,
+            base_url: 'http://127.0.0.1:3210',
+          }),
+          process: expect.objectContaining({
+            component: 'mcp',
+          }),
+        }),
+      })
+    );
+  });
 });

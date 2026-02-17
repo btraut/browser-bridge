@@ -138,4 +138,67 @@ describe('buildDiagnosticReport', () => {
     );
     expect(driveCheck?.ok).toBe(false);
   });
+
+  it('reports caller/extension runtime endpoint mismatches explicitly', () => {
+    const report = buildDiagnosticReport(undefined, {
+      extension: {
+        connected: true,
+        version: '1.0.0',
+      },
+      runtime: {
+        caller: {
+          endpoint: {
+            host: '127.0.0.1',
+            port: 3999,
+            baseUrl: 'http://127.0.0.1:3999',
+            hostSource: 'env',
+            portSource: 'env',
+          },
+          process: {
+            component: 'cli',
+            version: '2.0.0',
+          },
+        },
+        core: {
+          endpoint: {
+            host: '127.0.0.1',
+            port: 3210,
+            baseUrl: 'http://127.0.0.1:3210',
+            hostSource: 'default',
+            portSource: 'default',
+          },
+          process: {
+            component: 'core',
+          },
+        },
+        extension: {
+          version: '1.0.0',
+          endpoint: {
+            host: '127.0.0.1',
+            port: 4333,
+            baseUrl: 'http://127.0.0.1:4333',
+          },
+          portSource: 'storage',
+        },
+      },
+    });
+
+    const callerCheck = report.checks?.find(
+      (check) => check.name === 'runtime.caller.endpoint_match'
+    );
+    const extensionCheck = report.checks?.find(
+      (check) => check.name === 'runtime.extension.endpoint_match'
+    );
+    const versionCheck = report.checks?.find(
+      (check) => check.name === 'runtime.extension.version_match_caller'
+    );
+
+    expect(callerCheck?.ok).toBe(false);
+    expect(extensionCheck?.ok).toBe(false);
+    expect(versionCheck?.ok).toBe(false);
+    expect(report.runtime?.core?.endpoint?.base_url).toBe(
+      'http://127.0.0.1:3210'
+    );
+    expect(report.runtime?.extension?.port_source).toBe('storage');
+  });
 });

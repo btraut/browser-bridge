@@ -48,6 +48,12 @@ type ScreenPoint = {
   y: number;
 };
 
+type CoreEndpointConfig = {
+  host: string;
+  port: number;
+  portSource: 'default' | 'storage';
+};
+
 const DEFAULT_CORE_PORT = 3210;
 const CORE_PORT_KEY = 'corePort';
 const CORE_WS_PATH = '/drive';
@@ -327,24 +333,36 @@ const renderDataUrlToFormat = async (
   }
 };
 
-const readCorePort = async (): Promise<number> => {
-  return await new Promise<number>((resolve) => {
+const readCoreEndpointConfig = async (): Promise<CoreEndpointConfig> => {
+  return await new Promise<CoreEndpointConfig>((resolve) => {
     chrome.storage.local.get(
       [CORE_PORT_KEY],
       (result: Record<string, unknown>) => {
         const raw = result?.[CORE_PORT_KEY];
         if (typeof raw === 'number' && Number.isFinite(raw)) {
-          resolve(raw);
+          resolve({
+            host: '127.0.0.1',
+            port: raw,
+            portSource: 'storage',
+          });
           return;
         }
         if (typeof raw === 'string') {
           const parsed = Number(raw);
           if (Number.isFinite(parsed)) {
-            resolve(parsed);
+            resolve({
+              host: '127.0.0.1',
+              port: parsed,
+              portSource: 'storage',
+            });
             return;
           }
         }
-        resolve(DEFAULT_CORE_PORT);
+        resolve({
+          host: '127.0.0.1',
+          port: DEFAULT_CORE_PORT,
+          portSource: 'default',
+        });
       }
     );
   });
@@ -879,8 +897,8 @@ const waitForDomContentLoaded = async (
 };
 
 const getWsUrl = async (): Promise<string> => {
-  const port = await readCorePort();
-  return `ws://127.0.0.1:${port}${CORE_WS_PATH}`;
+  const endpoint = await readCoreEndpointConfig();
+  return `ws://${endpoint.host}:${endpoint.port}${CORE_WS_PATH}`;
 };
 
 class DriveSocket {
@@ -971,6 +989,7 @@ class DriveSocket {
 
   private async sendHello(): Promise<void> {
     const manifest = chrome.runtime.getManifest();
+    const endpoint = await readCoreEndpointConfig();
     let tabs: DriveTabInfo[] = [];
     try {
       tabs = await queryTabs();
@@ -980,6 +999,9 @@ class DriveSocket {
     }
     const params: DriveHelloParams = {
       version: manifest.version,
+      core_host: endpoint.host,
+      core_port: endpoint.port,
+      core_port_source: endpoint.portSource,
       tabs,
     };
     this.sendEvent('drive.hello', params);

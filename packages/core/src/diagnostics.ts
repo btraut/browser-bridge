@@ -8,6 +8,25 @@ export type DiagnosticCheck = {
   details?: Record<string, unknown>;
 };
 
+type RuntimeEndpointContext = {
+  host?: string;
+  port?: number;
+  baseUrl?: string;
+  hostSource?: string;
+  portSource?: string;
+  metadataPath?: string;
+  isolatedMode?: boolean;
+};
+
+type RuntimeProcessContext = {
+  component?: 'cli' | 'mcp' | 'core';
+  version?: string;
+  pid?: number;
+  nodeVersion?: string;
+  binaryPath?: string;
+  argvEntry?: string;
+};
+
 export type DiagnosticReport = {
   ok: boolean;
   session_id?: string;
@@ -60,6 +79,59 @@ export type DiagnosticReport = {
   };
   warnings?: string[];
   notes?: string[];
+  runtime?: {
+    caller?: {
+      endpoint?: {
+        host?: string;
+        port?: number;
+        base_url?: string;
+        host_source?: string;
+        port_source?: string;
+        metadata_path?: string;
+        isolated_mode?: boolean;
+      };
+      process?: {
+        component?: 'cli' | 'mcp' | 'core';
+        version?: string;
+        pid?: number;
+        node_version?: string;
+        binary_path?: string;
+        argv_entry?: string;
+      };
+    };
+    core?: {
+      endpoint?: {
+        host?: string;
+        port?: number;
+        base_url?: string;
+        host_source?: string;
+        port_source?: string;
+        metadata_path?: string;
+        isolated_mode?: boolean;
+      };
+      process?: {
+        component?: 'cli' | 'mcp' | 'core';
+        version?: string;
+        pid?: number;
+        node_version?: string;
+        binary_path?: string;
+        argv_entry?: string;
+      };
+    };
+    extension?: {
+      version?: string;
+      endpoint?: {
+        host?: string;
+        port?: number;
+        base_url?: string;
+        host_source?: string;
+        port_source?: string;
+        metadata_path?: string;
+        isolated_mode?: boolean;
+      };
+      port_source?: 'default' | 'storage';
+    };
+  };
 };
 
 export type DiagnosticsContext = {
@@ -72,6 +144,7 @@ export type DiagnosticsContext = {
   extension?: {
     connected: boolean;
     lastSeenAt?: string;
+    version?: string;
   };
   debugger?: {
     attached: boolean;
@@ -99,6 +172,21 @@ export type DiagnosticsContext = {
   };
   recoveryAttempt?: RecoveryAttempt;
   recoveryMetrics?: RecoveryMetrics;
+  runtime?: {
+    caller?: {
+      endpoint?: RuntimeEndpointContext;
+      process?: RuntimeProcessContext;
+    };
+    core?: {
+      endpoint?: RuntimeEndpointContext;
+      process?: RuntimeProcessContext;
+    };
+    extension?: {
+      version?: string;
+      endpoint?: RuntimeEndpointContext;
+      portSource?: 'default' | 'storage';
+    };
+  };
 };
 
 const STALE_ERROR_THRESHOLD_MS = 2 * 60 * 1000;
@@ -109,6 +197,85 @@ const getErrorAgeMs = (timestamp: string): number | undefined => {
     return undefined;
   }
   return Math.max(0, Date.now() - parsed);
+};
+
+const endpointLabel = (endpoint?: RuntimeEndpointContext): string => {
+  if (!endpoint) {
+    return 'unknown';
+  }
+  if (endpoint.baseUrl) {
+    return endpoint.baseUrl;
+  }
+  if (endpoint.host && endpoint.port !== undefined) {
+    return `${endpoint.host}:${endpoint.port}`;
+  }
+  return 'unknown';
+};
+
+const hasEndpoint = (
+  endpoint?: RuntimeEndpointContext
+): endpoint is RuntimeEndpointContext & {
+  host: string;
+  port: number;
+} =>
+  Boolean(
+    endpoint &&
+    typeof endpoint.host === 'string' &&
+    endpoint.host.length > 0 &&
+    typeof endpoint.port === 'number' &&
+    Number.isFinite(endpoint.port)
+  );
+
+const toRuntimeEndpoint = (
+  endpoint?: RuntimeEndpointContext
+):
+  | {
+      host?: string;
+      port?: number;
+      base_url?: string;
+      host_source?: string;
+      port_source?: string;
+      metadata_path?: string;
+      isolated_mode?: boolean;
+    }
+  | undefined => {
+  if (!endpoint) {
+    return undefined;
+  }
+  return {
+    host: endpoint.host,
+    port: endpoint.port,
+    base_url: endpoint.baseUrl,
+    host_source: endpoint.hostSource,
+    port_source: endpoint.portSource,
+    metadata_path: endpoint.metadataPath,
+    isolated_mode: endpoint.isolatedMode,
+  };
+};
+
+const toRuntimeProcess = (
+  process: RuntimeProcessContext | undefined
+):
+  | {
+      component?: 'cli' | 'mcp' | 'core';
+      version?: string;
+      pid?: number;
+      node_version?: string;
+      binary_path?: string;
+      argv_entry?: string;
+    }
+  | undefined => {
+  if (!process) {
+    return undefined;
+  }
+  return {
+    component: process.component,
+    version: process.version,
+    pid: process.pid,
+    node_version: process.nodeVersion,
+    binary_path: process.binaryPath,
+    argv_entry: process.argvEntry,
+  };
 };
 
 export const buildDiagnosticReport = (
@@ -150,6 +317,72 @@ export const buildDiagnosticReport = (
       },
     },
   ];
+
+  const coreEndpoint = context.runtime?.core?.endpoint;
+  const callerEndpoint = context.runtime?.caller?.endpoint;
+  const extensionEndpoint = context.runtime?.extension?.endpoint;
+
+  if (hasEndpoint(coreEndpoint) && hasEndpoint(callerEndpoint)) {
+    const matches =
+      coreEndpoint.host === callerEndpoint.host &&
+      coreEndpoint.port === callerEndpoint.port;
+    checks.push({
+      name: 'runtime.caller.endpoint_match',
+      ok: matches,
+      message: matches
+        ? `Caller endpoint matches core (${endpointLabel(coreEndpoint)}).`
+        : `Caller endpoint ${endpointLabel(
+            callerEndpoint
+          )} differs from core ${endpointLabel(coreEndpoint)}.`,
+      details: {
+        caller_endpoint: endpointLabel(callerEndpoint),
+        core_endpoint: endpointLabel(coreEndpoint),
+        caller_host_source: callerEndpoint.hostSource,
+        caller_port_source: callerEndpoint.portSource,
+        core_host_source: coreEndpoint.hostSource,
+        core_port_source: coreEndpoint.portSource,
+      },
+    });
+  }
+
+  if (hasEndpoint(coreEndpoint) && hasEndpoint(extensionEndpoint)) {
+    const matches =
+      coreEndpoint.host === extensionEndpoint.host &&
+      coreEndpoint.port === extensionEndpoint.port;
+    checks.push({
+      name: 'runtime.extension.endpoint_match',
+      ok: matches,
+      message: matches
+        ? `Extension endpoint matches core (${endpointLabel(coreEndpoint)}).`
+        : `Extension endpoint ${endpointLabel(
+            extensionEndpoint
+          )} differs from core ${endpointLabel(coreEndpoint)}.`,
+      details: {
+        extension_endpoint: endpointLabel(extensionEndpoint),
+        core_endpoint: endpointLabel(coreEndpoint),
+        extension_port_source: context.runtime?.extension?.portSource,
+        core_host_source: coreEndpoint.hostSource,
+        core_port_source: coreEndpoint.portSource,
+      },
+    });
+  }
+
+  const callerVersion = context.runtime?.caller?.process?.version;
+  const extensionVersion = context.runtime?.extension?.version;
+  if (callerVersion && extensionVersion) {
+    checks.push({
+      name: 'runtime.extension.version_match_caller',
+      ok: callerVersion === extensionVersion,
+      message:
+        callerVersion === extensionVersion
+          ? `Caller and extension versions match (${callerVersion}).`
+          : `Caller version ${callerVersion} differs from extension version ${extensionVersion}.`,
+      details: {
+        caller_version: callerVersion,
+        extension_version: extensionVersion,
+      },
+    });
+  }
 
   if (context.driveLastError) {
     const ageMs = getErrorAgeMs(context.driveLastError.at);
@@ -235,6 +468,7 @@ export const buildDiagnosticReport = (
       : undefined,
     extension: {
       connected: extensionConnected,
+      version: context.extension?.version,
       last_seen_at: context.extension?.lastSeenAt,
     },
     debugger: context.debugger
@@ -274,6 +508,29 @@ export const buildDiagnosticReport = (
         : undefined,
     ...(warnings.length > 0 ? { warnings } : {}),
     notes: ['Diagnostics include runtime status; some checks may be stubbed.'],
+    runtime: context.runtime
+      ? {
+          caller: context.runtime.caller
+            ? {
+                endpoint: toRuntimeEndpoint(context.runtime.caller.endpoint),
+                process: toRuntimeProcess(context.runtime.caller.process),
+              }
+            : undefined,
+          core: context.runtime.core
+            ? {
+                endpoint: toRuntimeEndpoint(context.runtime.core.endpoint),
+                process: toRuntimeProcess(context.runtime.core.process),
+              }
+            : undefined,
+          extension: context.runtime.extension
+            ? {
+                version: context.runtime.extension.version,
+                endpoint: toRuntimeEndpoint(context.runtime.extension.endpoint),
+                port_source: context.runtime.extension.portSource,
+              }
+            : undefined,
+        }
+      : undefined,
   };
 
   return report;

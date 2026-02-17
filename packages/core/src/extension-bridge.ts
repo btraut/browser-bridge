@@ -8,6 +8,7 @@ import type {
   DebuggerResponse,
   DriveAction,
   DriveErrorInfo,
+  DriveHelloParams,
   DriveResponse,
   DriveTabInfo,
   ExtensionEvent,
@@ -22,6 +23,10 @@ import { SessionState } from './state';
 export type ExtensionBridgeStatus = {
   connected: boolean;
   lastSeenAt?: string;
+  version?: string;
+  coreHost?: string;
+  corePort?: number;
+  corePortSource?: 'default' | 'storage';
   tabs: DriveTabInfo[];
 };
 
@@ -65,6 +70,10 @@ export class ExtensionBridge {
   private pending = new Map<string, PendingRequest>();
   private connected = false;
   private lastSeenAt?: string;
+  private version?: string;
+  private coreHost?: string;
+  private corePort?: number;
+  private corePortSource?: 'default' | 'storage';
   private tabs: DriveTabInfo[] = [];
   private badMessageLogsRemaining = 3;
   private heartbeatInterval: ReturnType<typeof setInterval> | null = null;
@@ -109,6 +118,10 @@ export class ExtensionBridge {
     return {
       connected: this.connected,
       lastSeenAt: this.lastSeenAt,
+      version: this.version,
+      coreHost: this.coreHost,
+      corePort: this.corePort,
+      corePortSource: this.corePortSource,
       tabs: this.tabs,
     };
   }
@@ -342,10 +355,30 @@ export class ExtensionBridge {
       message.action === 'drive.hello' ||
       message.action === 'drive.tab_report'
     ) {
-      const tabs = (message.params as { tabs?: DriveTabInfo[] } | undefined)
-        ?.tabs;
+      const params = message.params as DriveHelloParams | undefined;
+      const tabs = params?.tabs;
       if (Array.isArray(tabs)) {
         this.tabs = tabs;
+      }
+      if (message.action === 'drive.hello') {
+        if (typeof params?.version === 'string') {
+          this.version = params.version;
+        }
+        if (typeof params?.core_host === 'string') {
+          this.coreHost = params.core_host;
+        }
+        if (
+          typeof params?.core_port === 'number' &&
+          Number.isFinite(params.core_port)
+        ) {
+          this.corePort = params.core_port;
+        }
+        if (
+          params?.core_port_source === 'default' ||
+          params?.core_port_source === 'storage'
+        ) {
+          this.corePortSource = params.core_port_source;
+        }
       }
     }
 

@@ -5,7 +5,11 @@ import type { DriveController } from '../drive';
 import type { InspectService } from '../inspect';
 import type { DebuggerBridge } from '../debugger-bridge';
 import type { RecoveryTracker } from '../recovery';
-import { HealthCheckInputSchema } from '@btraut/browser-bridge-shared';
+import {
+  DiagnosticsDoctorInputSchema,
+  HealthCheckInputSchema,
+  type ResolvedCoreRuntime,
+} from '@btraut/browser-bridge-shared';
 import { ResponseLike, isRecord, sendError, sendResult } from './shared';
 
 type RequestLike = {
@@ -26,6 +30,8 @@ type DiagnosticsRoutesOptions = {
   drive?: DriveController;
   inspectService?: InspectService;
   recoveryTracker?: RecoveryTracker;
+  coreRuntime?: ResolvedCoreRuntime;
+  coreVersion?: string;
 };
 
 const PROCESS_STARTED_AT = new Date(
@@ -81,31 +87,86 @@ export const registerDiagnosticsRoutes = (
   });
 
   router.post('/diagnostics/doctor', (req, res) => {
-    let sessionId: string | undefined;
-    if (req.body !== undefined) {
-      if (!isRecord(req.body)) {
-        sendError(res, 400, {
-          code: 'INVALID_ARGUMENT',
-          message: 'Request body must be an object.',
-          retryable: false,
-        });
-        return;
-      }
-      const raw = req.body.session_id;
-      if (raw !== undefined && (typeof raw !== 'string' || raw.length === 0)) {
-        sendError(res, 400, {
-          code: 'INVALID_ARGUMENT',
-          message: 'session_id must be a non-empty string.',
-          retryable: false,
-          details: { field: 'session_id' },
-        });
-        return;
-      }
-      sessionId = raw as string | undefined;
+    const body = req.body ?? {};
+    if (!isRecord(body)) {
+      sendError(res, 400, {
+        code: 'INVALID_ARGUMENT',
+        message: 'Request body must be an object.',
+        retryable: false,
+      });
+      return;
     }
+    const parsedDoctorInput = DiagnosticsDoctorInputSchema.safeParse(body);
+    if (!parsedDoctorInput.success) {
+      const issue = parsedDoctorInput.error.issues[0];
+      sendError(res, 400, {
+        code: 'INVALID_ARGUMENT',
+        message: issue?.message ?? 'Invalid diagnostics doctor request.',
+        retryable: false,
+        details: issue?.path.length
+          ? { field: issue.path.map((part) => String(part)).join('.') }
+          : undefined,
+      });
+      return;
+    }
+    const sessionId = parsedDoctorInput.data.session_id;
 
     try {
       const context: DiagnosticsContext = {};
+      context.runtime = {
+        caller: parsedDoctorInput.data.caller
+          ? {
+              endpoint: parsedDoctorInput.data.caller.endpoint
+                ? {
+                    host: parsedDoctorInput.data.caller.endpoint.host,
+                    port: parsedDoctorInput.data.caller.endpoint.port,
+                    baseUrl: parsedDoctorInput.data.caller.endpoint.base_url,
+                    hostSource:
+                      parsedDoctorInput.data.caller.endpoint.host_source,
+                    portSource:
+                      parsedDoctorInput.data.caller.endpoint.port_source,
+                    metadataPath:
+                      parsedDoctorInput.data.caller.endpoint.metadata_path,
+                    isolatedMode:
+                      parsedDoctorInput.data.caller.endpoint.isolated_mode,
+                  }
+                : undefined,
+              process: parsedDoctorInput.data.caller.process
+                ? {
+                    component: parsedDoctorInput.data.caller.process.component,
+                    version: parsedDoctorInput.data.caller.process.version,
+                    pid: parsedDoctorInput.data.caller.process.pid,
+                    nodeVersion:
+                      parsedDoctorInput.data.caller.process.node_version,
+                    binaryPath:
+                      parsedDoctorInput.data.caller.process.binary_path,
+                    argvEntry: parsedDoctorInput.data.caller.process.argv_entry,
+                  }
+                : undefined,
+            }
+          : undefined,
+        core: {
+          endpoint: options.coreRuntime
+            ? {
+                host: options.coreRuntime.host,
+                port: options.coreRuntime.port,
+                baseUrl: `http://${options.coreRuntime.host}:${options.coreRuntime.port}`,
+                hostSource: options.coreRuntime.hostSource,
+                portSource: options.coreRuntime.portSource,
+                metadataPath: options.coreRuntime.metadataPath,
+                isolatedMode: options.coreRuntime.isolatedMode,
+              }
+            : undefined,
+          process: {
+            component: 'core',
+            version: options.coreVersion,
+            pid: process.pid,
+            nodeVersion: process.version,
+            binaryPath: process.execPath,
+            argvEntry: process.argv[1],
+          },
+        },
+      };
       if (options.registry && sessionId) {
         try {
           const session = options.registry.require(sessionId);
@@ -140,7 +201,20 @@ export const registerDiagnosticsRoutes = (
         const status = options.extensionBridge.getStatus();
         context.extension = {
           connected: status.connected,
+          version: status.version,
           lastSeenAt: status.lastSeenAt,
+        };
+        context.runtime.extension = {
+          version: status.version,
+          endpoint:
+            status.coreHost && typeof status.corePort === 'number'
+              ? {
+                  host: status.coreHost,
+                  port: status.corePort,
+                  baseUrl: `http://${status.coreHost}:${status.corePort}`,
+                }
+              : undefined,
+          portSource: status.corePortSource,
         };
       }
 

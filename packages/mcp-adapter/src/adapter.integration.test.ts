@@ -106,7 +106,17 @@ describe('mcp-adapter integration', () => {
 
       for (const fixture of MCP_TOOL_FIXTURES) {
         const requestBody = requests.get(fixture.corePath);
-        expect(requestBody).toEqual(fixture.input);
+        if (fixture.corePath === '/diagnostics/doctor') {
+          expect(requestBody).toEqual(
+            expect.objectContaining(fixture.input as Record<string, unknown>)
+          );
+          expect(
+            (requestBody as { caller?: { process?: { component?: string } } })
+              .caller?.process?.component
+          ).toBe('mcp');
+        } else {
+          expect(requestBody).toEqual(fixture.input);
+        }
       }
       expect(healthChecks).toBeGreaterThan(0);
       expect(spawnImpl).not.toHaveBeenCalled();

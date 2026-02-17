@@ -10,6 +10,8 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 
 - Core runtime bootstrap: CLI and MCP adapter now share one Core readiness/runtime resolution path (default/env/metadata precedence + health/ensure-ready behavior), with new shared parity tests.
 - MCP adapter now enables Core ensure-ready by default when constructing its client, so first tool calls auto-bootstrap Core after cold start.
+- Diagnostics doctor payload/report now carries runtime endpoint/source/process context for caller, Core, and extension components so endpoint/version mismatches are explicit.
+- Extension hello events now include the endpoint settings they are dialing (`core_host`, `core_port`, `core_port_source`) for mismatch diagnostics.
 
 ### Fixed
 

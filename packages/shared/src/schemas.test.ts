@@ -361,6 +361,27 @@ describe('shared schemas', () => {
     expect(parsed.session_id).toBeUndefined();
   });
 
+  it('parses diagnostics doctor caller runtime context', () => {
+    const parsed = DiagnosticsDoctorInputSchema.parse({
+      session_id: 'session-1',
+      caller: {
+        endpoint: {
+          host: '127.0.0.1',
+          port: 3210,
+          base_url: 'http://127.0.0.1:3210',
+          host_source: 'default',
+          port_source: 'default',
+        },
+        process: {
+          component: 'cli',
+          version: '0.11.1',
+        },
+      },
+    });
+    expect(parsed.caller?.endpoint?.port).toBe(3210);
+    expect(parsed.caller?.process?.component).toBe('cli');
+  });
+
   it('parses health check output', () => {
     const parsed = HealthCheckInputSchema.parse({});
     expect(parsed).toEqual({});
@@ -384,6 +405,19 @@ describe('shared schemas', () => {
   it('parses diagnostics report with debugger info', () => {
     const parsed = DiagnosticReportSchema.parse({
       ok: true,
+      runtime: {
+        core: {
+          endpoint: {
+            host: '127.0.0.1',
+            port: 3210,
+            base_url: 'http://127.0.0.1:3210',
+          },
+          process: {
+            component: 'core',
+            version: '0.11.1',
+          },
+        },
+      },
       debugger: {
         attached: true,
         idle_timeout_ms: 15000,
