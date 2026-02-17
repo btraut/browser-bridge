@@ -201,4 +201,108 @@ describe('buildDiagnosticReport', () => {
     );
     expect(report.runtime?.extension?.port_source).toBe('storage');
   });
+
+  it('reports runtime endpoint/version matches when extension is connected', () => {
+    const report = buildDiagnosticReport(undefined, {
+      extension: {
+        connected: true,
+        version: '2.0.0',
+      },
+      runtime: {
+        caller: {
+          endpoint: {
+            host: '127.0.0.1',
+            port: 3210,
+            baseUrl: 'http://127.0.0.1:3210',
+            hostSource: 'default',
+            portSource: 'default',
+          },
+          process: {
+            component: 'cli',
+            version: '2.0.0',
+          },
+        },
+        core: {
+          endpoint: {
+            host: '127.0.0.1',
+            port: 3210,
+            baseUrl: 'http://127.0.0.1:3210',
+            hostSource: 'default',
+            portSource: 'default',
+          },
+          process: {
+            component: 'core',
+          },
+        },
+        extension: {
+          version: '2.0.0',
+          endpoint: {
+            host: '127.0.0.1',
+            port: 3210,
+            baseUrl: 'http://127.0.0.1:3210',
+          },
+          portSource: 'default',
+        },
+      },
+    });
+
+    const extensionCheck = report.checks?.find(
+      (check) => check.name === 'runtime.extension.endpoint_match'
+    );
+    const versionCheck = report.checks?.find(
+      (check) => check.name === 'runtime.extension.version_match_caller'
+    );
+    expect(extensionCheck?.ok).toBe(true);
+    expect(versionCheck?.ok).toBe(true);
+  });
+
+  it('ignores extension runtime mismatch checks when extension is disconnected', () => {
+    const report = buildDiagnosticReport(undefined, {
+      extension: {
+        connected: false,
+        version: '1.0.0',
+      },
+      runtime: {
+        caller: {
+          endpoint: {
+            host: '127.0.0.1',
+            port: 3210,
+            baseUrl: 'http://127.0.0.1:3210',
+          },
+          process: {
+            component: 'cli',
+            version: '2.0.0',
+          },
+        },
+        core: {
+          endpoint: {
+            host: '127.0.0.1',
+            port: 3210,
+            baseUrl: 'http://127.0.0.1:3210',
+          },
+          process: {
+            component: 'core',
+          },
+        },
+        extension: {
+          version: '0.9.0',
+          endpoint: {
+            host: '127.0.0.1',
+            port: 4333,
+            baseUrl: 'http://127.0.0.1:4333',
+          },
+          portSource: 'storage',
+        },
+      },
+    });
+
+    const extensionEndpointCheck = report.checks?.find(
+      (check) => check.name === 'runtime.extension.endpoint_match'
+    );
+    const extensionVersionCheck = report.checks?.find(
+      (check) => check.name === 'runtime.extension.version_match_caller'
+    );
+    expect(extensionEndpointCheck).toBeUndefined();
+    expect(extensionVersionCheck).toBeUndefined();
+  });
 });

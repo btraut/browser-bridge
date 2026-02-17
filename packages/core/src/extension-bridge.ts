@@ -293,6 +293,10 @@ export class ExtensionBridge {
     this.stopHeartbeat();
     this.connected = false;
     this.socket = null;
+    this.version = undefined;
+    this.coreHost = undefined;
+    this.corePort = undefined;
+    this.corePortSource = undefined;
     this.lastSeenAt = new Date().toISOString();
     this.applyDriveDisconnected();
 

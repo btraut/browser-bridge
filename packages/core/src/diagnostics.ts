@@ -345,7 +345,11 @@ export const buildDiagnosticReport = (
     });
   }
 
-  if (hasEndpoint(coreEndpoint) && hasEndpoint(extensionEndpoint)) {
+  if (
+    extensionConnected &&
+    hasEndpoint(coreEndpoint) &&
+    hasEndpoint(extensionEndpoint)
+  ) {
     const matches =
       coreEndpoint.host === extensionEndpoint.host &&
       coreEndpoint.port === extensionEndpoint.port;
@@ -368,7 +372,9 @@ export const buildDiagnosticReport = (
   }
 
   const callerVersion = context.runtime?.caller?.process?.version;
-  const extensionVersion = context.runtime?.extension?.version;
+  const extensionVersion = extensionConnected
+    ? context.runtime?.extension?.version
+    : undefined;
   if (callerVersion && extensionVersion) {
     checks.push({
       name: 'runtime.extension.version_match_caller',

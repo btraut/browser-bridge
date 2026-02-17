@@ -204,18 +204,20 @@ export const registerDiagnosticsRoutes = (
           version: status.version,
           lastSeenAt: status.lastSeenAt,
         };
-        context.runtime.extension = {
-          version: status.version,
-          endpoint:
-            status.coreHost && typeof status.corePort === 'number'
-              ? {
-                  host: status.coreHost,
-                  port: status.corePort,
-                  baseUrl: `http://${status.coreHost}:${status.corePort}`,
-                }
-              : undefined,
-          portSource: status.corePortSource,
-        };
+        if (status.connected) {
+          context.runtime.extension = {
+            version: status.version,
+            endpoint:
+              status.coreHost && typeof status.corePort === 'number'
+                ? {
+                    host: status.coreHost,
+                    port: status.corePort,
+                    baseUrl: `http://${status.coreHost}:${status.corePort}`,
+                  }
+                : undefined,
+            portSource: status.corePortSource,
+          };
+        }
       }
 
       if (options.debuggerBridge) {

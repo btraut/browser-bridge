@@ -61,4 +61,46 @@ describe('ExtensionBridge debugger routing', () => {
       (bridge as unknown as { pending: Map<string, unknown> }).pending.size
     ).toBe(0);
   });
+
+  it('clears runtime identity fields on disconnect', () => {
+    const bridge = new ExtensionBridge();
+    const hello = {
+      id: 'evt-hello',
+      action: 'drive.hello',
+      status: 'event',
+      params: {
+        version: '1.2.3',
+        core_host: '127.0.0.1',
+        core_port: 3210,
+        core_port_source: 'storage',
+      },
+    };
+
+    callPrivate(bridge, hello);
+    expect(bridge.getStatus()).toEqual(
+      expect.objectContaining({
+        version: '1.2.3',
+        coreHost: '127.0.0.1',
+        corePort: 3210,
+        corePortSource: 'storage',
+      })
+    );
+
+    const writableBridge = bridge as unknown as {
+      connected: boolean;
+      handleDisconnect: () => void;
+    };
+    writableBridge.connected = true;
+    writableBridge.handleDisconnect();
+
+    expect(bridge.getStatus()).toEqual(
+      expect.objectContaining({
+        connected: false,
+        version: undefined,
+        coreHost: undefined,
+        corePort: undefined,
+        corePortSource: undefined,
+      })
+    );
+  });
 });
