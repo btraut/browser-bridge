@@ -13,6 +13,7 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 - Diagnostics doctor payload/report now carries runtime endpoint/source/process context for caller, Core, and extension components so endpoint/version mismatches are explicit.
 - Extension hello events now include the endpoint settings they are dialing (`core_host`, `core_port`, `core_port_source`) for mismatch diagnostics.
 - Extension Drive socket now tracks explicit connection states (`connecting`, `connected`, `disconnected`, `backoff`) with a status surface (`drive.connection_status`) for UI diagnostics.
+- Popup UI now includes a live connection health panel (state, endpoint/source, last success/failure, next retry) and a `Copy diagnostics` action for bug reports.
 
 ### Fixed
 

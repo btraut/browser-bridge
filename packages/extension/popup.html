@@ -19,6 +19,32 @@
         <h1 class="bb-popup-title">Browser Bridge</h1>
       </header>
 
+      <section class="bb-health" aria-label="Connection health">
+        <div class="bb-health-head">
+          <span class="bb-health-label">Connection</span>
+          <span class="bb-health-state" id="bb-conn-state">disconnected</span>
+        </div>
+        <dl class="bb-health-grid">
+          <dt>Endpoint</dt>
+          <dd id="bb-conn-endpoint">Unknown</dd>
+          <dt>Source</dt>
+          <dd id="bb-conn-source">unknown</dd>
+          <dt>Last success</dt>
+          <dd id="bb-conn-last-ok">Never</dd>
+          <dt>Last failure</dt>
+          <dd id="bb-conn-last-fail">None</dd>
+          <dt>Next retry</dt>
+          <dd id="bb-conn-next-retry">n/a</dd>
+        </dl>
+        <p class="bb-health-error" id="bb-conn-error"></p>
+        <div class="bb-health-actions">
+          <button class="bb-health-copy" id="bb-copy-diagnostics" type="button">
+            Copy diagnostics
+          </button>
+          <span class="bb-health-copy-status" id="bb-copy-status"></span>
+        </div>
+      </section>
+
       <div class="bb-menu" aria-label="Extension menu">
         <!-- Fallback for when dist scripts fail to load: don't navigate inside the popup. -->
         <a class="bb-row" id="bb-settings" href="options.html" target="_blank"

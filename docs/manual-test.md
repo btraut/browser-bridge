@@ -74,6 +74,22 @@ This checklist validates the Drive + Inspect planes and artifact handling end-to
    - Revoke the site in the options page.
    - Run a drive action on that site again; it should prompt again.
 
+## Checklist (Popup Connection Health)
+
+1. Open the extension toolbar popup.
+2. Confirm the health panel is visible above Settings/About.
+3. Verify state transitions:
+   - While Core is unavailable, state should show `backoff` or `disconnected`.
+   - After Core comes online and extension reconnects, state should show `connected`.
+4. Verify endpoint/source fields:
+   - Endpoint should match the active runtime target (for default mode, `ws://127.0.0.1:3210/drive`).
+   - Source should reflect extension port source (`default` or `storage`).
+5. Verify timestamps and failure context:
+   - `Last success` updates after connection.
+   - `Last failure` updates when reconnect failures occur.
+6. Click `Copy diagnostics` and paste into a text editor:
+   - Payload should include generated timestamp, extension version, connection state, endpoint, and failure metadata.
+
 ## Optional Full-Tool CLI Smoke
 
 This optional script exercises every CLI tool against a deterministic fixture page. It requires the extension to be loaded and the workspace to be built.
