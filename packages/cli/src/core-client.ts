@@ -180,6 +180,12 @@ export const createCoreClient = (
             code: 'TIMEOUT',
             message: `Core request timed out after ${timeoutMs}ms.`,
             retryable: true,
+            retry: {
+              retryable: true,
+              reason: 'core_request_timeout',
+              retry_after_ms: 250,
+              max_attempts: 1,
+            },
             details: {
               timeout_ms: timeoutMs,
               base_url: readiness.baseUrl,

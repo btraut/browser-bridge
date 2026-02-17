@@ -15,6 +15,7 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 - Navigation naming is now canonicalized end-to-end on `drive.go_back`/`drive.go_forward`: Core routes and extension actions removed legacy alias actions, while CLI/MCP keep temporary deprecated alias shims that forward to canonical routes and emit explicit warnings.
 - Public contract version signaling is now explicit across HTTP and websocket surfaces: Core enforces/echoes `x-browser-bridge-contract-version`, CLI/MCP send the version header by default, extension `drive.hello` now includes websocket `protocol_version`, and core rejects handshake mismatches deterministically.
 - Public error taxonomy is now canonicalized: legacy/internal codes are normalized to a smaller non-overlapping public set, with typed migration details (`legacy_code`, `reason`, and structured context fields) attached to mapped responses.
+- Retry semantics now use centralized structured hints: shared `retry` metadata (`retryable`, `reason`, `retry_after_ms`, `max_attempts`) and shared retry policy logic replace boolean-only retry decisions in core drive flows, while preserving compatibility via `retryable`.
 
 ### Fixed
 

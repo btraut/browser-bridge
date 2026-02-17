@@ -483,10 +483,17 @@ describe('shared schemas', () => {
         code: 'TIMEOUT',
         message: 'Timed out',
         retryable: true,
+        retry: {
+          retryable: true,
+          reason: 'core_request_timeout',
+          retry_after_ms: 250,
+          max_attempts: 1,
+        },
       },
     });
 
     expect(parsed.error.retryable).toBe(true);
+    expect(parsed.error.retry?.reason).toBe('core_request_timeout');
   });
 
   it('allows session status with plane errors', () => {

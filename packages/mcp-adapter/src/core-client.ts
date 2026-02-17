@@ -55,6 +55,12 @@ const toReadinessErrorEnvelope = (
         ? `Core not ready at ${baseUrl}: ${error.message}`
         : `Core not ready at ${baseUrl}.`,
     retryable: true,
+    retry: {
+      retryable: true,
+      reason: 'core_not_ready',
+      retry_after_ms: 250,
+      max_attempts: 1,
+    },
     details: {
       base_url: baseUrl,
     },

@@ -114,9 +114,14 @@ Legacy/internal codes are normalized to the canonical set in route responses via
 
 ### 4.3 Retryability Semantics
 
-`retryable` is behaviorally meaningful and currently consumed in several places:
+Retry metadata is now standardized as:
 
-- Core drive execution retries once only when `retryable=true` and first attempt failed.
+- `retryable` (compatibility boolean)
+- `retry` object: `{ retryable, reason?, retry_after_ms?, max_attempts? }`
+
+Retry policy ownership is centralized in `packages/shared/src/retry-policy.ts`.
+
+- Core drive execution uses shared retry policy hints instead of boolean-only decisions.
 - Extension bridge timeout/disconnect errors are marked retryable.
 - Inspect screenshot path can fallback to alternate capture path when failures are retryable.
 - MCP adapter readiness failures are emitted as retryable `UNAVAILABLE` envelopes.

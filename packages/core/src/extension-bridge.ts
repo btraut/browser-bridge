@@ -491,5 +491,10 @@ export const toDriveError = (error: ExtensionBridgeError): DriveErrorInfo => ({
   code: error.code,
   message: error.message,
   retryable: error.retryable,
+  retry: {
+    retryable: error.retryable,
+    reason: String(error.code).toLowerCase(),
+    max_attempts: 1,
+  },
   ...(error.details ? { details: error.details } : {}),
 });

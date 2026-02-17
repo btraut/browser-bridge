@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { RetryHintSchema } from './retry-policy';
 
 // Keep error codes stable; add new codes without renaming existing ones.
 export const ErrorCodeSchema = z.enum([
@@ -165,6 +166,7 @@ export const ErrorInfoSchema = z.object({
   code: ErrorCodeSchema,
   message: z.string(),
   retryable: z.boolean(),
+  retry: RetryHintSchema.optional(),
   details: z.record(z.string(), z.unknown()).optional(),
 });
 
@@ -174,6 +176,7 @@ type ErrorLike = {
   code: string;
   message: string;
   retryable: boolean;
+  retry?: z.infer<typeof RetryHintSchema>;
   details?: Record<string, unknown>;
 };
 
