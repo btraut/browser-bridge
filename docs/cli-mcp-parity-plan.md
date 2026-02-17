@@ -32,7 +32,7 @@ Browser Bridge currently drifts between CLI and MCP behavior for session handlin
 ### Milestone A - Contract and Core semantics
 
 - [x] ✅ Update shared schemas for `drive.navigate` request/response parity. - `DriveNavigateInputSchema` now accepts missing `session_id`; `DriveNavigateOutputSchema` now requires canonical `session_id`.
-- [ ] Implement Core-side missing-session resolution for `drive.navigate`.
+- [x] ✅ Implement Core-side missing-session resolution for `drive.navigate`. - Core `registerDriveRoutes` now auto-creates a session when `session_id` is omitted and always emits canonical `session_id` in success payloads.
 - [ ] Keep response envelope stable and explicit.
 
 ### Milestone B - Adapter parity and docs

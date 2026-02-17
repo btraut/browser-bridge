@@ -84,7 +84,7 @@ export const createCoreServer = (
     })
   );
 
-  registerDriveRoutes(app, { drive });
+  registerDriveRoutes(app, { drive, registry });
   registerInspectRoutes(app, {
     registry,
     extensionBridge,
