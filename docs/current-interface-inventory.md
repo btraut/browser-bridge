@@ -151,11 +151,14 @@ All other transitions are invalid and throw `InvalidSessionTransition`.
 
 ## 6. Core HTTP API Contract
 
-Core server mounts session/drive/inspect/artifacts/diagnostics routes and primarily returns envelope-shaped responses. `GET /health` is a readiness exception that returns `{ ok: true }` directly.
+Core server mounts session/drive/inspect/artifacts/diagnostics routes and primarily returns envelope-shaped responses. Readiness is RPC-style `POST /health`; legacy `GET /health` remains for compatibility.
+
+Canonical style: RPC-over-HTTP with `POST` operation routes (`/<group>/<action>`).
 
 Readiness endpoint:
 
-- `GET /health` -> `{ ok: true }`
+- `POST /health` -> `{ ok: true }`
+- `GET /health` -> `{ ok: true }` (legacy compatibility)
 
 ### 6.1 Session Routes
 
@@ -217,7 +220,8 @@ Behavioral notes:
 
 - `/artifacts/screenshot`
 - `/health`
-- `/health_check`
+- `/health/check`
+- `/health_check` (legacy compatibility alias)
 - `/diagnostics/doctor`
 
 Diagnostics doctor returns a structured report with runtime/session/extension/debugger/recovery/artifact context.
@@ -263,7 +267,7 @@ MCP tool catalog is defined by shared tool map and consumed by adapter (`package
 33. `inspect.evaluate` -> `/inspect/evaluate`
 34. `inspect.performance_metrics` -> `/inspect/performance_metrics`
 35. `artifacts.screenshot` -> `/artifacts/screenshot`
-36. `health_check` -> `/health_check`
+36. `health_check` -> `/health/check`
 37. `diagnostics.doctor` -> `/diagnostics/doctor`
 
 ### 7.2 Input/Output Highlights by Tool Family

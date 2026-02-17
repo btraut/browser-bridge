@@ -42,7 +42,7 @@ export const registerDiagnosticsRoutes = (
   router: RouteRegistry,
   options: DiagnosticsRoutesOptions = {}
 ): void => {
-  router.post('/health_check', (req, res) => {
+  const handleHealthCheck = (req: RequestLike, res: ResponseLike): void => {
     const body = req.body ?? {};
     if (!isRecord(body)) {
       sendError(res, 400, {
@@ -84,7 +84,11 @@ export const registerDiagnosticsRoutes = (
           : {}),
       },
     });
-  });
+  };
+
+  router.post('/health/check', handleHealthCheck);
+  // Legacy compatibility route.
+  router.post('/health_check', handleHealthCheck);
 
   router.post('/diagnostics/doctor', (req, res) => {
     const body = req.body ?? {};

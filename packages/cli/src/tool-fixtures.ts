@@ -580,7 +580,7 @@ export const CLI_TOOL_FIXTURES: CliToolFixture[] = [
   {
     name: 'health_check',
     kind: 'core',
-    corePath: '/health_check',
+    corePath: '/health/check',
     argv: ['diagnostics', 'health-check'],
     payload: {},
   },

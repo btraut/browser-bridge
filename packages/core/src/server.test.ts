@@ -137,7 +137,7 @@ describe('core HTTP contract versioning', () => {
 
     try {
       const response = await fetch(
-        `http://127.0.0.1:${address.port}/health_check`,
+        `http://127.0.0.1:${address.port}/health/check`,
         {
           method: 'POST',
           headers: {
@@ -165,6 +165,76 @@ describe('core HTTP contract versioning', () => {
           received: 'legacy-1',
         })
       );
+    } finally {
+      await new Promise<void>((resolve, reject) => {
+        server.close((error) => {
+          if (error) {
+            reject(error);
+          } else {
+            resolve();
+          }
+        });
+      });
+    }
+  });
+
+  it('supports canonical health POST routes with legacy alias compatibility', async () => {
+    const { app } = createCoreServer();
+    const server = createHttpServer(app);
+
+    await new Promise<void>((resolve) =>
+      server.listen(0, '127.0.0.1', resolve)
+    );
+    const address = server.address();
+    if (!address || typeof address === 'string') {
+      throw new Error('Expected test server address.');
+    }
+
+    try {
+      const readiness = await fetch(`http://127.0.0.1:${address.port}/health`, {
+        method: 'POST',
+      });
+      const canonical = await fetch(
+        `http://127.0.0.1:${address.port}/health/check`,
+        {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({}),
+        }
+      );
+      const legacy = await fetch(
+        `http://127.0.0.1:${address.port}/health_check`,
+        {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({}),
+        }
+      );
+
+      expect(readiness.status).toBe(200);
+      expect(await readiness.json()).toEqual({ ok: true });
+      expect(canonical.status).toBe(200);
+      const canonicalBody = (await canonical.json()) as {
+        ok: boolean;
+        result?: { sessions?: { active?: number } };
+      };
+      expect(canonicalBody).toEqual({
+        ok: true,
+        result: expect.objectContaining({
+          sessions: expect.objectContaining({ active: 0 }),
+        }),
+      });
+      expect(legacy.status).toBe(200);
+      const legacyBody = (await legacy.json()) as {
+        ok: boolean;
+        result?: { sessions?: { active?: number } };
+      };
+      expect(legacyBody).toEqual({
+        ok: true,
+        result: expect.objectContaining({
+          sessions: expect.objectContaining({ active: 0 }),
+        }),
+      });
     } finally {
       await new Promise<void>((resolve, reject) => {
         server.close((error) => {

@@ -15,7 +15,7 @@ Reduce accidental complexity in Browser Bridge's public interface while preservi
 2. ✅ Add explicit contract versioning for public interfaces (HTTP and extension websocket handshake). (Core now enforces/surfaces `x-browser-bridge-contract-version` on HTTP; websocket `drive.hello` now carries `protocol_version`, and core rejects mismatches deterministically.)
 3. ✅ Replace boolean-only retry semantics with structured retry guidance and centralized retry policy. (Added shared retry metadata schema + policy helpers, wired core drive retries to shared policy hints, and preserved backward compatibility with `retryable`.)
 4. ✅ Simplify and normalize error code taxonomy; move granularity into typed details. (Added canonical public code set + legacy mapping in `packages/shared/src/errors.ts`, normalized route responses via `normalizeErrorInfo`, and added migration tests/docs for `legacy_code` + typed detail fields.)
-5. Resolve route-shape inconsistency and define canonical API style (RPC-style POST or mixed REST with GET reads).
+5. ✅ Resolve route-shape inconsistency and define canonical API style (RPC-style POST or mixed REST with GET reads). (Adopted RPC-over-HTTP POST style with canonical `/health/check` route and compatibility aliases/tests for legacy health paths.)
 6. Unify dialog operation model to one canonical action family.
 7. Introduce least-privilege permission posture in extension defaults and capability escalation path.
 8. Add explicit capability negotiation in extension-core handshake for feature/version drift detection.

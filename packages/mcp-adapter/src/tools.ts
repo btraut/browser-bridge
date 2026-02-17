@@ -519,7 +519,7 @@ export const TOOL_DEFINITIONS: Array<{ name: string; config: ToolConfig }> = [
         'Check server health including uptime, memory usage, active session count, and extension connection status.',
       inputSchema: HealthCheckInputSchema,
       outputSchema: envelope(HealthCheckOutputSchema),
-      corePath: '/health_check',
+      corePath: '/health/check',
     },
   },
   {

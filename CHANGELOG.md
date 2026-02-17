@@ -16,6 +16,7 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 - Public contract version signaling is now explicit across HTTP and websocket surfaces: Core enforces/echoes `x-browser-bridge-contract-version`, CLI/MCP send the version header by default, extension `drive.hello` now includes websocket `protocol_version`, and core rejects handshake mismatches deterministically.
 - Public error taxonomy is now canonicalized: legacy/internal codes are normalized to a smaller non-overlapping public set, with typed migration details (`legacy_code`, `reason`, and structured context fields) attached to mapped responses.
 - Retry semantics now use centralized structured hints: shared `retry` metadata (`retryable`, `reason`, `retry_after_ms`, `max_attempts`) and shared retry policy logic replace boolean-only retry decisions in core drive flows, while preserving compatibility via `retryable`.
+- API route style is now explicitly RPC-over-HTTP POST: canonical health diagnostics route is `/health/check` (with legacy `/health_check` alias), and readiness supports canonical `POST /health` while retaining `GET /health` compatibility.
 
 ### Fixed
 

@@ -100,9 +100,12 @@ export const createCoreServer = (
     });
   }
 
-  app.get('/health', (_req, res) => {
+  const sendHealthOk = (_req: express.Request, res: express.Response): void => {
     res.status(200).json({ ok: true });
-  });
+  };
+  app.post('/health', sendHealthOk);
+  // Legacy readiness probe method for compatibility.
+  app.get('/health', sendHealthOk);
 
   app.use(
     '/session',

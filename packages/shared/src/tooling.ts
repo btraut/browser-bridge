@@ -98,7 +98,7 @@ export const MCP_TOOL_DEFINITIONS: McpToolDefinition[] = [
     corePath: '/inspect/performance_metrics',
   },
   { name: 'artifacts.screenshot', corePath: '/artifacts/screenshot' },
-  { name: 'health_check', corePath: '/health_check' },
+  { name: 'health_check', corePath: '/health/check' },
   { name: 'diagnostics.doctor', corePath: '/diagnostics/doctor' },
 ];
 

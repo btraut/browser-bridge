@@ -530,7 +530,7 @@ export const MCP_TOOL_FIXTURES: ToolFixture[] = [
   },
   {
     name: 'health_check',
-    corePath: '/health_check',
+    corePath: '/health/check',
     input: {},
     successEnvelope: {
       ok: true,
