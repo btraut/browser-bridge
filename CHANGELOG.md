@@ -14,6 +14,8 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 
 ### Fixed
 
+- Extension now re-applies the `Browser Bridge` tab-group title for reused dedicated agent tabs, so stale groups no longer stay untitled.
+- Extension now reapplies the toolbar robot icon as the dedicated agent tab favicon after agent-driven navigations.
 - Core drive preflight now fails fast with an explicit `EXTENSION_DISCONNECTED` error when the extension is offline, instead of attempting a drive call first.
 - Core `drive.navigate` now preflights loopback targets (`localhost`/`127.0.0.1`/`::1`) and returns `NAVIGATION_FAILED` quickly when the local app is unreachable.
 - Runtime path resolution now honors `BROWSER_BRIDGE_CWD` and safer cwd fallbacks, preventing broken launch contexts from writing logs/metadata under `/.context`.

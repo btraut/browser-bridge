@@ -27,6 +27,16 @@
   },
   "permissions": ["tabs", "storage", "webNavigation", "debugger", "tabGroups"],
   "host_permissions": ["<all_urls>"],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "assets/icons/icon-16.png",
+        "assets/icons/icon-32.png",
+        "assets/icons/icon-48.png"
+      ],
+      "matches": ["<all_urls>"]
+    }
+  ],
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
