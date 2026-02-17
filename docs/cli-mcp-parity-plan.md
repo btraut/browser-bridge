@@ -43,9 +43,9 @@ Browser Bridge currently drifts between CLI and MCP behavior for session handlin
 
 ### Milestone C - Drift guardrails
 
-- [ ] Update fixture coverage to include optional-session cases.
-- [ ] Add contract tests that fail if CLI and MCP disagree on required args/output shape.
-- [ ] Add one smoke assertion proving equal behavior.
+- [x] ✅ Update fixture coverage to include optional-session cases. - Added shared `DRIVE_NAVIGATE_PARITY_CASES` plus CLI/MCP parity fixture exports for explicit-session and missing-session variants.
+- [x] ✅ Add contract tests that fail if CLI and MCP disagree on required args/output shape. - CLI and MCP contract tests now validate parity fixtures against shared `DriveNavigateInputSchema` and `DriveNavigateOutputSchema`.
+- [x] ✅ Add one smoke assertion proving equal behavior. - Core route tests assert `drive.navigate` returns the same canonical success shape (`{ ok: true, session_id }`) for both omitted and explicit `session_id` calls.
 
 ## Acceptance Criteria
 

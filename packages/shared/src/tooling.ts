@@ -3,6 +3,19 @@ export type McpToolDefinition = {
   corePath: string;
 };
 
+export type DriveNavigateParityCase = {
+  caseId: 'explicit_session' | 'missing_session';
+  input: {
+    session_id?: string;
+    url: string;
+    wait: 'domcontentloaded';
+  };
+  successResult: {
+    ok: true;
+    session_id: string;
+  };
+};
+
 export const MCP_TOOL_DEFINITIONS: McpToolDefinition[] = [
   { name: 'session.create', corePath: '/session/create' },
   { name: 'session.status', corePath: '/session/status' },
@@ -44,4 +57,30 @@ export const MCP_TOOL_DEFINITIONS: McpToolDefinition[] = [
   { name: 'artifacts.screenshot', corePath: '/artifacts/screenshot' },
   { name: 'health_check', corePath: '/health_check' },
   { name: 'diagnostics.doctor', corePath: '/diagnostics/doctor' },
+];
+
+export const DRIVE_NAVIGATE_PARITY_CASES: DriveNavigateParityCase[] = [
+  {
+    caseId: 'explicit_session',
+    input: {
+      session_id: 'session-1',
+      url: 'https://example.com',
+      wait: 'domcontentloaded',
+    },
+    successResult: {
+      ok: true,
+      session_id: 'session-1',
+    },
+  },
+  {
+    caseId: 'missing_session',
+    input: {
+      url: 'https://example.com',
+      wait: 'domcontentloaded',
+    },
+    successResult: {
+      ok: true,
+      session_id: 'session-auto',
+    },
+  },
 ];

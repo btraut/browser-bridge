@@ -1,3 +1,5 @@
+import { DRIVE_NAVIGATE_PARITY_CASES } from '@btraut/browser-bridge-shared';
+
 export type CliFixtureKind = 'core' | 'local';
 
 export type CliToolFixture = {
@@ -17,6 +19,16 @@ export type CliCoverageRow = {
   unit: CliCoverageStatus;
   integration: CliCoverageStatus;
   e2e: CliCoverageStatus;
+};
+
+export type CliDriveNavigateParityFixture = {
+  caseId: 'explicit_session' | 'missing_session';
+  argv: string[];
+  payload: unknown;
+  successResult: {
+    ok: true;
+    session_id: string;
+  };
 };
 
 export const CLI_TOOL_FIXTURES: CliToolFixture[] = [
@@ -600,6 +612,24 @@ export const CLI_TOOL_FIXTURES: CliToolFixture[] = [
     payload: { session_id: 'session-1' },
   },
 ];
+
+export const CLI_DRIVE_NAVIGATE_PARITY_FIXTURES: CliDriveNavigateParityFixture[] =
+  DRIVE_NAVIGATE_PARITY_CASES.map((parityCase) => ({
+    caseId: parityCase.caseId,
+    argv: [
+      'drive',
+      'navigate',
+      ...(parityCase.input.session_id
+        ? ['--session-id', parityCase.input.session_id]
+        : []),
+      '--url',
+      parityCase.input.url,
+      '--wait',
+      parityCase.input.wait,
+    ],
+    payload: parityCase.input,
+    successResult: parityCase.successResult,
+  }));
 
 export const CLI_TOOL_COVERAGE_MATRIX: CliCoverageRow[] = CLI_TOOL_FIXTURES.map(
   (fixture) => ({

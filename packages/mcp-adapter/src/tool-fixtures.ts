@@ -1,5 +1,8 @@
-import type { ApiEnvelope } from '@btraut/browser-bridge-shared';
-import type { ErrorEnvelope } from '@btraut/browser-bridge-shared';
+import {
+  DRIVE_NAVIGATE_PARITY_CASES,
+  type ApiEnvelope,
+  type ErrorEnvelope,
+} from '@btraut/browser-bridge-shared';
 
 export type ToolFixture = {
   name: string;
@@ -18,6 +21,12 @@ export type ToolCoverageRow = {
   wiring: ToolCoverageStatus;
   integration: ToolCoverageStatus;
   e2e: ToolCoverageStatus;
+};
+
+export type DriveNavigateParityFixture = {
+  caseId: 'explicit_session' | 'missing_session';
+  input: unknown;
+  successEnvelope: ApiEnvelope<unknown>;
 };
 
 export const MCP_TOOL_FIXTURES: ToolFixture[] = [
@@ -81,6 +90,7 @@ export const MCP_TOOL_FIXTURES: ToolFixture[] = [
       ok: true,
       result: {
         ok: true,
+        session_id: 'session-1',
       },
     },
   },
@@ -570,4 +580,14 @@ export const MCP_TOOL_COVERAGE_MATRIX: ToolCoverageRow[] =
     wiring: 'covered',
     integration: 'covered',
     e2e: 'optional',
+  }));
+
+export const MCP_DRIVE_NAVIGATE_PARITY_FIXTURES: DriveNavigateParityFixture[] =
+  DRIVE_NAVIGATE_PARITY_CASES.map((parityCase) => ({
+    caseId: parityCase.caseId,
+    input: parityCase.input,
+    successEnvelope: {
+      ok: true,
+      result: parityCase.successResult,
+    },
   }));
