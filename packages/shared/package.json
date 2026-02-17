@@ -1,6 +1,6 @@
 {
   "name": "@btraut/browser-bridge-shared",
-  "version": "0.12.0",
+  "version": "0.12.1",
   "license": "MIT",
   "private": true,
   "main": "dist/index.js",

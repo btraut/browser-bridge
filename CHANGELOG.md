@@ -6,6 +6,10 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 
 ## [Unreleased]
 
+_TBD_
+
+## [0.12.1] - 2026-02-17
+
 ### Changed
 
 - Extension popup now shows a compact `Connected` indicator (green/red) instead of the verbose connection diagnostics panel.
