@@ -88,6 +88,7 @@ import type { CallToolResult } from '@modelcontextprotocol/sdk/types';
 import { CoreClient } from './core-client';
 
 type ToolResult = CallToolResult;
+type CoreClientProvider = CoreClient | (() => Promise<CoreClient>);
 
 type ToolConfig = {
   title: string;
@@ -501,12 +502,16 @@ export const TOOL_DEFINITIONS: Array<{ name: string; config: ToolConfig }> = [
 ];
 
 export const createToolHandler = (
-  client: CoreClient,
+  clientProvider: CoreClientProvider,
   corePath: string
 ): ToolCallback<AnySchema> => {
   return (async (args: unknown, _extra: unknown): Promise<ToolResult> => {
     void _extra;
     try {
+      const client =
+        typeof clientProvider === 'function'
+          ? await clientProvider()
+          : clientProvider;
       const envelopeResult = await client.post(corePath, args);
       return toToolResult(envelopeResult);
     } catch (error) {
@@ -521,7 +526,7 @@ export const createToolHandler = (
 
 export const registerBrowserBridgeTools = (
   server: ToolRegistrar,
-  client: CoreClient
+  clientProvider: CoreClientProvider
 ): void => {
   for (const tool of TOOL_DEFINITIONS) {
     server.registerTool(
@@ -532,7 +537,7 @@ export const registerBrowserBridgeTools = (
         inputSchema: tool.config.inputSchema,
         outputSchema: tool.config.outputSchema,
       },
-      createToolHandler(client, tool.config.corePath)
+      createToolHandler(clientProvider, tool.config.corePath)
     );
   }
 };

@@ -1,18 +1,30 @@
+import { randomUUID } from 'node:crypto';
 import { createServer } from 'node:http';
 import type { IncomingMessage } from 'node:http';
-import { randomUUID } from 'node:crypto';
-import { JsonlLogger, createJsonlLogger } from '@btraut/browser-bridge-shared';
+import type { ErrorEnvelope, JsonlLogger } from '@btraut/browser-bridge-shared';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { isInitializeRequest } from '@modelcontextprotocol/sdk/types.js';
-import { CoreClient, CoreClientOptions, createCoreClient } from './core-client';
+import {
+  createCoreClient,
+  type CoreClient,
+  type CoreClientOptions,
+} from './core-client';
+import { createDeferredJsonlLogger } from './deferred-logger';
 import { registerBrowserBridgeTools } from './tools';
+
+export type CoreClientFactory = (
+  logger: JsonlLogger
+) => CoreClient | Promise<CoreClient>;
 
 export type McpAdapterOptions = CoreClientOptions & {
   name?: string;
   version?: string;
+  logger?: JsonlLogger;
   coreClient?: CoreClient;
+  coreClientFactory?: CoreClientFactory;
+  eager?: boolean;
 };
 
 export type McpAdapterHandle = {
@@ -42,72 +54,284 @@ const DEFAULT_SERVER_NAME = 'browser-bridge';
 const DEFAULT_SERVER_VERSION = '0.0.0';
 const DEFAULT_HTTP_HOST = '127.0.0.1';
 const DEFAULT_HTTP_PATH = '/mcp';
+const ENV_MCP_EAGER = 'BROWSER_BRIDGE_MCP_EAGER';
+const ENV_LEGACY_MCP_EAGER = 'BROWSER_VISION_MCP_EAGER';
+
+type DeferredLoggerController = {
+  logger: JsonlLogger;
+  activate: () => void;
+};
+
+type RuntimeController = {
+  logger: JsonlLogger;
+  client: CoreClient;
+  ensureInitialized: () => Promise<CoreClient>;
+  isInitialized: () => boolean;
+};
+
+type EnsureReadyCoreClient = CoreClient & {
+  ensureReady?: () => Promise<void>;
+};
+
+type McpBootstrapHandle = McpAdapterHandle & {
+  logger: JsonlLogger;
+  ensureInitialized: () => Promise<CoreClient>;
+  isInitialized: () => boolean;
+};
 
 const durationMs = (startedAt: bigint): number =>
   Number((Number(process.hrtime.bigint() - startedAt) / 1_000_000).toFixed(3));
 
-const resolveAdapterLogger = (
-  options: McpAdapterOptions & { logger?: JsonlLogger }
-): JsonlLogger =>
-  options.logger ??
-  createJsonlLogger({
+const parseBoolean = (value: string | undefined): boolean | undefined => {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  if (
+    normalized === '1' ||
+    normalized === 'true' ||
+    normalized === 'yes' ||
+    normalized === 'on'
+  ) {
+    return true;
+  }
+  if (
+    normalized === '0' ||
+    normalized === 'false' ||
+    normalized === 'no' ||
+    normalized === 'off'
+  ) {
+    return false;
+  }
+  return undefined;
+};
+
+const resolveEagerMode = (explicit?: boolean): boolean => {
+  if (typeof explicit === 'boolean') {
+    return explicit;
+  }
+
+  const envValue =
+    parseBoolean(process.env[ENV_MCP_EAGER]) ??
+    parseBoolean(process.env[ENV_LEGACY_MCP_EAGER]);
+  return envValue ?? false;
+};
+
+const toCoreClientOptions = (
+  options: McpAdapterOptions,
+  logger: JsonlLogger
+): CoreClientOptions => ({
+  host: options.host,
+  port: options.port,
+  cwd: options.cwd,
+  timeoutMs: options.timeoutMs,
+  ensureDaemon: options.ensureDaemon ?? true,
+  componentVersion: options.version ?? DEFAULT_SERVER_VERSION,
+  healthRetryMs: options.healthRetryMs,
+  healthAttempts: options.healthAttempts,
+  fetchImpl: options.fetchImpl,
+  spawnImpl: options.spawnImpl,
+  logger,
+});
+
+const buildInitializationError = (error: unknown): ErrorEnvelope => {
+  const message =
+    error instanceof Error
+      ? error.message
+      : typeof error === 'string'
+        ? error
+        : 'Unknown initialization failure.';
+
+  return {
+    ok: false,
+    error: {
+      code: 'UNAVAILABLE',
+      message: `MCP runtime initialization failed: ${message}`,
+      retryable: true,
+      details: {
+        phase: 'mcp_runtime_init',
+      },
+    },
+  };
+};
+
+const resolveDeferredLoggerController = (
+  options: McpAdapterOptions
+): DeferredLoggerController => {
+  if (options.logger) {
+    return {
+      logger: options.logger,
+      activate: () => undefined,
+    };
+  }
+
+  const deferred = createDeferredJsonlLogger({
     stream: 'mcp-adapter',
     cwd: options.cwd,
   });
 
-export const createMcpServer = (
+  return {
+    logger: deferred.logger,
+    activate: () => {
+      deferred.activate();
+    },
+  };
+};
+
+const createRuntimeController = (
+  options: McpAdapterOptions
+): RuntimeController => {
+  const deferredLogger = resolveDeferredLoggerController(options);
+  const logger = deferredLogger.logger;
+  const coreLogger = logger.child({ scope: 'core-client' });
+
+  let initializedClient: CoreClient | null = null;
+  let initializationPromise: Promise<CoreClient> | null = null;
+
+  const createClient = async (): Promise<CoreClient> => {
+    if (options.coreClient) {
+      return options.coreClient;
+    }
+    if (options.coreClientFactory) {
+      return await options.coreClientFactory(coreLogger);
+    }
+    return createCoreClient(toCoreClientOptions(options, coreLogger));
+  };
+
+  const proxyClient: CoreClient = {
+    get baseUrl() {
+      return initializedClient?.baseUrl ?? '';
+    },
+    ensureReady: async () => {
+      await ensureInitialized();
+    },
+    post: async <T>(path: string, body?: unknown) => {
+      const client = await ensureInitialized();
+      return client.post<T>(path, body);
+    },
+  };
+
+  const ensureInitialized = async (): Promise<CoreClient> => {
+    if (initializedClient) {
+      return initializedClient;
+    }
+
+    if (!initializationPromise) {
+      initializationPromise = (async () => {
+        logger.info('mcp.runtime.init.begin');
+        try {
+          const candidate = await createClient();
+          const maybeEnsureReady = (candidate as EnsureReadyCoreClient)
+            .ensureReady;
+          if (typeof maybeEnsureReady === 'function') {
+            await maybeEnsureReady.call(candidate);
+          }
+
+          deferredLogger.activate();
+          initializedClient = candidate;
+
+          logger.info('mcp.runtime.init.ready', {
+            core_base_url: candidate.baseUrl,
+          });
+
+          return candidate;
+        } catch (error) {
+          logger.error('mcp.runtime.init.failed', {
+            error,
+          });
+          throw buildInitializationError(error);
+        }
+      })();
+
+      initializationPromise = initializationPromise.catch((error) => {
+        initializationPromise = null;
+        throw error;
+      });
+    }
+
+    return initializationPromise;
+  };
+
+  return {
+    logger,
+    client: options.coreClient ?? proxyClient,
+    ensureInitialized,
+    isInitialized: () => initializedClient !== null,
+  };
+};
+
+const createMcpServerBootstrap = (
   options: McpAdapterOptions = {}
-): McpAdapterHandle => {
-  const logger = resolveAdapterLogger(options);
+): McpBootstrapHandle => {
+  const runtime = createRuntimeController(options);
   const server = new McpServer({
     name: options.name ?? DEFAULT_SERVER_NAME,
     version: options.version ?? DEFAULT_SERVER_VERSION,
   });
-  const client =
-    options.coreClient ??
-    createCoreClient({
-      ...options,
-      ensureDaemon: options.ensureDaemon ?? true,
-      componentVersion: options.version ?? DEFAULT_SERVER_VERSION,
-      logger: logger.child({ scope: 'core-client' }),
-    });
 
-  registerBrowserBridgeTools(server, client);
-  logger.info('mcp.server.created', {
+  registerBrowserBridgeTools(server, runtime.ensureInitialized);
+
+  runtime.logger.info('mcp.server.created', {
     name: options.name ?? DEFAULT_SERVER_NAME,
     version: options.version ?? DEFAULT_SERVER_VERSION,
-    core_base_url: client.baseUrl,
+    lazy_init: true,
   });
 
-  return { server, client };
+  return {
+    server,
+    client: runtime.client,
+    logger: runtime.logger,
+    ensureInitialized: runtime.ensureInitialized,
+    isInitialized: runtime.isInitialized,
+  };
+};
+
+export const createMcpServer = (
+  options: McpAdapterOptions = {}
+): McpAdapterHandle => {
+  const handle = createMcpServerBootstrap(options);
+  return {
+    server: handle.server,
+    client: handle.client,
+  };
 };
 
 export const startMcpServer = async (
   options: McpAdapterOptions = {}
 ): Promise<McpAdapterStartHandle> => {
-  const logger = resolveAdapterLogger(options);
-  logger.info('mcp.stdio.start.begin', {
+  const eager = resolveEagerMode(options.eager);
+  const handle = createMcpServerBootstrap(options);
+
+  handle.logger.info('mcp.stdio.start.begin', {
     name: options.name ?? DEFAULT_SERVER_NAME,
     version: options.version ?? DEFAULT_SERVER_VERSION,
+    eager,
   });
 
-  const handle = createMcpServer({
-    ...options,
-    logger,
-  });
   const transport = new StdioServerTransport();
   try {
+    if (eager) {
+      await handle.ensureInitialized();
+    }
+
     await handle.server.connect(transport);
-    logger.info('mcp.stdio.start.ready', {
-      core_base_url: handle.client.baseUrl,
+    handle.logger.info('mcp.stdio.start.ready', {
+      core_base_url: handle.isInitialized() ? handle.client.baseUrl : null,
+      eager,
     });
   } catch (error) {
-    logger.error('mcp.stdio.start.failed', {
+    handle.logger.error('mcp.stdio.start.failed', {
       error,
     });
     throw error;
   }
-  return { ...handle, transport };
+
+  return {
+    server: handle.server,
+    client: handle.client,
+    transport,
+  };
 };
 
 const readJsonBody = async (
@@ -151,24 +375,23 @@ const getHeaderValue = (
 export const startMcpHttpServer = async (
   options: McpAdapterOptions & McpAdapterHttpOptions = {}
 ): Promise<McpAdapterHttpStartHandle> => {
-  const logger = resolveAdapterLogger(options).child({ scope: 'http-server' });
+  const eager = resolveEagerMode(options.eager);
+  const runtime = createRuntimeController(options);
+  const logger = runtime.logger.child({ scope: 'http-server' });
   const host = options.host ?? DEFAULT_HTTP_HOST;
   const port = typeof options.port === 'number' ? options.port : 0;
   const path = options.path ?? DEFAULT_HTTP_PATH;
+
   logger.info('mcp.http.start.begin', {
     host,
     port,
     path,
+    eager,
   });
 
-  const client =
-    options.coreClient ??
-    createCoreClient({
-      ...options,
-      ensureDaemon: options.ensureDaemon ?? true,
-      componentVersion: options.version ?? DEFAULT_SERVER_VERSION,
-      logger: logger.child({ scope: 'core-client' }),
-    });
+  if (eager) {
+    await runtime.ensureInitialized();
+  }
 
   const sessions = new Map<
     string,
@@ -305,7 +528,7 @@ export const startMcpHttpServer = async (
         name: options.name ?? DEFAULT_SERVER_NAME,
         version: options.version ?? DEFAULT_SERVER_VERSION,
       });
-      registerBrowserBridgeTools(sessionServer, client);
+      registerBrowserBridgeTools(sessionServer, runtime.ensureInitialized);
       await sessionServer.connect(transport);
       sessionEntry = { transport, server: sessionServer };
 
@@ -342,11 +565,12 @@ export const startMcpHttpServer = async (
     host,
     port: resolvedPort,
     path,
-    core_base_url: client.baseUrl,
+    core_base_url: runtime.isInitialized() ? runtime.client.baseUrl : null,
+    eager,
   });
 
   return {
-    client,
+    client: runtime.client,
     host,
     port: resolvedPort,
     path,
