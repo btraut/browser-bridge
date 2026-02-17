@@ -2,7 +2,6 @@ import { Command } from 'commander';
 import {
   DiagnosticsDoctorInputSchema,
   HealthCheckInputSchema,
-  resolveCoreRuntime,
 } from '@btraut/browser-bridge-shared';
 import { parseInput } from '../cli-output';
 import { runCommand } from '../cli-runtime';
@@ -17,26 +16,9 @@ export const registerDiagnosticsCommands = (program: Command): void => {
     .description('Run diagnostics')
     .option('--session-id <id>', 'Session identifier')
     .action(async (options, command) => {
-      await runCommand(command, (client, globalOptions) => {
-        const runtime = resolveCoreRuntime({
-          host: globalOptions.host,
-          port: globalOptions.port,
-          strictEnvPort: true,
-        });
+      await runCommand(command, (client) => {
         const payload = parseInput(DiagnosticsDoctorInputSchema, {
           session_id: options.sessionId,
-          caller: {
-            endpoint: {
-              host: runtime.host,
-              port: runtime.port,
-              base_url: `http://${runtime.host}:${runtime.port}`,
-              host_source: runtime.hostSource,
-              port_source: runtime.portSource,
-            },
-            process: {
-              component: 'cli',
-            },
-          },
         });
         return client.post('/diagnostics/doctor', payload);
       });

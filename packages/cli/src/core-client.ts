@@ -82,6 +82,8 @@ export const createCoreClient = (
   const fetchImpl = options.fetchImpl ?? fetch;
   const spawnImpl = options.spawnImpl ?? spawn;
   const timeoutMs = resolveTimeoutMs(options.timeoutMs);
+  const componentVersion =
+    process.env.BROWSER_BRIDGE_VERSION ?? process.env.npm_package_version;
 
   const readiness = createCoreReadinessController({
     host: options.host,
@@ -238,7 +240,33 @@ export const createCoreClient = (
   ): Promise<ApiEnvelope<T>> => {
     await readiness.ensureReady();
     readiness.refreshRuntime();
-    return requestJson<ApiEnvelope<T>>('POST', path, body);
+    const payload =
+      path === '/diagnostics/doctor' &&
+      (!body || (typeof body === 'object' && !Array.isArray(body)))
+        ? {
+            ...(body && typeof body === 'object' ? body : {}),
+            caller: {
+              endpoint: {
+                host: readiness.runtime.host,
+                port: readiness.runtime.port,
+                base_url: readiness.baseUrl,
+                host_source: readiness.runtime.hostSource,
+                port_source: readiness.runtime.portSource,
+                metadata_path: readiness.runtime.metadataPath,
+                isolated_mode: readiness.runtime.isolatedMode,
+              },
+              process: {
+                component: 'cli' as const,
+                version: componentVersion,
+                pid: process.pid,
+                node_version: process.version,
+                binary_path: process.execPath,
+                argv_entry: process.argv[1],
+              },
+            },
+          }
+        : body;
+    return requestJson<ApiEnvelope<T>>('POST', path, payload);
   };
 
   return {

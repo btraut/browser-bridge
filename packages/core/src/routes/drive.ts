@@ -1,5 +1,6 @@
 import { DriveController } from '../drive';
 import type { DriveAction } from '../drive-protocol';
+import { SessionRegistry } from '../session';
 import {
   DriveClickInputSchema,
   DriveBackInputSchema,
@@ -52,6 +53,7 @@ type SchemaLike<T> = {
 
 type DriveRouteOptions = {
   drive: DriveController;
+  registry: SessionRegistry;
 };
 
 type HandlerOptions = {
@@ -80,7 +82,71 @@ const parseBody = <T>(
   };
 };
 
-const makeHandler = <T extends { session_id: string }>(
+const makeNavigateHandler = <T extends { session_id?: string }>(
+  schema: SchemaLike<T>,
+  drive: DriveController,
+  registry: SessionRegistry
+) => {
+  return (req: RequestLike, res: ResponseLike): void => {
+    const parsed = parseBody(schema, req.body ?? {});
+    if (parsed.error) {
+      sendError(res, errorStatus('INVALID_ARGUMENT'), {
+        code: 'INVALID_ARGUMENT',
+        message: parsed.error.message,
+        retryable: false,
+        ...(parsed.error.details ? { details: parsed.error.details } : {}),
+      });
+      return;
+    }
+
+    const body = parsed.data as Record<string, unknown>;
+    const parsedSessionId = body.session_id;
+    const sessionId =
+      typeof parsedSessionId === 'string' && parsedSessionId.length > 0
+        ? parsedSessionId
+        : registry.create().id;
+
+    const params = { ...body };
+    delete params.session_id;
+
+    void drive
+      .execute<Record<string, unknown>>(
+        sessionId,
+        'drive.navigate',
+        params as Record<string, unknown>
+      )
+      .then((result) => {
+        if (result.ok) {
+          const payload =
+            result.result && typeof result.result === 'object'
+              ? {
+                  ...(result.result as Record<string, unknown>),
+                  session_id: sessionId,
+                }
+              : {
+                  ok: true,
+                  session_id: sessionId,
+                };
+          sendResult(res, payload);
+          return;
+        }
+        sendError(res, errorStatus(result.error.code), result.error);
+      })
+      .catch((error) => {
+        console.error('Drive execute failed:', error);
+        sendError(res, errorStatus('INTERNAL'), {
+          code: 'INTERNAL',
+          message: 'Unexpected error while executing drive action.',
+          retryable: false,
+          details: {
+            hint: error instanceof Error ? error.message : 'Unknown error.',
+          },
+        });
+      });
+  };
+};
+
+const makeHandler = <T extends { session_id?: string }>(
   action: DriveAction,
   schema: SchemaLike<T>,
   drive: DriveController,
@@ -99,7 +165,18 @@ const makeHandler = <T extends { session_id: string }>(
     }
 
     const body = parsed.data as Record<string, unknown>;
-    const sessionId = body.session_id as string;
+    const sessionId = body.session_id;
+    if (typeof sessionId !== 'string' || sessionId.length === 0) {
+      sendError(res, errorStatus('INVALID_ARGUMENT'), {
+        code: 'INVALID_ARGUMENT',
+        message: 'session_id is required',
+        retryable: false,
+        details: {
+          field: 'session_id',
+        },
+      });
+      return;
+    }
     const params = { ...body };
     delete params.session_id;
 
@@ -184,11 +261,11 @@ export const registerDriveRoutes = (
   router: RouteRegistry,
   options: DriveRouteOptions
 ): void => {
-  const { drive } = options;
+  const { drive, registry } = options;
 
   router.post(
     '/drive/navigate',
-    makeHandler('drive.navigate', DriveNavigateInputSchema, drive)
+    makeNavigateHandler(DriveNavigateInputSchema, drive, registry)
   );
   router.post(
     '/drive/go_back',

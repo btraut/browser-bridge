@@ -46,6 +46,25 @@ describe('DriveController', () => {
     expect(registry.require(session.id).state).toBe(SessionState.DRIVE_READY);
   });
 
+  it('fails fast with an explicit preflight error when extension is disconnected', async () => {
+    const registry = new SessionRegistry();
+    const session = registry.create();
+    const bridge = {
+      isConnected: () => false,
+      request: vi.fn(),
+    } as unknown as ExtensionBridge;
+    const controller = new DriveController(bridge, registry);
+
+    const result = await controller.execute(session.id, 'drive.tab_list', {});
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe('EXTENSION_DISCONNECTED');
+      expect(result.error.message).toContain('Extension is not connected');
+    }
+    expect(bridge.request).not.toHaveBeenCalled();
+  });
+
   it('moves READY sessions to DEGRADED_DRIVE on disconnect errors', async () => {
     const registry = new SessionRegistry();
     const session = registry.create();
@@ -78,7 +97,7 @@ describe('DriveController', () => {
     const registry = new SessionRegistry();
     const session = registry.create();
     const bridge = {
-      isConnected: () => false,
+      isConnected: () => true,
       request: vi
         .fn()
         .mockResolvedValueOnce({
@@ -108,5 +127,36 @@ describe('DriveController', () => {
     const second = await controller.execute(session.id, 'drive.tab_list', {});
     expect(second.ok).toBe(true);
     expect(controller.getLastError()).toBeUndefined();
+  });
+
+  it('fails fast when loopback navigation target is unreachable', async () => {
+    const registry = new SessionRegistry();
+    const session = registry.create();
+    const bridge = {
+      isConnected: () => true,
+      request: vi.fn(),
+    } as unknown as ExtensionBridge;
+    const controller = new DriveController(bridge, registry);
+
+    const fetchMock = vi.fn(async () => {
+      throw new Error('connect ECONNREFUSED 127.0.0.1:3072');
+    }) as unknown as typeof fetch;
+    vi.stubGlobal('fetch', fetchMock);
+
+    try {
+      const result = await controller.execute(session.id, 'drive.navigate', {
+        url: 'http://127.0.0.1:3072',
+      });
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.code).toBe('NAVIGATION_FAILED');
+        expect(result.error.message).toContain('unreachable');
+      }
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(bridge.request).not.toHaveBeenCalled();
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });

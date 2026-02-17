@@ -16,6 +16,10 @@ const ENV_CORE_PORT = 'BROWSER_BRIDGE_CORE_PORT';
 const ENV_VISION_PORT = 'BROWSER_VISION_CORE_PORT';
 const ENV_ISOLATED_MODE = 'BROWSER_BRIDGE_ISOLATED_MODE';
 const ENV_VISION_ISOLATED_MODE = 'BROWSER_VISION_ISOLATED_MODE';
+const ENV_BRIDGE_CWD = 'BROWSER_BRIDGE_CWD';
+const ENV_PROCESS_PWD = 'PWD';
+const ENV_PROCESS_INIT_CWD = 'INIT_CWD';
+const ENV_PROCESS_HOME = 'HOME';
 
 export const RUNTIME_METADATA_RELATIVE_PATH =
   '.context/browser-bridge/dev.json';
@@ -58,7 +62,50 @@ export type ResolvedCoreRuntime = {
   isolatedModeSource: 'option' | 'env' | 'metadata' | 'default';
 };
 
-const resolveCwd = (cwd?: string): string => resolve(cwd ?? process.cwd());
+const normalizeCandidatePath = (value: unknown): string | undefined => {
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+  const trimmed = value.trim();
+  if (trimmed.length === 0) {
+    return undefined;
+  }
+  return resolve(trimmed);
+};
+
+const resolveCwd = (cwd?: string): string => {
+  const explicit = normalizeCandidatePath(cwd);
+  if (explicit) {
+    return explicit;
+  }
+
+  const envExplicit = normalizeCandidatePath(process.env[ENV_BRIDGE_CWD]);
+  if (envExplicit) {
+    return envExplicit;
+  }
+
+  const processCwd = normalizeCandidatePath(process.cwd());
+  if (processCwd && processCwd !== '/') {
+    return processCwd;
+  }
+
+  const processPwd = normalizeCandidatePath(process.env[ENV_PROCESS_PWD]);
+  if (processPwd && processPwd !== '/') {
+    return processPwd;
+  }
+
+  const initCwd = normalizeCandidatePath(process.env[ENV_PROCESS_INIT_CWD]);
+  if (initCwd && initCwd !== '/') {
+    return initCwd;
+  }
+
+  const home = normalizeCandidatePath(process.env[ENV_PROCESS_HOME]);
+  if (home) {
+    return home;
+  }
+
+  return processCwd ?? resolve('.');
+};
 
 const resolveOptionalPath = (
   cwd: string,
@@ -263,8 +310,8 @@ const sanitizeMetadata = (raw: unknown): RuntimeMetadata | null => {
   };
 };
 
-export const findGitRoot = (cwd = process.cwd()): string | null => {
-  let current = resolve(cwd);
+export const findGitRoot = (cwd?: string): string | null => {
+  let current = resolveCwd(cwd);
   while (true) {
     if (existsSync(join(current, '.git'))) {
       return current;

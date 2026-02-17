@@ -180,6 +180,26 @@ describe('runtime-config', () => {
     );
   });
 
+  it('uses BROWSER_BRIDGE_CWD when cwd input is omitted', async () => {
+    const root = createGitRoot('runtime-config-env-cwd-root-');
+    const nested = path.join(root, 'nested', 'cwd');
+    mkdirSync(nested, { recursive: true });
+
+    await withEnv(
+      {
+        BROWSER_BRIDGE_CWD: nested,
+      },
+      async () => {
+        expect(resolveLogDirectory()).toBe(
+          path.join(root, DEFAULT_LOG_DIRECTORY_RELATIVE_PATH)
+        );
+        expect(resolveRuntimeMetadataPath()).toBe(
+          path.join(root, '.context', 'browser-bridge', 'dev.json')
+        );
+      }
+    );
+  });
+
   it('builds bounded probe sequences', () => {
     expect(createBoundedPortProbeSequence(4400, 4)).toEqual([
       4400, 4401, 4402, 4403,

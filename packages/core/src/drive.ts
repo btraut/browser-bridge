@@ -11,6 +11,89 @@ export type DriveResult<T> =
   | { ok: true; result: T }
   | { ok: false; error: DriveErrorInfo };
 
+const LOOPBACK_NAVIGATION_PREFLIGHT_TIMEOUT_MS = 1200;
+const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '::1']);
+
+const isLikelyUnreachableLoopbackError = (message: string): boolean => {
+  const normalized = message.toLowerCase();
+  return (
+    normalized.includes('connection refused') ||
+    normalized.includes('econnrefused') ||
+    normalized.includes('err_connection_refused') ||
+    normalized.includes('enotfound') ||
+    normalized.includes('err_name_not_resolved') ||
+    normalized.includes('eai_again') ||
+    normalized.includes('ehostunreach') ||
+    normalized.includes('enetunreach')
+  );
+};
+
+const preflightLoopbackNavigation = async (
+  action: DriveAction,
+  params?: Record<string, unknown>
+): Promise<DriveErrorInfo | undefined> => {
+  if (action !== 'drive.navigate') {
+    return undefined;
+  }
+
+  const urlValue = params?.url;
+  if (typeof urlValue !== 'string' || urlValue.trim().length === 0) {
+    return undefined;
+  }
+
+  let parsed: URL;
+  try {
+    parsed = new URL(urlValue);
+  } catch {
+    return undefined;
+  }
+
+  if (!['http:', 'https:'].includes(parsed.protocol)) {
+    return undefined;
+  }
+
+  if (!LOOPBACK_HOSTS.has(parsed.hostname.toLowerCase())) {
+    return undefined;
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => {
+    controller.abort();
+  }, LOOPBACK_NAVIGATION_PREFLIGHT_TIMEOUT_MS);
+
+  try {
+    await fetch(urlValue, {
+      method: 'HEAD',
+      redirect: 'manual',
+      signal: controller.signal,
+    });
+    return undefined;
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      return undefined;
+    }
+
+    const message =
+      error instanceof Error ? error.message : 'Navigation preflight failed.';
+    if (!isLikelyUnreachableLoopbackError(message)) {
+      return undefined;
+    }
+
+    return {
+      code: 'NAVIGATION_FAILED',
+      message: `Navigation target is unreachable: ${urlValue}`,
+      retryable: true,
+      details: {
+        url: urlValue,
+        preflight: 'loopback_head',
+        reason: message,
+      },
+    };
+  } finally {
+    clearTimeout(timeout);
+  }
+};
+
 class DriveMutex {
   private tail = Promise.resolve();
 
@@ -88,8 +171,29 @@ export class DriveController {
         };
       }
 
-      if (this.bridge.isConnected()) {
-        this.ensureDriveReady(sessionId);
+      if (!this.bridge.isConnected()) {
+        const errorInfo: DriveErrorInfo = {
+          code: 'EXTENSION_DISCONNECTED',
+          message:
+            'Extension is not connected. Open Chrome with the Browser Bridge extension enabled, then retry.',
+          retryable: true,
+          details: {
+            next_step: 'Ensure Chrome is running and extension.connected=true.',
+          },
+        };
+        this.recordError(errorInfo);
+        return { ok: false, error: errorInfo };
+      }
+
+      this.ensureDriveReady(sessionId);
+
+      const preflightError = await preflightLoopbackNavigation(action, params);
+      if (preflightError) {
+        this.recordError(preflightError);
+        return {
+          ok: false,
+          error: preflightError,
+        };
       }
 
       let attempt = 0;

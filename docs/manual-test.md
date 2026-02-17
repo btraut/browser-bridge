@@ -36,16 +36,17 @@ This checklist validates the Drive + Inspect planes and artifact handling end-to
 ## Checklist (Core + CLI)
 
 1. Start the Core daemon in a terminal (optional if you rely on CLI auto-start): `npm run start`
-2. Create a session: `node packages/cli/dist/index.js session create --json`
+2. Create a session (optional): `node packages/cli/dist/index.js session create --json`
 3. Copy the `session_id` from the JSON output.
-4. Identify the target tab id (recommended, to avoid clobbering your current tab): `node packages/cli/dist/index.js drive tab-list --session-id <id> --json`
-5. Navigate that tab: `node packages/cli/dist/index.js drive navigate --session-id <id> --tab-id <tabId> --url https://example.com`
-6. Confirm drive plane connectivity: `node packages/cli/dist/index.js drive tab-list --session-id <id>`
-7. Inspect the DOM (requires the debugger-based inspect bridge): `node packages/cli/dist/index.js inspect dom-snapshot --session-id <id> --format html --consistency best_effort --json > /tmp/browser-bridge-dom.json`
-8. Inspect console logs: `node packages/cli/dist/index.js inspect console-list --session-id <id>`
-9. Capture a screenshot artifact: `node packages/cli/dist/index.js artifacts screenshot --session-id <id> --target viewport`
-10. Run diagnostics to confirm reliability status: `node packages/cli/dist/index.js diagnostics doctor --session-id <id>`
-11. Open the artifact folder: `node packages/cli/dist/index.js open-artifacts --session-id <id>`
+4. Optional bootstrap path: you can skip steps 2-3 and run `node packages/cli/dist/index.js drive navigate --url https://example.com --json`, then copy `result.session_id` from that response.
+5. Identify the target tab id (recommended, to avoid clobbering your current tab): `node packages/cli/dist/index.js drive tab-list --session-id <id> --json`
+6. Navigate that tab: `node packages/cli/dist/index.js drive navigate --session-id <id> --tab-id <tabId> --url https://example.com`
+7. Confirm drive plane connectivity: `node packages/cli/dist/index.js drive tab-list --session-id <id>`
+8. Inspect the DOM (requires the debugger-based inspect bridge): `node packages/cli/dist/index.js inspect dom-snapshot --session-id <id> --format html --consistency best_effort --json > /tmp/browser-bridge-dom.json`
+9. Inspect console logs: `node packages/cli/dist/index.js inspect console-list --session-id <id>`
+10. Capture a screenshot artifact: `node packages/cli/dist/index.js artifacts screenshot --session-id <id> --target viewport`
+11. Run diagnostics to confirm reliability status: `node packages/cli/dist/index.js diagnostics doctor --session-id <id>`
+12. Open the artifact folder: `node packages/cli/dist/index.js open-artifacts --session-id <id>`
 
 ## Checklist (Site Permissions)
 

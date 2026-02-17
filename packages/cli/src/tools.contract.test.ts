@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { MCP_TOOL_DEFINITIONS } from '@btraut/browser-bridge-shared';
-import { CLI_TOOL_COVERAGE_MATRIX, CLI_TOOL_FIXTURES } from './tool-fixtures';
+import {
+  DRIVE_NAVIGATE_PARITY_CASES,
+  DriveNavigateInputSchema,
+  DriveNavigateOutputSchema,
+  MCP_TOOL_DEFINITIONS,
+} from '@btraut/browser-bridge-shared';
+import {
+  CLI_DRIVE_NAVIGATE_PARITY_FIXTURES,
+  CLI_TOOL_COVERAGE_MATRIX,
+  CLI_TOOL_FIXTURES,
+} from './tool-fixtures';
 
 describe('cli tool fixtures (contract)', () => {
   it('uses unique fixture names', () => {
@@ -38,6 +47,30 @@ describe('cli tool fixtures (contract)', () => {
     for (const row of CLI_TOOL_COVERAGE_MATRIX) {
       expect(row.fixture).toBe('covered');
       expect(row.contract).toBe('covered');
+    }
+  });
+
+  it('covers drive.navigate parity variants against shared contracts', () => {
+    expect(CLI_DRIVE_NAVIGATE_PARITY_FIXTURES).toHaveLength(2);
+    expect(
+      CLI_DRIVE_NAVIGATE_PARITY_FIXTURES.map((fixture) => fixture.caseId)
+    ).toEqual(
+      DRIVE_NAVIGATE_PARITY_CASES.map((parityCase) => parityCase.caseId)
+    );
+
+    for (const fixture of CLI_DRIVE_NAVIGATE_PARITY_FIXTURES) {
+      const expected = DRIVE_NAVIGATE_PARITY_CASES.find(
+        (parityCase) => parityCase.caseId === fixture.caseId
+      );
+      expect(expected).toBeDefined();
+      expect(fixture.payload).toEqual(expected?.input);
+      expect(fixture.successResult).toEqual(expected?.successResult);
+      expect(DriveNavigateInputSchema.safeParse(fixture.payload).success).toBe(
+        true
+      );
+      expect(
+        DriveNavigateOutputSchema.safeParse(fixture.successResult).success
+      ).toBe(true);
     }
   });
 });

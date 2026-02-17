@@ -55,6 +55,8 @@ export const errorStatus = (code: string): number => {
     case 'EXTENSION_DISCONNECTED':
     case 'INSPECT_UNAVAILABLE':
       return 503;
+    case 'NAVIGATION_FAILED':
+      return 502;
     case 'TIMEOUT':
       return 504;
     case 'RATE_LIMITED':

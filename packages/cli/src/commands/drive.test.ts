@@ -1,0 +1,96 @@
+import { Command } from 'commander';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { registerDriveCommands } from './drive';
+import { runCommand } from '../cli-runtime';
+import type { CoreClient } from '../core-client';
+
+vi.mock('../cli-runtime', () => ({
+  runCommand: vi.fn(),
+}));
+
+const buildProgram = (): Command => {
+  const program = new Command();
+  program
+    .option('--host <host>')
+    .option('--port <port>')
+    .option('--json')
+    .option('--no-daemon');
+  registerDriveCommands(program);
+  program.exitOverride();
+  return program;
+};
+
+describe('drive navigate command', () => {
+  beforeEach(() => {
+    vi.mocked(runCommand).mockReset();
+  });
+
+  it('forwards drive.navigate without session_id when omitted', async () => {
+    const post = vi.fn().mockResolvedValue({
+      ok: true as const,
+      result: { ok: true, session_id: 'session-auto' },
+    });
+
+    const client = {
+      baseUrl: 'http://127.0.0.1:3210',
+      ensureReady: async () => undefined,
+      post,
+    } as CoreClient;
+
+    vi.mocked(runCommand).mockImplementation(async (_command, work) => {
+      await work(client, {});
+    });
+
+    const program = buildProgram();
+    await program.parseAsync([
+      'node',
+      'cli',
+      'drive',
+      'navigate',
+      '--url',
+      'https://example.com',
+    ]);
+
+    expect(post).toHaveBeenCalledTimes(1);
+    expect(post).toHaveBeenCalledWith('/drive/navigate', {
+      url: 'https://example.com',
+      wait: 'domcontentloaded',
+    });
+  });
+
+  it('forwards drive.navigate with an explicit --session-id', async () => {
+    const post = vi.fn().mockResolvedValue({
+      ok: true as const,
+      result: { ok: true },
+    });
+
+    const client = {
+      baseUrl: 'http://127.0.0.1:3210',
+      ensureReady: async () => undefined,
+      post,
+    } as CoreClient;
+
+    vi.mocked(runCommand).mockImplementation(async (_command, work) => {
+      await work(client, {});
+    });
+
+    const program = buildProgram();
+    await program.parseAsync([
+      'node',
+      'cli',
+      'drive',
+      'navigate',
+      '--session-id',
+      'session-1',
+      '--url',
+      'https://example.com',
+    ]);
+
+    expect(post).toHaveBeenCalledTimes(1);
+    expect(post).toHaveBeenCalledWith('/drive/navigate', {
+      session_id: 'session-1',
+      url: 'https://example.com',
+      wait: 'domcontentloaded',
+    });
+  });
+});

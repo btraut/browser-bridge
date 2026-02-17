@@ -6,10 +6,19 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 
 ## [Unreleased]
 
+### Changed
+
+- `drive.navigate` now supports omitted `session_id` through both CLI and MCP; Core auto-creates the session and returns canonical `result.session_id` in the success payload.
+- CLI and MCP now share parity guardrails for `drive.navigate` contracts via shared explicit/missing-session fixture variants and contract checks.
+- Diagnostics caller runtime context is now normalized across CLI and MCP, with both clients attaching equivalent endpoint/process metadata for `diagnostics.doctor`.
+
 ### Fixed
 
 - Extension now re-applies the `Browser Bridge` tab-group title for reused dedicated agent tabs, so stale groups no longer stay untitled.
 - Extension now reapplies the toolbar robot icon as the dedicated agent tab favicon after agent-driven navigations.
+- Core drive preflight now fails fast with an explicit `EXTENSION_DISCONNECTED` error when the extension is offline, instead of attempting a drive call first.
+- Core `drive.navigate` now preflights loopback targets (`localhost`/`127.0.0.1`/`::1`) and returns `NAVIGATION_FAILED` quickly when the local app is unreachable.
+- Runtime path resolution now honors `BROWSER_BRIDGE_CWD` and safer cwd fallbacks, preventing broken launch contexts from writing logs/metadata under `/.context`.
 
 ## [0.12.1] - 2026-02-17
 
