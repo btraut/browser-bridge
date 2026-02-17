@@ -136,7 +136,20 @@ describe('cli integration (mock core)', () => {
 
       expect(output.ok).toBe(true);
       expect(output.result?.path).toBe(fixture.corePath);
-      expect(output.result?.received).toEqual(fixture.payload);
+      if (fixture.corePath === '/diagnostics/doctor') {
+        expect(output.result?.received).toEqual(
+          expect.objectContaining(fixture.payload as Record<string, unknown>)
+        );
+        expect(
+          (
+            output.result?.received as {
+              caller?: { process?: { component?: string } };
+            }
+          ).caller?.process?.component
+        ).toBe('cli');
+      } else {
+        expect(output.result?.received).toEqual(fixture.payload);
+      }
       expect(process.exitCode).toBeUndefined();
 
       logSpy.mockRestore();

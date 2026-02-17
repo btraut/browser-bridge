@@ -33,12 +33,12 @@ Browser Bridge currently drifts between CLI and MCP behavior for session handlin
 
 - [x] ✅ Update shared schemas for `drive.navigate` request/response parity. - `DriveNavigateInputSchema` now accepts missing `session_id`; `DriveNavigateOutputSchema` now requires canonical `session_id`.
 - [x] ✅ Implement Core-side missing-session resolution for `drive.navigate`. - Core `registerDriveRoutes` now auto-creates a session when `session_id` is omitted and always emits canonical `session_id` in success payloads.
-- [ ] Keep response envelope stable and explicit.
+- [x] ✅ Keep response envelope stable and explicit. - `drive.navigate` continues using the standard `{ ok, result }` envelope while making `result.session_id` explicit and canonical.
 
 ### Milestone B - Adapter parity and docs
 
 - [x] ✅ Remove CLI-only behavior branches that bypass shared contracts. - CLI `drive navigate` no longer creates sessions locally and now forwards directly to Core like MCP.
-- [ ] Ensure MCP and CLI produce identical shape/semantics for the same call.
+- [x] ✅ Ensure MCP and CLI produce identical shape/semantics for the same call. - Both adapters now forward shared `drive.navigate` contracts, and parity contract tests validate required args/output shape against shared schemas.
 - [ ] Align docs/manual test/spec references with the new single policy.
 
 ### Milestone C - Drift guardrails
