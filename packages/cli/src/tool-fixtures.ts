@@ -577,7 +577,21 @@ export const CLI_TOOL_FIXTURES: CliToolFixture[] = [
     kind: 'core',
     corePath: '/diagnostics/doctor',
     argv: ['diagnostics', 'doctor', '--session-id', 'session-1'],
-    payload: { session_id: 'session-1' },
+    payload: {
+      session_id: 'session-1',
+      caller: {
+        endpoint: {
+          host: '127.0.0.1',
+          port: 3210,
+          base_url: 'http://127.0.0.1:3210',
+          host_source: 'default',
+          port_source: 'default',
+        },
+        process: {
+          component: 'cli',
+        },
+      },
+    },
   },
   {
     name: 'open-artifacts',

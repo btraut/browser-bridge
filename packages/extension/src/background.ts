@@ -21,6 +21,7 @@ import {
   siteKeyFromUrl,
   touchSiteLastUsed,
 } from './site-permissions.js';
+import { ConnectionStateTracker } from './connection-state.js';
 
 type ContentResult =
   | { ok: true; result?: unknown }
@@ -46,6 +47,12 @@ type DebuggerSession = {
 type ScreenPoint = {
   x: number;
   y: number;
+};
+
+type CoreEndpointConfig = {
+  host: string;
+  port: number;
+  portSource: 'default' | 'storage';
 };
 
 const DEFAULT_CORE_PORT = 3210;
@@ -327,24 +334,36 @@ const renderDataUrlToFormat = async (
   }
 };
 
-const readCorePort = async (): Promise<number> => {
-  return await new Promise<number>((resolve) => {
+const readCoreEndpointConfig = async (): Promise<CoreEndpointConfig> => {
+  return await new Promise<CoreEndpointConfig>((resolve) => {
     chrome.storage.local.get(
       [CORE_PORT_KEY],
       (result: Record<string, unknown>) => {
         const raw = result?.[CORE_PORT_KEY];
         if (typeof raw === 'number' && Number.isFinite(raw)) {
-          resolve(raw);
+          resolve({
+            host: '127.0.0.1',
+            port: raw,
+            portSource: 'storage',
+          });
           return;
         }
         if (typeof raw === 'string') {
           const parsed = Number(raw);
           if (Number.isFinite(parsed)) {
-            resolve(parsed);
+            resolve({
+              host: '127.0.0.1',
+              port: parsed,
+              portSource: 'storage',
+            });
             return;
           }
         }
-        resolve(DEFAULT_CORE_PORT);
+        resolve({
+          host: '127.0.0.1',
+          port: DEFAULT_CORE_PORT,
+          portSource: 'default',
+        });
       }
     );
   });
@@ -878,9 +897,15 @@ const waitForDomContentLoaded = async (
   });
 };
 
-const getWsUrl = async (): Promise<string> => {
-  const port = await readCorePort();
-  return `ws://127.0.0.1:${port}${CORE_WS_PATH}`;
+const getWsEndpoint = async (): Promise<{
+  endpoint: CoreEndpointConfig;
+  url: string;
+}> => {
+  const endpoint = await readCoreEndpointConfig();
+  return {
+    endpoint,
+    url: `ws://${endpoint.host}:${endpoint.port}${CORE_WS_PATH}`,
+  };
 };
 
 class DriveSocket {
@@ -892,10 +917,12 @@ class DriveSocket {
   private readonly keepAliveIntervalMs = 30000;
   private readonly debuggerSessions = new Map<number, DebuggerSession>();
   private debuggerIdleTimeoutMs: number | null = null;
+  private readonly connection = new ConnectionStateTracker();
 
   start(): void {
+    this.connection.markConnecting();
     void this.connect().catch((error) => {
-      console.error('DriveSocket connect failed:', error);
+      this.recordConnectionFailure('initial connect', error);
     });
   }
 
@@ -909,6 +936,7 @@ class DriveSocket {
       this.socket.close();
       this.socket = null;
     }
+    this.connection.markDisconnected();
   }
 
   sendTabReport(): void {
@@ -922,10 +950,12 @@ class DriveSocket {
       return;
     }
     const delay = this.reconnectDelayMs;
+    this.connection.markBackoff(delay);
     this.reconnectTimer = self.setTimeout(() => {
       this.reconnectTimer = null;
+      this.connection.markConnecting();
       void this.connect().catch((error) => {
-        console.error('DriveSocket reconnect failed:', error);
+        this.recordConnectionFailure('reconnect', error);
       });
     }, delay);
     this.reconnectDelayMs = Math.min(
@@ -935,13 +965,21 @@ class DriveSocket {
   }
 
   private async connect(): Promise<void> {
-    const url = await getWsUrl();
+    const { endpoint, url } = await getWsEndpoint();
+    this.connection.setEndpoint(endpoint);
     try {
       const socket = new WebSocket(url);
       this.socket = socket;
 
       socket.addEventListener('open', () => {
         this.reconnectDelayMs = 1000;
+        this.connection.markConnected();
+        const suppressed = this.connection.flushSuppressedFailureLogs();
+        if (suppressed > 0) {
+          console.info(
+            `DriveSocket reconnected after suppressing ${suppressed} repeated connection failures.`
+          );
+        }
         this.startKeepAlive();
         void this.sendHello().catch((error) => {
           console.error('DriveSocket hello failed:', error);
@@ -953,24 +991,59 @@ class DriveSocket {
       });
 
       socket.addEventListener('close', () => {
-        this.socket = null;
-        this.stopKeepAlive();
-        this.scheduleReconnect();
+        this.handleSocketUnavailable(socket, 'socket closed');
       });
 
       socket.addEventListener('error', () => {
-        this.socket = null;
-        this.stopKeepAlive();
-        this.scheduleReconnect();
+        this.handleSocketUnavailable(socket, 'socket error');
       });
     } catch (error) {
-      console.debug('DriveSocket connect failed, scheduling reconnect.', error);
+      this.recordConnectionFailure('connect', error);
+      this.connection.markDisconnected();
       this.scheduleReconnect();
     }
   }
 
+  getConnectionStatus(): ReturnType<ConnectionStateTracker['getStatus']> {
+    return this.connection.getStatus();
+  }
+
+  private handleSocketUnavailable(socket: WebSocket, reason: string): void {
+    if (this.socket !== socket) {
+      return;
+    }
+    this.socket = null;
+    this.stopKeepAlive();
+    this.connection.markDisconnected();
+    this.recordConnectionFailure(reason, new Error(reason));
+    this.scheduleReconnect();
+  }
+
+  private recordConnectionFailure(context: string, error: unknown): void {
+    const detail =
+      error instanceof Error
+        ? error.message
+        : typeof error === 'string'
+          ? error
+          : 'Unknown error';
+    this.connection.recordFailure(`${context}: ${detail}`);
+    const budget = this.connection.consumeFailureLogBudget();
+    if (!budget.shouldLog) {
+      return;
+    }
+    if (budget.suppressedCount > 0) {
+      console.warn(
+        `DriveSocket ${context} failed (${budget.suppressedCount} repeated failures suppressed).`,
+        error
+      );
+      return;
+    }
+    console.warn(`DriveSocket ${context} failed.`, error);
+  }
+
   private async sendHello(): Promise<void> {
     const manifest = chrome.runtime.getManifest();
+    const endpoint = await readCoreEndpointConfig();
     let tabs: DriveTabInfo[] = [];
     try {
       tabs = await queryTabs();
@@ -980,6 +1053,9 @@ class DriveSocket {
     }
     const params: DriveHelloParams = {
       version: manifest.version,
+      core_host: endpoint.host,
+      core_port: endpoint.port,
+      core_port_source: endpoint.portSource,
       tabs,
     };
     this.sendEvent('drive.hello', params);
@@ -3372,6 +3448,27 @@ chrome.debugger.onDetach.addListener(
     void socket.handleDebuggerDetach(source, reason).catch((error) => {
       console.error('DriveSocket handleDebuggerDetach failed:', error);
     });
+  }
+);
+
+chrome.runtime.onMessage.addListener(
+  (
+    message: unknown,
+    _sender: unknown,
+    sendResponse: (response: unknown) => void
+  ) => {
+    if (
+      !message ||
+      typeof message !== 'object' ||
+      (message as { action?: unknown }).action !== 'drive.connection_status'
+    ) {
+      return undefined;
+    }
+    sendResponse({
+      ok: true,
+      result: socket.getConnectionStatus(),
+    });
+    return true;
   }
 );
 

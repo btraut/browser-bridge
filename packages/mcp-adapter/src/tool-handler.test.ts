@@ -14,6 +14,7 @@ describe('mcp-adapter tool handler errors', () => {
     };
     const client: CoreClient = {
       baseUrl: 'http://core',
+      ensureReady: vi.fn().mockResolvedValue(undefined),
       post: vi.fn().mockRejectedValue(envelope),
     };
 

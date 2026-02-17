@@ -36,7 +36,7 @@ body.bb-page {
 body.bb-page.bb-page--popup {
   height: auto;
   padding: 10px 10px 12px;
-  min-width: 260px;
+  min-width: 300px;
   background: var(--bb-surface);
 }
 
@@ -66,6 +66,113 @@ body.bb-page.bb-page--popup {
 
 .bb-popup {
   padding: 2px;
+}
+
+.bb-health {
+  border: 1px solid var(--bb-border-2);
+  border-radius: var(--bb-radius-sm);
+  background: var(--bb-bg);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.06);
+  padding: 10px 12px;
+  margin: 0 0 10px;
+}
+
+.bb-health-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.bb-health-label {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--bb-ink-2);
+  text-transform: uppercase;
+}
+
+.bb-health-state {
+  border: 1px solid var(--bb-border);
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: capitalize;
+  color: var(--bb-ink);
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.bb-health-state[data-state='connected'] {
+  color: #1f6f3f;
+  border-color: rgba(31, 111, 63, 0.35);
+  background: rgba(31, 111, 63, 0.12);
+}
+
+.bb-health-state[data-state='connecting'],
+.bb-health-state[data-state='backoff'] {
+  color: #8a5200;
+  border-color: rgba(138, 82, 0, 0.35);
+  background: rgba(138, 82, 0, 0.12);
+}
+
+.bb-health-state[data-state='disconnected'] {
+  color: #a22b2b;
+  border-color: rgba(162, 43, 43, 0.35);
+  background: rgba(162, 43, 43, 0.12);
+}
+
+.bb-health-grid {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 6px 8px;
+  margin: 0;
+}
+
+.bb-health-grid dt {
+  margin: 0;
+  font-size: 11px;
+  color: var(--bb-ink-2);
+}
+
+.bb-health-grid dd {
+  margin: 0;
+  font-size: 12px;
+  color: var(--bb-ink);
+  overflow-wrap: anywhere;
+}
+
+.bb-health-error {
+  min-height: 14px;
+  margin: 8px 0 0;
+  font-size: 11px;
+  color: #a22b2b;
+}
+
+.bb-health-actions {
+  margin-top: 6px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.bb-health-copy {
+  border: 1px solid var(--bb-border);
+  border-radius: 8px;
+  background: var(--bb-bg);
+  color: var(--bb-ink);
+  padding: 5px 8px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.bb-health-copy:hover {
+  background: var(--bb-hover);
+}
+
+.bb-health-copy-status {
+  font-size: 11px;
+  color: var(--bb-ink-2);
 }
 
 .bb-popup-head {

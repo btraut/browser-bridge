@@ -6,6 +6,24 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 
 ## [Unreleased]
 
+### Changed
+
+- Core runtime bootstrap: CLI and MCP adapter now share one Core readiness/runtime resolution path (default/env/metadata precedence + health/ensure-ready behavior), with new shared parity tests.
+- MCP adapter now enables Core ensure-ready by default when constructing its client, so first tool calls auto-bootstrap Core after cold start.
+- Diagnostics doctor payload/report now carries runtime endpoint/source/process context for caller, Core, and extension components so endpoint/version mismatches are explicit.
+- Extension hello events now include the endpoint settings they are dialing (`core_host`, `core_port`, `core_port_source`) for mismatch diagnostics.
+- Extension Drive socket now tracks explicit connection states (`connecting`, `connected`, `disconnected`, `backoff`) with a status surface (`drive.connection_status`) for UI diagnostics.
+- Popup UI now includes a live connection health panel (state, endpoint/source, last success/failure, next retry) and a `Copy diagnostics` action for bug reports.
+- README/manual docs now include post-reboot startup semantics and an end-to-end endpoint mismatch troubleshooting flow.
+
+### Fixed
+
+- MCP adapter now returns bounded retryable `UNAVAILABLE` envelopes when Core ensure-ready cannot establish health, instead of opaque internal failures.
+- Extension reconnect failures now use throttled warning logs to avoid disconnect spam while preserving exponential backoff behavior.
+- Shared Core readiness now resets failed ensure-ready attempts for next-caller retry, adds bounded health probe timeouts/budget, and covers retry/dedupe behavior with regression tests.
+- Diagnostics now ignores disconnected extension runtime identity for endpoint/version mismatch checks, and extension bridge disconnect clears cached runtime identity fields to prevent stale mismatch reporting.
+- Popup diagnostics now clears cached status on refresh failure (blocking stale copy payloads), resets retry metadata outside backoff state, and announces async connection/copy feedback via live regions.
+
 ## [0.11.1] - 2026-02-16
 
 ### Fixed

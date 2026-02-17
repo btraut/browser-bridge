@@ -33,6 +33,8 @@ export type CoreServer = {
 export type CoreServerOptions = {
   registry?: SessionRegistry;
   logger?: JsonlLogger;
+  runtime?: ResolvedCoreRuntime;
+  version?: string;
 };
 
 export const createCoreServer = (
@@ -100,6 +102,8 @@ export const createCoreServer = (
     drive,
     inspectService: inspect,
     recoveryTracker,
+    coreRuntime: options.runtime,
+    coreVersion: options.version,
   });
 
   return {
@@ -267,6 +271,8 @@ export const startCoreServer = async (
     port: options.port,
     strictEnvPort: false,
   });
+  const coreVersion =
+    process.env.BROWSER_BRIDGE_VERSION ?? process.env.npm_package_version;
   logger.info('core.runtime.resolved', {
     host: runtime.host,
     port: runtime.port,
@@ -281,6 +287,8 @@ export const startCoreServer = async (
   const { app, registry, extensionBridge } = createCoreServer({
     registry: options.registry,
     logger,
+    runtime,
+    version: coreVersion,
   });
 
   const probePorts = resolveProbePortsForRuntime(runtime);
