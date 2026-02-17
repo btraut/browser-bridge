@@ -20,6 +20,7 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 - Dialog operations are now canonicalized to `drive.handle_dialog`; `dialog.accept`/`dialog.dismiss` are deprecated aliases that map to canonical payloads and emit explicit warnings.
 - Extension-core handshake now negotiates capabilities explicitly: `drive.hello` includes capability map metadata, and core gates non-negotiated or unsupported actions with deterministic errors.
 - Extension defaults are now tighter and explicit: host/content-script scope is limited to `http://*/*` + `https://*/*`, unused `tabGroups` permission is removed, and `debugger.*` inspect actions are gated behind an options toggle (`debuggerCapabilityEnabled`, default off) with deterministic `ATTACH_DENIED` guidance.
+- Refactor guardrails now explicitly separate semantic contracts from internal wiring details: inventory/tool-coverage docs define must-preserve behavior vs allowed internal evolution, and CLI/MCP contract tests now enforce semantic/schema parity without freezing exact internal route strings.
 
 ### Fixed
 

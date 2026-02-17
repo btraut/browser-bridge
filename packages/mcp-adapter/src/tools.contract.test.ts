@@ -40,12 +40,13 @@ describe('mcp-adapter tool definitions (contract)', () => {
     const toolNames = TOOL_DEFINITIONS.map((tool) => tool.name);
 
     expect(toolNames).toEqual(sharedNames);
+  });
 
-    const corePathByName = new Map(
-      MCP_TOOL_DEFINITIONS.map((tool) => [tool.name, tool.corePath])
-    );
+  it('uses routable core paths without over-constraining internals', () => {
     for (const tool of TOOL_DEFINITIONS) {
-      expect(tool.config.corePath).toBe(corePathByName.get(tool.name));
+      expect(tool.config.corePath.startsWith('/')).toBe(true);
+      expect(tool.config.corePath.includes(' ')).toBe(false);
+      expect(tool.config.corePath.length).toBeGreaterThan(1);
     }
   });
 

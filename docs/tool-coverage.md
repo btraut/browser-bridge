@@ -14,7 +14,7 @@ When adding or removing tools, update the shared list first, then keep the adapt
 - Fixtures + coverage matrix: `packages/mcp-adapter/src/tool-fixtures.ts`
 - Contract checks: `packages/mcp-adapter/src/tools.contract.test.ts`
 
-These ensure every MCP tool has a fixture, valid schemas, and tracked coverage, including both `drive.navigate` session variants.
+These ensure every MCP tool has a fixture, valid schemas, and tracked coverage, including both `drive.navigate` session variants. They intentionally guard semantic contract compatibility (tool names + schemas) without freezing exact internal Core route strings.
 
 ## CLI Coverage
 
@@ -24,7 +24,7 @@ These ensure every MCP tool has a fixture, valid schemas, and tracked coverage, 
 - Integration tests (mock Core): `packages/cli/src/commands/commands.integration.test.ts`
 - Local helper test: `packages/cli/src/commands/open-artifacts.test.ts`
 
-The CLI fixture list mirrors the shared MCP tool list and also includes the local-only `open-artifacts` helper. CLI contract checks also validate both `drive.navigate` parity variants against shared input/output schemas.
+The CLI fixture list mirrors the shared MCP tool list and also includes the local-only `open-artifacts` helper. CLI contract checks also validate both `drive.navigate` parity variants against shared input/output schemas. CLI contract checks also require routable `corePath` shape while allowing internal route refactors that preserve semantic behavior.
 
 ## Optional E2E Smoke
 

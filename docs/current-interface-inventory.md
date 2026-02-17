@@ -597,18 +597,45 @@ Extension:
 
 ## 13. Refactor Guardrail Notes (Forward-Only Rebuild Context)
 
-If preserving interface intent while rebuilding internals, the highest-value invariants to keep stable are:
+### 13.1 Must-Preserve Semantic Contracts
 
-- Shared envelope shape and standardized error code vocabulary.
-- Session state machine transition semantics.
-- MCP tool names and schema-level field contracts.
-- Core route paths and request/response schema behavior.
-- Extension websocket action namespaces and event intent (`drive.hello`, heartbeat, tab report, debugger event).
-- CLI envelope output behavior and global host/port/runtime flags.
+- Shared envelope semantics and canonical public error taxonomy (`ok/result` vs `ok=false/error`, typed retry hints, normalized public codes).
+- Session lifecycle semantics (state transitions, close/recover behavior).
+- Tool identity and schema semantics:
+  - MCP/CLI operation names (for example `drive.navigate`, `inspect.dom_snapshot`).
+  - request/response field contracts and defaults.
+- Extension websocket event intent:
+  - `drive.hello`, keepalive heartbeat, tab reports, debugger event stream shape.
+- Observable CLI behavior:
+  - JSON envelope output shape, host/port/runtime flag semantics, readiness behavior.
 
-The largest accidental-complexity hotspots today are:
+### 13.2 Allowed Internal Evolution
 
-- duplicate/legacy command and tool aliases
-- distributed retry logic spread across bridge/core/adapter/client
-- mixed transport lifecycle concerns in startup/readiness/logging layers
-- extension permission and connection behavior spread across background/content/popup and storage helpers
+- Core internal HTTP route strings, as long as operation semantics remain stable and migration aliases/deprecations are honored.
+- Transport-specific wiring details inside CLI/MCP adapters (`corePath` wiring, handler composition, internal helper layering).
+- Internal retry orchestration and scheduling strategy, as long as public retry semantics remain compatible.
+- Extension implementation mechanics (background/content split, storage layout, connection internals) as long as exposed behavior is unchanged.
+
+### 13.3 Guardrail Test Ownership
+
+- Shared semantic contracts:
+  - `packages/shared/src/errors.test.ts`
+  - `packages/shared/src/schemas.test.ts`
+  - `packages/shared/src/tooling.test.ts`
+- MCP adapter semantic alignment:
+  - `packages/mcp-adapter/src/tools.contract.test.ts` (tool names + schema compatibility; routing string format, not exact path freeze)
+- CLI semantic alignment:
+  - `packages/cli/src/tools.contract.test.ts` (fixture parity and schema semantics; routable path shape, not exact path freeze)
+- Core/extension behavior semantics:
+  - `packages/core/src/state.test.ts`
+  - `packages/core/src/routes/drive.test.ts`
+  - `packages/core/src/extension-bridge.test.ts`
+  - `packages/extension/src/content.test.ts`
+  - `packages/extension/src/permission-prompt.test.ts`
+
+### 13.4 Known Complexity Hotspots
+
+- Duplicate/legacy command and tool aliases.
+- Distributed retry logic spread across bridge/core/adapter/client.
+- Mixed transport lifecycle concerns in startup/readiness/logging layers.
+- Extension permission and connection behavior spread across background/content/popup/storage helpers.
