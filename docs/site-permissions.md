@@ -114,7 +114,8 @@ Gate all drive actions that can result in site interaction:
   - `drive.scroll`
   - `drive.wait_for`
   - `drive.screenshot` (optional for v1, but consistent to include)
-  - `drive.back`, `drive.forward`, `drive.go_back`, `drive.go_forward` (optional; can be treated like navigation on current site)
+  - `drive.go_back`, `drive.go_forward` (optional; can be treated like navigation on current site)
+  - `drive.back`/`drive.forward` are deprecated CLI/MCP aliases that forward to the canonical actions above.
 
 Notes:
 

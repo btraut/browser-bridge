@@ -43,6 +43,19 @@ const flushAsync = async (): Promise<void> => {
 };
 
 describe('registerDriveRoutes', () => {
+  it('registers only canonical history routes', () => {
+    const registry = new SessionRegistry();
+    const drive = { execute: vi.fn() } as unknown as DriveController;
+    const harness = createRouteHarness();
+
+    registerDriveRoutes(harness.router, { drive, registry });
+
+    expect(harness.handlers.has('/drive/go_back')).toBe(true);
+    expect(harness.handlers.has('/drive/go_forward')).toBe(true);
+    expect(harness.handlers.has('/drive/back')).toBe(false);
+    expect(harness.handlers.has('/drive/forward')).toBe(false);
+  });
+
   it('auto-creates a session for drive.navigate when session_id is omitted', async () => {
     const registry = new SessionRegistry();
     const execute = vi

@@ -1,10 +1,9 @@
 import { Command } from 'commander';
 import {
+  type ApiEnvelope,
   DriveClickInputSchema,
   DriveDragInputSchema,
   DriveFillFormInputSchema,
-  DriveBackInputSchema,
-  DriveForwardInputSchema,
   DriveGoBackInputSchema,
   DriveGoForwardInputSchema,
   DriveHandleDialogInputSchema,
@@ -38,6 +37,32 @@ const parseJson = (value: string, label: string): unknown => {
   } catch {
     throw new Error(`${label} must be valid JSON.`);
   }
+};
+
+const addDeprecatedAliasWarning = <T>(
+  envelope: ApiEnvelope<T>,
+  aliasName: string,
+  replacementName: string
+): ApiEnvelope<T> => {
+  if (!envelope.ok || typeof envelope.result !== 'object' || !envelope.result) {
+    return envelope;
+  }
+
+  const warning = `${aliasName} is deprecated; use ${replacementName}.`;
+  const result = envelope.result as Record<string, unknown>;
+  const existingWarnings = Array.isArray(result.warnings)
+    ? result.warnings.filter((item): item is string => typeof item === 'string')
+    : [];
+
+  return {
+    ok: true,
+    result: {
+      ...result,
+      warnings: existingWarnings.includes(warning)
+        ? existingWarnings
+        : [...existingWarnings, warning],
+    } as T,
+  };
 };
 
 export const registerDriveCommands = (program: Command): void => {
@@ -84,16 +109,20 @@ export const registerDriveCommands = (program: Command): void => {
 
   drive
     .command('back')
-    .description('Go back in browser history')
+    .description('Deprecated alias for go-back')
     .requiredOption('--session-id <id>', 'Session identifier')
     .option('--tab-id <id>', 'Tab identifier (defaults to agent window/tab)')
     .action(async (options, command) => {
       await runCommand(command, (client) => {
-        const payload = parseInput(DriveBackInputSchema, {
+        const payload = parseInput(DriveGoBackInputSchema, {
           session_id: options.sessionId,
           tab_id: parseNumber(options.tabId),
         });
-        return client.post('/drive/back', payload);
+        return client
+          .post('/drive/go_back', payload)
+          .then((envelope) =>
+            addDeprecatedAliasWarning(envelope, 'drive.back', 'drive.go_back')
+          );
       });
     });
 
@@ -114,16 +143,24 @@ export const registerDriveCommands = (program: Command): void => {
 
   drive
     .command('forward')
-    .description('Go forward in browser history')
+    .description('Deprecated alias for go-forward')
     .requiredOption('--session-id <id>', 'Session identifier')
     .option('--tab-id <id>', 'Tab identifier (defaults to agent window/tab)')
     .action(async (options, command) => {
       await runCommand(command, (client) => {
-        const payload = parseInput(DriveForwardInputSchema, {
+        const payload = parseInput(DriveGoForwardInputSchema, {
           session_id: options.sessionId,
           tab_id: parseNumber(options.tabId),
         });
-        return client.post('/drive/forward', payload);
+        return client
+          .post('/drive/go_forward', payload)
+          .then((envelope) =>
+            addDeprecatedAliasWarning(
+              envelope,
+              'drive.forward',
+              'drive.go_forward'
+            )
+          );
       });
     });
 

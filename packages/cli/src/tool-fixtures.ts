@@ -97,14 +97,14 @@ export const CLI_TOOL_FIXTURES: CliToolFixture[] = [
   {
     name: 'drive.back',
     kind: 'core',
-    corePath: '/drive/back',
+    corePath: '/drive/go_back',
     argv: ['drive', 'back', '--session-id', 'session-1', '--tab-id', '2'],
     payload: { session_id: 'session-1', tab_id: 2 },
   },
   {
     name: 'drive.forward',
     kind: 'core',
-    corePath: '/drive/forward',
+    corePath: '/drive/go_forward',
     argv: ['drive', 'forward', '--session-id', 'session-1', '--tab-id', '2'],
     payload: { session_id: 'session-1', tab_id: 2 },
   },

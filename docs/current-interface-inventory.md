@@ -177,8 +177,6 @@ Drive and dialog endpoints include:
 - `/drive/navigate`
 - `/drive/go_back`
 - `/drive/go_forward`
-- `/drive/back` (legacy alias)
-- `/drive/forward` (legacy alias)
 - `/drive/click`
 - `/drive/hover`
 - `/drive/select`
@@ -201,6 +199,7 @@ Behavioral notes:
 - `POST /drive/navigate` accepts optional `session_id`.
 - When `session_id` is omitted on `drive.navigate`, core creates a session and returns canonical `result.session_id`.
 - `drive.navigate` can fail fast on unreachable loopback targets with retryable `NAVIGATION_FAILED` and preflight details.
+- `drive.back` and `drive.forward` are deprecated CLI/MCP aliases that now forward to canonical `/drive/go_back` and `/drive/go_forward`.
 
 ### 6.3 Inspect Routes
 
@@ -236,8 +235,8 @@ MCP tool catalog is defined by shared tool map and consumed by adapter (`package
 5. `drive.navigate` -> `/drive/navigate`
 6. `drive.go_back` -> `/drive/go_back`
 7. `drive.go_forward` -> `/drive/go_forward`
-8. `drive.back` -> `/drive/back`
-9. `drive.forward` -> `/drive/forward`
+8. `drive.back` -> `/drive/go_back` (deprecated alias for `drive.go_back`)
+9. `drive.forward` -> `/drive/go_forward` (deprecated alias for `drive.go_forward`)
 10. `drive.click` -> `/drive/click`
 11. `drive.hover` -> `/drive/hover`
 12. `drive.select` -> `/drive/select`
@@ -496,9 +495,7 @@ Action names handled by content script include:
 - `drive.screenshot_element`
 - `drive.wait_for`
 - `drive.go_back`
-- `drive.back`
 - `drive.go_forward`
-- `drive.forward`
 
 Content script return shape:
 
@@ -536,8 +533,7 @@ Diagnostics routes and report model include:
 
 Current compatibility and legacy behaviors worth explicitly deciding whether to preserve:
 
-- Both `drive.back` and `drive.go_back` are live.
-- Both `drive.forward` and `drive.go_forward` are live.
+- `drive.back` and `drive.forward` remain as deprecated CLI/MCP aliases, but Core routes and extension actions are canonicalized to `drive.go_back` and `drive.go_forward`.
 - Deprecation lifecycle metadata is now tracked in `packages/shared/src/tooling.ts` and documented in `docs/deprecation-lifecycle-policy.md`.
 - Bare `browser-bridge mcp` still behaves as server start path.
 - `artifacts screenshot --full-page` acts as alias-like UX behavior.

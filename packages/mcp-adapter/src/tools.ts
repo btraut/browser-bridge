@@ -1,4 +1,5 @@
 import {
+  type ApiEnvelope,
   successEnvelopeSchema,
   ArtifactsScreenshotInputSchema,
   ArtifactsScreenshotOutputSchema,
@@ -17,10 +18,6 @@ import {
   DriveDragOutputSchema,
   DriveFillFormInputSchema,
   DriveFillFormOutputSchema,
-  DriveBackInputSchema,
-  DriveBackOutputSchema,
-  DriveForwardInputSchema,
-  DriveForwardOutputSchema,
   DriveGoBackInputSchema,
   DriveGoBackOutputSchema,
   DriveGoForwardInputSchema,
@@ -96,6 +93,7 @@ type ToolConfig = {
   inputSchema: AnySchema | ZodRawShapeCompat;
   outputSchema: AnySchema | ZodRawShapeCompat;
   corePath: string;
+  deprecatedAliasOf?: string;
 };
 
 type ToolRegistrar = Pick<McpServer, 'registerTool'>;
@@ -125,6 +123,39 @@ const toInternalErrorEnvelope = (error: unknown) => ({
 });
 
 const envelope = (schema: EnvelopeInput) => successEnvelopeSchema(schema);
+
+const addDeprecatedAliasWarning = (
+  envelopeResult: ApiEnvelope<unknown>,
+  aliasName?: string
+): ApiEnvelope<unknown> => {
+  if (
+    !aliasName ||
+    !envelopeResult.ok ||
+    typeof envelopeResult.result !== 'object' ||
+    !envelopeResult.result
+  ) {
+    return envelopeResult;
+  }
+
+  const warning = `${aliasName} is deprecated; use ${aliasName.replace(
+    'drive.',
+    'drive.go_'
+  )}.`;
+  const result = envelopeResult.result as Record<string, unknown>;
+  const existingWarnings = Array.isArray(result.warnings)
+    ? result.warnings.filter((item): item is string => typeof item === 'string')
+    : [];
+
+  return {
+    ok: true,
+    result: {
+      ...result,
+      warnings: existingWarnings.includes(warning)
+        ? existingWarnings
+        : [...existingWarnings, warning],
+    },
+  };
+};
 
 export const TOOL_DEFINITIONS: Array<{ name: string; config: ToolConfig }> = [
   {
@@ -201,20 +232,22 @@ export const TOOL_DEFINITIONS: Array<{ name: string; config: ToolConfig }> = [
     name: 'drive.back',
     config: {
       title: 'Drive Back',
-      description: 'Go back in browser history.',
-      inputSchema: DriveBackInputSchema,
-      outputSchema: envelope(DriveBackOutputSchema),
-      corePath: '/drive/back',
+      description: 'Deprecated alias for drive.go_back.',
+      inputSchema: DriveGoBackInputSchema,
+      outputSchema: envelope(DriveGoBackOutputSchema),
+      corePath: '/drive/go_back',
+      deprecatedAliasOf: 'drive.back',
     },
   },
   {
     name: 'drive.forward',
     config: {
       title: 'Drive Forward',
-      description: 'Go forward in browser history.',
-      inputSchema: DriveForwardInputSchema,
-      outputSchema: envelope(DriveForwardOutputSchema),
-      corePath: '/drive/forward',
+      description: 'Deprecated alias for drive.go_forward.',
+      inputSchema: DriveGoForwardInputSchema,
+      outputSchema: envelope(DriveGoForwardOutputSchema),
+      corePath: '/drive/go_forward',
+      deprecatedAliasOf: 'drive.forward',
     },
   },
   {
@@ -503,7 +536,8 @@ export const TOOL_DEFINITIONS: Array<{ name: string; config: ToolConfig }> = [
 
 export const createToolHandler = (
   clientProvider: CoreClientProvider,
-  corePath: string
+  corePath: string,
+  deprecatedAliasOf?: string
 ): ToolCallback<AnySchema> => {
   return (async (args: unknown, _extra: unknown): Promise<ToolResult> => {
     void _extra;
@@ -513,7 +547,9 @@ export const createToolHandler = (
           ? await clientProvider()
           : clientProvider;
       const envelopeResult = await client.post(corePath, args);
-      return toToolResult(envelopeResult);
+      return toToolResult(
+        addDeprecatedAliasWarning(envelopeResult, deprecatedAliasOf)
+      );
     } catch (error) {
       const parsed = ErrorEnvelopeSchema.safeParse(error);
       if (parsed.success) {
@@ -537,7 +573,11 @@ export const registerBrowserBridgeTools = (
         inputSchema: tool.config.inputSchema,
         outputSchema: tool.config.outputSchema,
       },
-      createToolHandler(clientProvider, tool.config.corePath)
+      createToolHandler(
+        clientProvider,
+        tool.config.corePath,
+        tool.config.deprecatedAliasOf
+      )
     );
   }
 };

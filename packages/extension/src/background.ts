@@ -1297,8 +1297,6 @@ class DriveSocket {
         'drive.navigate',
         'drive.go_back',
         'drive.go_forward',
-        'drive.back',
-        'drive.forward',
         'drive.click',
         'drive.hover',
         'drive.select',
@@ -1533,9 +1531,7 @@ class DriveSocket {
           return;
         }
         case 'drive.go_back':
-        case 'drive.back':
-        case 'drive.go_forward':
-        case 'drive.forward': {
+        case 'drive.go_forward': {
           const params = (message.params ?? {}) as Record<string, unknown>;
           let tabId = params.tab_id;
           if (tabId !== undefined && typeof tabId !== 'number') {

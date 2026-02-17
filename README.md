@@ -146,8 +146,8 @@ The CLI mirrors the MCP tool surface.
 - `drive.navigate`
 - `drive.go_back`
 - `drive.go_forward`
-- `drive.back`
-- `drive.forward`
+- `drive.back` (deprecated alias for `drive.go_back`)
+- `drive.forward` (deprecated alias for `drive.go_forward`)
 - `drive.click`
 - `drive.hover`
 - `drive.select`

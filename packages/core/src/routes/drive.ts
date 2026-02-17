@@ -3,8 +3,6 @@ import type { DriveAction } from '../drive-protocol';
 import { SessionRegistry } from '../session';
 import {
   DriveClickInputSchema,
-  DriveBackInputSchema,
-  DriveForwardInputSchema,
   DriveGoBackInputSchema,
   DriveGoForwardInputSchema,
   DriveHoverInputSchema,
@@ -274,14 +272,6 @@ export const registerDriveRoutes = (
   router.post(
     '/drive/go_forward',
     makeHandler('drive.go_forward', DriveGoForwardInputSchema, drive)
-  );
-  router.post(
-    '/drive/back',
-    makeHandler('drive.back', DriveBackInputSchema, drive)
-  );
-  router.post(
-    '/drive/forward',
-    makeHandler('drive.forward', DriveForwardInputSchema, drive)
   );
   router.post(
     '/drive/click',

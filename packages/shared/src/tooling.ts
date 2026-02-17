@@ -45,7 +45,7 @@ export const MCP_TOOL_DEFINITIONS: McpToolDefinition[] = [
   { name: 'drive.go_forward', corePath: '/drive/go_forward' },
   {
     name: 'drive.back',
-    corePath: '/drive/back',
+    corePath: '/drive/go_back',
     deprecation: {
       stage: 'deprecated',
       deprecated_since: '2026-02-17',
@@ -58,7 +58,7 @@ export const MCP_TOOL_DEFINITIONS: McpToolDefinition[] = [
   },
   {
     name: 'drive.forward',
-    corePath: '/drive/forward',
+    corePath: '/drive/go_forward',
     deprecation: {
       stage: 'deprecated',
       deprecated_since: '2026-02-17',

@@ -12,6 +12,7 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 - CLI and MCP now share parity guardrails for `drive.navigate` contracts via shared explicit/missing-session fixture variants and contract checks.
 - Diagnostics caller runtime context is now normalized across CLI and MCP, with both clients attaching equivalent endpoint/process metadata for `diagnostics.doctor`.
 - Deprecation lifecycle policy is now explicit and machine-checked: shared tool metadata includes `deprecated_since`/`removal_target`/replacement fields and `packages/shared/src/tooling.test.ts` enforces notice window + migration metadata requirements.
+- Navigation naming is now canonicalized end-to-end on `drive.go_back`/`drive.go_forward`: Core routes and extension actions removed legacy alias actions, while CLI/MCP keep temporary deprecated alias shims that forward to canonical routes and emit explicit warnings.
 
 ### Fixed
 

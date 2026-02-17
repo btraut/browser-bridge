@@ -58,6 +58,26 @@ describe('mcp-adapter tools', () => {
     expect(result.isError).toBe(true);
   });
 
+  it('adds deprecation warnings for alias tools', async () => {
+    const envelope = { ok: true as const, result: { ok: true } };
+    const client: CoreClient = {
+      baseUrl: 'http://core',
+      ensureReady: vi.fn().mockResolvedValue(undefined),
+      post: vi.fn().mockResolvedValue(envelope),
+    };
+
+    const handler = createToolHandler(client, '/drive/go_back', 'drive.back');
+    const result = await handler({ session_id: 'session-1' }, {} as never);
+
+    expect(result.structuredContent).toEqual({
+      ok: true,
+      result: {
+        ok: true,
+        warnings: ['drive.back is deprecated; use drive.go_back.'],
+      },
+    });
+  });
+
   it('registers all tools and forwards to core paths', async () => {
     const calls: Array<{ path: string; body: unknown }> = [];
     const configs = new Map<

@@ -118,23 +118,25 @@ export const MCP_TOOL_FIXTURES: ToolFixture[] = [
   },
   {
     name: 'drive.back',
-    corePath: '/drive/back',
+    corePath: '/drive/go_back',
     input: { session_id: 'session-1' },
     successEnvelope: {
       ok: true,
       result: {
         ok: true,
+        warnings: ['drive.back is deprecated; use drive.go_back.'],
       },
     },
   },
   {
     name: 'drive.forward',
-    corePath: '/drive/forward',
+    corePath: '/drive/go_forward',
     input: { session_id: 'session-1' },
     successEnvelope: {
       ok: true,
       result: {
         ok: true,
+        warnings: ['drive.forward is deprecated; use drive.go_forward.'],
       },
     },
   },
