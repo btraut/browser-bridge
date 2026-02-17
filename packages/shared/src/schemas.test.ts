@@ -21,6 +21,7 @@ import {
   DriveKeyInputSchema,
   DriveKeyPressInputSchema,
   DriveNavigateInputSchema,
+  DriveNavigateOutputSchema,
   DriveScrollInputSchema,
   DriveTypeInputSchema,
   DriveWaitForInputSchema,
@@ -55,10 +56,18 @@ describe('shared schemas', () => {
 
   it('parses drive navigate defaults', () => {
     const parsed = DriveNavigateInputSchema.parse({
-      session_id: 'session-1',
       url: 'https://example.com',
     });
+    expect(parsed.session_id).toBeUndefined();
     expect(parsed.wait).toBe('domcontentloaded');
+  });
+
+  it('parses drive navigate output with canonical session_id', () => {
+    const parsed = DriveNavigateOutputSchema.parse({
+      ok: true,
+      session_id: 'session-1',
+    });
+    expect(parsed.session_id).toBe('session-1');
   });
 
   it('accepts tab_id on drive requests', () => {
