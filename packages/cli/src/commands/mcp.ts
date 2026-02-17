@@ -11,6 +11,7 @@ import { installMcp } from '../installer/mcp-install';
 type McpCommandOptions = {
   name?: string;
   version?: string;
+  eager?: boolean;
 };
 
 export const registerMcpCommand = (program: Command): void => {
@@ -19,17 +20,19 @@ export const registerMcpCommand = (program: Command): void => {
     command: Command
   ): Promise<void> => {
     const globals = getGlobalOptions(command);
-    const coreClient = createCoreClient({
-      host: globals.host,
-      port: globals.port,
-      ensureDaemon: globals.daemon !== false,
-    });
 
     try {
       await startMcpServer({
         name: options.name,
         version: options.version,
-        coreClient,
+        eager: options.eager,
+        coreClientFactory: (logger) =>
+          createCoreClient({
+            host: globals.host,
+            port: globals.port,
+            ensureDaemon: globals.daemon !== false,
+            logger,
+          }),
       });
     } catch (error) {
       console.error(error);
@@ -82,6 +85,7 @@ export const registerMcpCommand = (program: Command): void => {
   mcp
     .option('--name <name>', 'MCP server name')
     .option('--version <version>', 'MCP server version')
+    .option('--eager', 'Initialize runtime on startup (debug only)')
     .action(startServer);
 
   mcp
@@ -89,6 +93,7 @@ export const registerMcpCommand = (program: Command): void => {
     .description('Run the MCP server over stdio')
     .option('--name <name>', 'MCP server name')
     .option('--version <version>', 'MCP server version')
+    .option('--eager', 'Initialize runtime on startup (debug only)')
     .action(startServer);
 
   mcp
@@ -99,14 +104,9 @@ export const registerMcpCommand = (program: Command): void => {
     .option('--host <host>', 'HTTP host (default 127.0.0.1)')
     .option('--port <port>', 'HTTP port (default random available port)')
     .option('--path <path>', 'HTTP path (default /mcp)')
+    .option('--eager', 'Initialize runtime on startup (debug only)')
     .action(async (options, command: Command) => {
       const globals = getGlobalOptions(command);
-      const coreClient = createCoreClient({
-        host: globals.host,
-        port: globals.port,
-        ensureDaemon: globals.daemon !== false,
-      });
-
       const parsedPort =
         typeof options.port === 'string' && options.port.length > 0
           ? Number(options.port)
@@ -122,7 +122,14 @@ export const registerMcpCommand = (program: Command): void => {
               ? parsedPort
               : undefined,
           path: options.path,
-          coreClient,
+          eager: options.eager,
+          coreClientFactory: (logger) =>
+            createCoreClient({
+              host: globals.host,
+              port: globals.port,
+              ensureDaemon: globals.daemon !== false,
+              logger,
+            }),
         });
 
         console.error(

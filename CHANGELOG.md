@@ -15,6 +15,7 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 - Extension Drive socket now tracks explicit connection states (`connecting`, `connected`, `disconnected`, `backoff`) with a status surface (`drive.connection_status`) for UI diagnostics.
 - Popup UI now includes a live connection health panel (state, endpoint/source, last success/failure, next retry) and a `Copy diagnostics` action for bug reports.
 - README/manual docs now include post-reboot startup semantics and an end-to-end endpoint mismatch troubleshooting flow.
+- MCP startup is now lazy; no startup filesystem writes unless initialized by first tool call.
 
 ### Fixed
 
