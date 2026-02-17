@@ -9,6 +9,38 @@ type ContentResult =
   | { ok: true; result?: unknown }
   | { ok: false; error: DriveErrorInfo };
 
+const AGENT_TAB_BRANDING_ACTION = 'drive.agent_tab_branding';
+const AGENT_TAB_FAVICON_MARKER_ATTR = 'data-bb-agent-favicon';
+
+const applyAgentTabFavicon = (faviconUrl: string): void => {
+  if (faviconUrl.length === 0) {
+    return;
+  }
+  const links = Array.from(
+    document.querySelectorAll('link[rel~="icon"]')
+  ).filter((node): node is HTMLLinkElement => node instanceof HTMLLinkElement);
+  if (links.length > 0) {
+    for (const link of links) {
+      link.href = faviconUrl;
+      if (!link.type) {
+        link.type = 'image/png';
+      }
+    }
+    return;
+  }
+
+  const head = document.head ?? document.documentElement;
+  if (!head) {
+    return;
+  }
+  const link = document.createElement('link');
+  link.rel = 'icon';
+  link.type = 'image/png';
+  link.href = faviconUrl;
+  link.setAttribute(AGENT_TAB_FAVICON_MARKER_ATTR, 'true');
+  head.appendChild(link);
+};
+
 export const runDriveAction = async (
   action: string,
   params: Record<string, unknown> | undefined
@@ -418,6 +450,17 @@ export const runDriveAction = async (
 
   try {
     switch (action) {
+      case AGENT_TAB_BRANDING_ACTION: {
+        const { favicon_url: faviconUrl } = parseParams();
+        if (typeof faviconUrl !== 'string' || faviconUrl.length === 0) {
+          return buildError(
+            'INVALID_ARGUMENT',
+            'favicon_url must be a non-empty string.'
+          );
+        }
+        applyAgentTabFavicon(faviconUrl);
+        return ok();
+      }
       case 'drive.navigate': {
         const { url } = parseParams();
         if (typeof url !== 'string' || url.length === 0) {

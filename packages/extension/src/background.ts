@@ -73,11 +73,21 @@ const HISTORY_POST_NAV_DOM_GRACE_TIMEOUT_MS = 2000;
 const AGENT_TAB_ID_KEY = 'agentTabId';
 const AGENT_TAB_GROUP_TITLE = 'Browser Bridge';
 const AGENT_TAB_BOOTSTRAP_PATH = 'agent-tab.html';
+const AGENT_TAB_FAVICON_ASSET_PATH = 'assets/icons/icon-32.png';
+const AGENT_TAB_BRANDING_ACTION = 'drive.agent_tab_branding';
+const AGENT_TAB_GROUP_RETRY_DELAYS_MS = [0, 120, 300] as const;
+const AGENT_TAB_BRANDING_TIMEOUT_MS = 1500;
 
 const getAgentTabBootstrapUrl = (): string => {
   return typeof chrome.runtime?.getURL === 'function'
     ? chrome.runtime.getURL(AGENT_TAB_BOOTSTRAP_PATH)
     : AGENT_TAB_BOOTSTRAP_PATH;
+};
+
+const getAgentTabFaviconUrl = (): string => {
+  return typeof chrome.runtime?.getURL === 'function'
+    ? chrome.runtime.getURL(AGENT_TAB_FAVICON_ASSET_PATH)
+    : AGENT_TAB_FAVICON_ASSET_PATH;
 };
 
 const nowIso = (): string => new Date().toISOString();
@@ -572,21 +582,40 @@ const ensureAgentTabGroup = async (
     return;
   }
 
-  try {
-    const groupId = await wrapChromeCallback<number>((callback) =>
-      chrome.tabs.group(
-        { tabIds: tabId, createProperties: { windowId } },
-        callback
-      )
-    );
-    await wrapChromeVoid((callback) =>
-      chrome.tabGroups.update(groupId, { title: AGENT_TAB_GROUP_TITLE }, () =>
-        callback()
-      )
-    );
-  } catch (error) {
-    console.debug('Failed to create/update agent tab group.', error);
+  let lastError: unknown;
+  for (const retryDelayMs of AGENT_TAB_GROUP_RETRY_DELAYS_MS) {
+    if (retryDelayMs > 0) {
+      await delayMs(retryDelayMs);
+    }
+    try {
+      const groupId = await wrapChromeCallback<number>((callback) =>
+        chrome.tabs.group(
+          { tabIds: tabId, createProperties: { windowId } },
+          callback
+        )
+      );
+      await wrapChromeVoid((callback) =>
+        chrome.tabGroups.update(groupId, { title: AGENT_TAB_GROUP_TITLE }, () =>
+          callback()
+        )
+      );
+      return;
+    } catch (error) {
+      lastError = error;
+    }
   }
+  console.debug('Failed to create/update agent tab group.', lastError);
+};
+
+const ensureAgentTabGroupForTab = async (
+  tabId: number,
+  tab: Record<string, unknown>
+): Promise<void> => {
+  const windowId = tab.windowId;
+  if (typeof windowId !== 'number') {
+    return;
+  }
+  await ensureAgentTabGroup(tabId, windowId);
 };
 
 const createAgentWindow = async (): Promise<number> => {
@@ -648,6 +677,8 @@ const getOrCreateAgentTabId = async (): Promise<number> => {
       if (typeof url === 'string' && isRestrictedUrl(url)) {
         throw new Error(`Agent tab points at restricted URL: ${url}`);
       }
+      await ensureAgentTabGroupForTab(agentTabId, tab);
+      void refreshAgentTabBranding(agentTabId);
       return agentTabId;
     } catch {
       clearAgentTarget();
@@ -665,6 +696,8 @@ const getOrCreateAgentTabId = async (): Promise<number> => {
       agentTabId = stored;
       ensureLastActiveAt(stored);
       markTabActive(stored);
+      await ensureAgentTabGroupForTab(stored, tab);
+      void refreshAgentTabBranding(stored);
       return stored;
     } catch {
       await writeAgentTabId(null);
@@ -788,6 +821,18 @@ const sendToTab = async (
       retryable: false,
     },
   };
+};
+
+const refreshAgentTabBranding = async (tabId: number): Promise<void> => {
+  const result = await sendToTab(
+    tabId,
+    AGENT_TAB_BRANDING_ACTION,
+    { favicon_url: getAgentTabFaviconUrl() },
+    { timeoutMs: AGENT_TAB_BRANDING_TIMEOUT_MS }
+  );
+  if (!result.ok) {
+    return;
+  }
 };
 
 const waitForHistoryNavigationSignal = async (
@@ -1481,6 +1526,9 @@ class DriveSocket {
               return;
             }
           }
+          if (tabId === agentTabId) {
+            void refreshAgentTabBranding(tabId as number);
+          }
           respondOk({ ok: true });
           return;
         }
@@ -1534,6 +1582,9 @@ class DriveSocket {
               respondError(result.error);
               return;
             }
+          }
+          if (tabId === agentTabId) {
+            void refreshAgentTabBranding(tabId as number);
           }
           respondOk({ ok: true });
           return;
