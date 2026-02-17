@@ -318,7 +318,7 @@ tail -n 80 .context/logs/browser-bridge/mcp-adapter.jsonl
 - CLI: `browser-bridge diagnostics doctor --session-id <id>`
 - Reports extension and debugger status alongside session state.
 - Includes runtime context for caller, Core, and extension endpoints so mismatch causes are visible in one run.
-- Popup health panel shows live connection state (`connecting`, `connected`, `disconnected`, `backoff`), endpoint/source, and latest failure summary.
+- Popup shows a simple `Connected` indicator (`green` when connected, `red` otherwise).
 
 ### End-to-End Connection Troubleshooting Flow
 
@@ -336,17 +336,15 @@ browser-bridge dev info --json
 browser-bridge diagnostics doctor --json
 ```
 
-3. Open extension popup and compare:
-   - `Connection` state
-   - `Endpoint`
-   - `Source`
-   - `Last failure`
+3. Open the extension popup and check `Connected`:
+   - Green dot: extension is currently connected to Core.
+   - Red dot: extension is disconnected or reconnecting.
 
-4. If caller/core/extension endpoints differ:
+4. If caller/core/extension endpoints differ in the diagnostics report:
    - Default mode: remove custom host/port env overrides and retry (`BROWSER_BRIDGE_CORE_HOST`, `BROWSER_BRIDGE_CORE_PORT`).
    - Isolated mode: re-run `browser-bridge dev activate --extension-id <id>` for the intended worktree.
 
-5. If state is `backoff` and failures continue:
+5. If the popup stays red and failures continue:
    - Inspect logs:
 
 ```bash

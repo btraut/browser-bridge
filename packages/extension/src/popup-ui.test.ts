@@ -5,15 +5,7 @@ const setupDom = (): void => {
   document.body.innerHTML = `
     <a id="bb-settings" href="#"></a>
     <a id="bb-about" href="#"></a>
-    <span id="bb-conn-state"></span>
-    <span id="bb-conn-endpoint"></span>
-    <span id="bb-conn-source"></span>
-    <span id="bb-conn-last-ok"></span>
-    <span id="bb-conn-last-fail"></span>
-    <span id="bb-conn-next-retry"></span>
-    <span id="bb-conn-error"></span>
-    <button id="bb-copy-diagnostics" type="button"></button>
-    <span id="bb-copy-status"></span>
+    <span id="bb-conn-indicator" data-connected="false"></span>
   `;
 };
 
@@ -28,13 +20,6 @@ const setupChrome = (): void => {
           ok: true,
           result: {
             state: 'connected',
-            endpoint: {
-              host: '127.0.0.1',
-              port: 3210,
-              portSource: 'default',
-            },
-            ws_url: 'ws://127.0.0.1:3210/drive',
-            consecutive_failures: 0,
           },
         });
       }
@@ -78,36 +63,15 @@ describe('popup-ui', () => {
   it('renders connection status from background', async () => {
     await import('./popup-ui');
 
-    expect(document.getElementById('bb-conn-state')?.textContent).toBe(
-      'connected'
-    );
-    expect(document.getElementById('bb-conn-endpoint')?.textContent).toBe(
-      'ws://127.0.0.1:3210/drive'
-    );
-    expect(document.getElementById('bb-conn-source')?.textContent).toBe(
-      'default'
-    );
+    expect(
+      document.getElementById('bb-conn-indicator')?.dataset.connected
+    ).toBe('true');
+    expect(
+      document.getElementById('bb-conn-indicator')?.getAttribute('aria-label')
+    ).toBe('Connected');
   });
 
-  it('copies diagnostics payload', async () => {
-    const writeText = vi.fn(async () => undefined);
-    Object.assign(navigator, {
-      clipboard: { writeText },
-    });
-
-    await import('./popup-ui');
-    const button = document.getElementById('bb-copy-diagnostics');
-    button?.dispatchEvent(new MouseEvent('click'));
-    await vi.waitFor(() => {
-      expect(document.getElementById('bb-copy-status')?.textContent).toBe(
-        'Copied diagnostics.'
-      );
-    });
-
-    expect(writeText).toHaveBeenCalledTimes(1);
-  });
-
-  it('does not copy stale diagnostics after refresh failure', async () => {
+  it('falls back to disconnected indicator after refresh failure', async () => {
     vi.useFakeTimers();
 
     const runtime = (
@@ -132,13 +96,6 @@ describe('popup-ui', () => {
             ok: true,
             result: {
               state: 'connected',
-              endpoint: {
-                host: '127.0.0.1',
-                port: 3210,
-                portSource: 'default',
-              },
-              ws_url: 'ws://127.0.0.1:3210/drive',
-              consecutive_failures: 0,
             },
           });
           return;
@@ -147,36 +104,20 @@ describe('popup-ui', () => {
       }
     );
 
-    const writeText = vi.fn(async () => undefined);
-    Object.assign(navigator, {
-      clipboard: { writeText },
-    });
-
     await import('./popup-ui');
 
     await vi.waitFor(() => {
-      expect(document.getElementById('bb-conn-state')?.textContent).toBe(
-        'connected'
-      );
+      expect(
+        document.getElementById('bb-conn-indicator')?.dataset.connected
+      ).toBe('true');
     });
 
     await vi.advanceTimersByTimeAsync(1500);
 
     await vi.waitFor(() => {
-      expect(document.getElementById('bb-conn-error')?.textContent).toBe(
-        'Connection status is unavailable.'
-      );
+      expect(
+        document.getElementById('bb-conn-indicator')?.dataset.connected
+      ).toBe('false');
     });
-
-    document
-      .getElementById('bb-copy-diagnostics')
-      ?.dispatchEvent(new MouseEvent('click'));
-
-    await vi.waitFor(() => {
-      expect(document.getElementById('bb-copy-status')?.textContent).toBe(
-        'Connection status unavailable.'
-      );
-    });
-    expect(writeText).not.toHaveBeenCalled();
   });
 });

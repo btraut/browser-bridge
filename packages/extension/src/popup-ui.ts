@@ -6,19 +6,6 @@ type DriveConnectionState =
 
 type DriveConnectionStatus = {
   state: DriveConnectionState;
-  endpoint?: {
-    host: string;
-    port: number;
-    portSource: 'default' | 'storage';
-  };
-  ws_url?: string;
-  reconnect_delay_ms?: number;
-  retry_at?: string;
-  last_connected_at?: string;
-  last_disconnected_at?: string;
-  last_error_at?: string;
-  last_error_message?: string;
-  consecutive_failures: number;
 };
 
 type DriveConnectionStatusResponse = {
@@ -34,25 +21,15 @@ const byId = <T extends HTMLElement>(id: string): T => {
   return el as T;
 };
 
-const formatTime = (iso?: string): string => {
-  if (!iso) {
-    return 'Never';
-  }
-  const parsed = new Date(iso);
-  if (Number.isNaN(parsed.getTime())) {
-    return iso;
-  }
-  return parsed.toLocaleString();
-};
-
-const setText = (id: string, value: string): void => {
-  byId<HTMLElement>(id).textContent = value;
-};
-
-const setStateBadge = (state: DriveConnectionState): void => {
-  const badge = byId<HTMLElement>('bb-conn-state');
-  badge.textContent = state;
-  badge.setAttribute('data-state', state);
+const setConnectedIndicator = (state: DriveConnectionState): void => {
+  const connected = state === 'connected';
+  const indicator = byId<HTMLElement>('bb-conn-indicator');
+  indicator.setAttribute('data-connected', connected ? 'true' : 'false');
+  indicator.setAttribute(
+    'aria-label',
+    connected ? 'Connected' : 'Disconnected'
+  );
+  indicator.setAttribute('title', connected ? 'Connected' : state);
 };
 
 const getConnectionStatus = async (): Promise<DriveConnectionStatus> => {
@@ -74,46 +51,8 @@ const getConnectionStatus = async (): Promise<DriveConnectionStatus> => {
   return response.result;
 };
 
-const copyToClipboard = async (text: string): Promise<void> => {
-  if (navigator.clipboard?.writeText) {
-    await navigator.clipboard.writeText(text);
-    return;
-  }
-
-  const area = document.createElement('textarea');
-  area.value = text;
-  area.setAttribute('readonly', 'true');
-  area.style.position = 'fixed';
-  area.style.left = '-9999px';
-  document.body.appendChild(area);
-  area.select();
-  document.execCommand('copy');
-  document.body.removeChild(area);
-};
-
 const renderStatus = (status: DriveConnectionStatus): void => {
-  setStateBadge(status.state);
-  setText(
-    'bb-conn-endpoint',
-    status.ws_url ??
-      (status.endpoint
-        ? `ws://${status.endpoint.host}:${status.endpoint.port}/drive`
-        : 'Unknown')
-  );
-
-  const source = status.endpoint?.portSource ?? 'unknown';
-  setText('bb-conn-source', source);
-
-  const lastConnected = formatTime(status.last_connected_at);
-  setText('bb-conn-last-ok', lastConnected);
-
-  const lastFailure = status.last_error_message
-    ? `${status.last_error_message} (${formatTime(status.last_error_at)})`
-    : 'None';
-  setText('bb-conn-last-fail', lastFailure);
-
-  const nextRetry = status.retry_at ? formatTime(status.retry_at) : 'n/a';
-  setText('bb-conn-next-retry', nextRetry);
+  setConnectedIndicator(status.state);
 };
 
 const openOptionsPopupWindow = async (): Promise<void> => {
@@ -165,27 +104,12 @@ const openGithub = async (): Promise<void> => {
 };
 
 const main = (): void => {
-  const copyButton = byId<HTMLButtonElement>('bb-copy-diagnostics');
-  let latestStatus: DriveConnectionStatus | null = null;
-
   const refreshStatus = async (): Promise<void> => {
     try {
       const status = await getConnectionStatus();
-      latestStatus = status;
       renderStatus(status);
-      setText('bb-conn-error', '');
-    } catch (error) {
-      const message =
-        error instanceof Error
-          ? error.message
-          : 'Failed to read connection status.';
-      latestStatus = null;
-      renderStatus({
-        state: 'disconnected',
-        consecutive_failures: 0,
-      });
-      setStateBadge('disconnected');
-      setText('bb-conn-error', message);
+    } catch {
+      renderStatus({ state: 'disconnected' });
     }
   };
 
@@ -195,27 +119,6 @@ const main = (): void => {
 
   window.addEventListener('unload', () => {
     clearInterval(interval);
-  });
-
-  copyButton.addEventListener('click', () => {
-    void (async () => {
-      if (!latestStatus) {
-        setText('bb-copy-status', 'Connection status unavailable.');
-        return;
-      }
-      const payload = {
-        generated_at: new Date().toISOString(),
-        extension_version: chrome.runtime.getManifest().version,
-        connection: latestStatus,
-        user_agent: navigator.userAgent,
-      };
-      try {
-        await copyToClipboard(JSON.stringify(payload, null, 2));
-        setText('bb-copy-status', 'Copied diagnostics.');
-      } catch {
-        setText('bb-copy-status', 'Copy failed.');
-      }
-    })();
   });
 
   byId<HTMLAnchorElement>('bb-settings').addEventListener('click', (e) => {

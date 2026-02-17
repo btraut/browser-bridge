@@ -6,7 +6,13 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 
 ## [Unreleased]
 
-_TBD_
+### Changed
+
+- Extension popup now shows a compact `Connected` indicator (green/red) instead of the verbose connection diagnostics panel.
+
+### Fixed
+
+- Extension background now preflights Core `/health` before dialing websocket, avoiding noisy `ERR_CONNECTION_REFUSED` extension errors while Core is offline.
 
 ## [0.12.0] - 2026-02-17
 

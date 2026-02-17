@@ -19,40 +19,16 @@
         <h1 class="bb-popup-title">Browser Bridge</h1>
       </header>
 
-      <section class="bb-health" aria-label="Connection health">
-        <div class="bb-health-head">
-          <span class="bb-health-label">Connection</span>
-          <span class="bb-health-state" id="bb-conn-state">disconnected</span>
-        </div>
-        <dl class="bb-health-grid">
-          <dt>Endpoint</dt>
-          <dd id="bb-conn-endpoint">Unknown</dd>
-          <dt>Source</dt>
-          <dd id="bb-conn-source">unknown</dd>
-          <dt>Last success</dt>
-          <dd id="bb-conn-last-ok">Never</dd>
-          <dt>Last failure</dt>
-          <dd id="bb-conn-last-fail">None</dd>
-          <dt>Next retry</dt>
-          <dd id="bb-conn-next-retry">n/a</dd>
-        </dl>
-        <p
-          class="bb-health-error"
-          id="bb-conn-error"
-          role="status"
-          aria-live="polite"
-        ></p>
-        <div class="bb-health-actions">
-          <button class="bb-health-copy" id="bb-copy-diagnostics" type="button">
-            Copy diagnostics
-          </button>
-          <span
-            class="bb-health-copy-status"
-            id="bb-copy-status"
-            role="status"
-            aria-live="polite"
-          ></span>
-        </div>
+      <section class="bb-connection" aria-label="Connection status">
+        <span class="bb-connection-label">Connected:</span>
+        <span
+          class="bb-connection-dot"
+          id="bb-conn-indicator"
+          data-connected="false"
+          role="img"
+          aria-label="Disconnected"
+          title="Disconnected"
+        ></span>
       </section>
 
       <div class="bb-menu" aria-label="Extension menu">

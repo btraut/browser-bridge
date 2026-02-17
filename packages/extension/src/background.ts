@@ -58,6 +58,8 @@ type CoreEndpointConfig = {
 const DEFAULT_CORE_PORT = 3210;
 const CORE_PORT_KEY = 'corePort';
 const CORE_WS_PATH = '/drive';
+const CORE_HEALTH_PATH = '/health';
+const CORE_HEALTH_TIMEOUT_MS = 1200;
 
 const DEBUGGER_PROTOCOL_VERSION = '1.3';
 const DEBUGGER_IDLE_TIMEOUT_KEY = 'debuggerIdleTimeoutMs';
@@ -908,6 +910,9 @@ const getWsEndpoint = async (): Promise<{
   };
 };
 
+const getHealthEndpoint = (endpoint: CoreEndpointConfig): string =>
+  `http://${endpoint.host}:${endpoint.port}${CORE_HEALTH_PATH}`;
+
 class DriveSocket {
   private socket: WebSocket | null = null;
   private reconnectTimer: number | null = null;
@@ -967,6 +972,16 @@ class DriveSocket {
   private async connect(): Promise<void> {
     const { endpoint, url } = await getWsEndpoint();
     this.connection.setEndpoint(endpoint);
+    const health = await this.checkCoreHealth(endpoint);
+    if (!health.ok) {
+      this.connection.markDisconnected();
+      this.recordConnectionFailure(
+        'core unavailable',
+        new Error(health.detail)
+      );
+      this.scheduleReconnect();
+      return;
+    }
     try {
       const socket = new WebSocket(url);
       this.socket = socket;
@@ -1001,6 +1016,46 @@ class DriveSocket {
       this.recordConnectionFailure('connect', error);
       this.connection.markDisconnected();
       this.scheduleReconnect();
+    }
+  }
+
+  private async checkCoreHealth(endpoint: CoreEndpointConfig): Promise<{
+    ok: boolean;
+    detail: string;
+  }> {
+    const controller = new AbortController();
+    const timeoutId = self.setTimeout(() => {
+      controller.abort();
+    }, CORE_HEALTH_TIMEOUT_MS);
+    try {
+      const response = await fetch(getHealthEndpoint(endpoint), {
+        method: 'GET',
+        cache: 'no-store',
+        signal: controller.signal,
+      });
+      if (!response.ok) {
+        return {
+          ok: false,
+          detail: `health returned HTTP ${response.status}`,
+        };
+      }
+      return { ok: true, detail: 'ok' };
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        return {
+          ok: false,
+          detail: `health timed out after ${CORE_HEALTH_TIMEOUT_MS}ms`,
+        };
+      }
+      return {
+        ok: false,
+        detail:
+          error instanceof Error && error.message.length > 0
+            ? error.message
+            : 'health check failed',
+      };
+    } finally {
+      clearTimeout(timeoutId);
     }
   }
 
