@@ -81,6 +81,12 @@ Shared API envelope model:
 
 This shape is consumed across core, CLI, and MCP adapter.
 
+HTTP contract version signaling:
+
+- Header: `x-browser-bridge-contract-version`
+- Current value: `2026-02-17.1`
+- Core always emits this header and returns deterministic `FAILED_PRECONDITION` envelopes when a caller sends a mismatched version header.
+
 ### 4.2 Standardized Error Codes
 
 Locked error code vocabulary (`packages/shared/src/errors.ts`):
@@ -457,7 +463,7 @@ Message envelope fields:
 
 Key event/request actions emitted by extension background:
 
-- `drive.hello` (event): includes version/core identity and tab inventory
+- `drive.hello` (event): includes extension `version`, websocket `protocol_version`, core identity, and tab inventory
 - `drive.keepalive` (event): periodic heartbeat (empty params)
 - `drive.tab_report` (event): tab inventory updates
 - `drive.ping` (request handling path returns `{ ok: true }`)

@@ -120,6 +120,7 @@ export type DiagnosticReport = {
     };
     extension?: {
       version?: string;
+      protocol_version?: string;
       endpoint?: {
         host?: string;
         port?: number;
@@ -183,6 +184,7 @@ export type DiagnosticsContext = {
     };
     extension?: {
       version?: string;
+      protocolVersion?: string;
       endpoint?: RuntimeEndpointContext;
       portSource?: 'default' | 'storage';
     };
@@ -531,6 +533,7 @@ export const buildDiagnosticReport = (
           extension: context.runtime.extension
             ? {
                 version: context.runtime.extension.version,
+                protocol_version: context.runtime.extension.protocolVersion,
                 endpoint: toRuntimeEndpoint(context.runtime.extension.endpoint),
                 port_source: context.runtime.extension.portSource,
               }

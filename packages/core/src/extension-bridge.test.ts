@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { ExtensionBridge } from './extension-bridge';
+import { DRIVE_WS_PROTOCOL_VERSION } from '@btraut/browser-bridge-shared';
 
 const callPrivate = (bridge: ExtensionBridge, payload: unknown): void => {
   (
@@ -70,6 +71,7 @@ describe('ExtensionBridge debugger routing', () => {
       status: 'event',
       params: {
         version: '1.2.3',
+        protocol_version: DRIVE_WS_PROTOCOL_VERSION,
         core_host: '127.0.0.1',
         core_port: 3210,
         core_port_source: 'storage',
@@ -80,6 +82,8 @@ describe('ExtensionBridge debugger routing', () => {
     expect(bridge.getStatus()).toEqual(
       expect.objectContaining({
         version: '1.2.3',
+        protocolVersion: DRIVE_WS_PROTOCOL_VERSION,
+        protocolMismatch: undefined,
         coreHost: '127.0.0.1',
         corePort: 3210,
         corePortSource: 'storage',
@@ -97,10 +101,36 @@ describe('ExtensionBridge debugger routing', () => {
       expect.objectContaining({
         connected: false,
         version: undefined,
+        protocolVersion: undefined,
+        protocolMismatch: undefined,
         coreHost: undefined,
         corePort: undefined,
         corePortSource: undefined,
       })
     );
+  });
+
+  it('fails requests deterministically on websocket protocol mismatch', async () => {
+    const bridge = new ExtensionBridge();
+    const hello = {
+      id: 'evt-hello',
+      action: 'drive.hello',
+      status: 'event',
+      params: {
+        version: '1.2.3',
+        protocol_version: 'legacy-0',
+        tabs: [],
+      },
+    };
+
+    callPrivate(bridge, hello);
+
+    await expect(bridge.request('drive.navigate', {})).rejects.toMatchObject({
+      code: 'FAILED_PRECONDITION',
+      details: {
+        expected: DRIVE_WS_PROTOCOL_VERSION,
+        received: 'legacy-0',
+      },
+    });
   });
 });

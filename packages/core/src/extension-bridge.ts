@@ -19,11 +19,17 @@ import type {
 } from './drive-protocol';
 import { SessionRegistry } from './session';
 import { SessionState } from './state';
+import { DRIVE_WS_PROTOCOL_VERSION } from '@btraut/browser-bridge-shared';
 
 export type ExtensionBridgeStatus = {
   connected: boolean;
   lastSeenAt?: string;
   version?: string;
+  protocolVersion?: string;
+  protocolMismatch?: {
+    expected: string;
+    received: string;
+  };
   coreHost?: string;
   corePort?: number;
   corePortSource?: 'default' | 'storage';
@@ -71,6 +77,11 @@ export class ExtensionBridge {
   private connected = false;
   private lastSeenAt?: string;
   private version?: string;
+  private protocolVersion?: string;
+  private protocolMismatch?: {
+    expected: string;
+    received: string;
+  };
   private coreHost?: string;
   private corePort?: number;
   private corePortSource?: 'default' | 'storage';
@@ -119,6 +130,8 @@ export class ExtensionBridge {
       connected: this.connected,
       lastSeenAt: this.lastSeenAt,
       version: this.version,
+      protocolVersion: this.protocolVersion,
+      protocolMismatch: this.protocolMismatch,
       coreHost: this.coreHost,
       corePort: this.corePort,
       corePortSource: this.corePortSource,
@@ -156,6 +169,15 @@ export class ExtensionBridge {
     params?: Record<string, unknown>,
     timeoutMs = 30000
   ): Promise<ExtensionResponse> {
+    if (this.protocolMismatch && action !== 'drive.ping') {
+      throw new ExtensionBridgeError(
+        'FAILED_PRECONDITION',
+        'Extension protocol version mismatch.',
+        false,
+        this.protocolMismatch
+      );
+    }
+
     if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
       throw new ExtensionBridgeError(
         'EXTENSION_DISCONNECTED',
@@ -294,6 +316,8 @@ export class ExtensionBridge {
     this.connected = false;
     this.socket = null;
     this.version = undefined;
+    this.protocolVersion = undefined;
+    this.protocolMismatch = undefined;
     this.coreHost = undefined;
     this.corePort = undefined;
     this.corePortSource = undefined;
@@ -367,6 +391,22 @@ export class ExtensionBridge {
       if (message.action === 'drive.hello') {
         if (typeof params?.version === 'string') {
           this.version = params.version;
+        }
+        if (typeof params?.protocol_version === 'string') {
+          this.protocolVersion = params.protocol_version;
+        } else {
+          this.protocolVersion = undefined;
+        }
+        if (
+          this.protocolVersion &&
+          this.protocolVersion !== DRIVE_WS_PROTOCOL_VERSION
+        ) {
+          this.protocolMismatch = {
+            expected: DRIVE_WS_PROTOCOL_VERSION,
+            received: this.protocolVersion,
+          };
+        } else {
+          this.protocolMismatch = undefined;
         }
         if (typeof params?.core_host === 'string') {
           this.coreHost = params.core_host;

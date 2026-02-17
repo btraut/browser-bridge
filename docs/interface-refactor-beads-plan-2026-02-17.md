@@ -12,7 +12,7 @@ Reduce accidental complexity in Browser Bridge's public interface while preservi
 ## Scope
 
 1. ✅ Remove legacy alias churn (`back/go_back`, `forward/go_forward`) across HTTP, MCP, CLI, and extension action layers. (Core/extension now use canonical `go_*` actions/routes; CLI/MCP aliases remain as temporary shims that forward to canonical routes and emit explicit deprecation warnings.)
-2. Add explicit contract versioning for public interfaces (HTTP and extension websocket handshake).
+2. ✅ Add explicit contract versioning for public interfaces (HTTP and extension websocket handshake). (Core now enforces/surfaces `x-browser-bridge-contract-version` on HTTP; websocket `drive.hello` now carries `protocol_version`, and core rejects mismatches deterministically.)
 3. Replace boolean-only retry semantics with structured retry guidance and centralized retry policy.
 4. Simplify and normalize error code taxonomy; move granularity into typed details.
 5. Resolve route-shape inconsistency and define canonical API style (RPC-style POST or mixed REST with GET reads).

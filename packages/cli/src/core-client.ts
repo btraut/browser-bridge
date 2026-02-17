@@ -1,6 +1,8 @@
 import {
   ApiEnvelope,
   ErrorInfo,
+  HTTP_CONTRACT_VERSION,
+  HTTP_CONTRACT_VERSION_HEADER,
   JsonlLogger,
   createCoreReadinessController,
   createJsonlLogger,
@@ -157,6 +159,7 @@ export const createCoreClient = (
           method,
           headers: {
             'content-type': 'application/json',
+            [HTTP_CONTRACT_VERSION_HEADER]: HTTP_CONTRACT_VERSION,
           },
           body: body === undefined ? undefined : JSON.stringify(body),
           signal: controller.signal,

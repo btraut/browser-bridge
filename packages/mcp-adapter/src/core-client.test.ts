@@ -3,6 +3,10 @@ import { spawn } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import {
+  HTTP_CONTRACT_VERSION,
+  HTTP_CONTRACT_VERSION_HEADER,
+} from '@btraut/browser-bridge-shared';
 import { createCoreClient } from './core-client';
 
 const makeResponse = (body: unknown, ok = true) =>
@@ -95,7 +99,12 @@ describe('mcp core client', () => {
 
     expect(fetchImpl).toHaveBeenCalledWith(
       'http://127.0.0.5:3210/session/create',
-      expect.anything()
+      expect.objectContaining({
+        headers: {
+          'content-type': 'application/json',
+          [HTTP_CONTRACT_VERSION_HEADER]: HTTP_CONTRACT_VERSION,
+        },
+      })
     );
   });
 

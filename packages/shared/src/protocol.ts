@@ -162,6 +162,7 @@ export type DriveTabCloseParams = {
 
 export type DriveHelloParams = {
   version?: string;
+  protocol_version?: string;
   core_host?: string;
   core_port?: number;
   core_port_source?: 'default' | 'storage';

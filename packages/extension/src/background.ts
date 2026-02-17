@@ -12,6 +12,7 @@ import type {
   ExtensionMessage,
   ExtensionRequest,
 } from './protocol.js';
+import { DRIVE_WS_PROTOCOL_VERSION } from '@btraut/browser-bridge-shared/dist/contract-version';
 import { sanitizeDriveErrorInfo } from './error-sanitizer.js';
 import { PermissionPromptController } from './permission-prompt.js';
 import {
@@ -1153,6 +1154,7 @@ class DriveSocket {
     }
     const params: DriveHelloParams = {
       version: manifest.version,
+      protocol_version: DRIVE_WS_PROTOCOL_VERSION,
       core_host: endpoint.host,
       core_port: endpoint.port,
       core_port_source: endpoint.portSource,

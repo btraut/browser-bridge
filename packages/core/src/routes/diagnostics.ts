@@ -207,6 +207,7 @@ export const registerDiagnosticsRoutes = (
         if (status.connected) {
           context.runtime.extension = {
             version: status.version,
+            protocolVersion: status.protocolVersion,
             endpoint:
               status.coreHost && typeof status.corePort === 'number'
                 ? {

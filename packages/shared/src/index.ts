@@ -1,4 +1,5 @@
 export * from './core-readiness';
+export * from './contract-version';
 export * from './errors';
 export * from './logging';
 export * from './runtime-config';
