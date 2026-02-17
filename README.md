@@ -267,6 +267,8 @@ For normal usage, Browser Bridge is zero-setup:
 - Core and CLI default to `127.0.0.1:3210`.
 - The extension also defaults to `3210`.
 - You do not need `dev activate` unless you intentionally opt into isolated worktree routing.
+- After reboot/cold start, the first CLI or MCP request auto-starts Core (no manual daemon wake-up required).
+- If Core is idle/offline, the extension popup may show `disconnected` or `backoff`; this is expected until Core is reachable again.
 
 Optional status check:
 
@@ -315,6 +317,45 @@ tail -n 80 .context/logs/browser-bridge/mcp-adapter.jsonl
 
 - CLI: `browser-bridge diagnostics doctor --session-id <id>`
 - Reports extension and debugger status alongside session state.
+- Includes runtime context for caller, Core, and extension endpoints so mismatch causes are visible in one run.
+- Popup health panel shows live connection state (`connecting`, `connected`, `disconnected`, `backoff`), endpoint/source, and latest failure summary.
+
+### End-to-End Connection Troubleshooting Flow
+
+Use this exact flow when commands fail after reboot, runtime changes, or worktree switching:
+
+1. Check runtime resolution:
+
+```bash
+browser-bridge dev info --json
+```
+
+2. Run diagnostics from CLI (captures caller + Core + extension runtime context):
+
+```bash
+browser-bridge diagnostics doctor --json
+```
+
+3. Open extension popup and compare:
+   - `Connection` state
+   - `Endpoint`
+   - `Source`
+   - `Last failure`
+
+4. If caller/core/extension endpoints differ:
+   - Default mode: remove custom host/port env overrides and retry (`BROWSER_BRIDGE_CORE_HOST`, `BROWSER_BRIDGE_CORE_PORT`).
+   - Isolated mode: re-run `browser-bridge dev activate --extension-id <id>` for the intended worktree.
+
+5. If state is `backoff` and failures continue:
+   - Inspect logs:
+
+```bash
+tail -n 80 .context/logs/browser-bridge/cli.jsonl
+tail -n 80 .context/logs/browser-bridge/core.jsonl
+tail -n 80 .context/logs/browser-bridge/mcp-adapter.jsonl
+```
+
+6. Retry the command once endpoint mismatch is corrected.
 
 ## 🔧 Recovery
 

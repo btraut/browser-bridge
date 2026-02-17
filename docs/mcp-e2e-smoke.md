@@ -13,6 +13,7 @@ This smoke flow validates the MCP adapter against a running Core + Chrome extens
 7. Resolve this worktree runtime when needed: `browser-bridge dev info --json`.
 8. Only for isolated multi-worktree testing, activate this worktree before smoke:
    - `browser-bridge dev activate --extension-id <id> --json`
+9. After reboot/cold start, first MCP calls auto-start Core; popup `disconnected`/`backoff` is expected until reconnect succeeds.
 
 ## Run
 
@@ -44,3 +45,4 @@ This smoke flow validates the MCP adapter against a running Core + Chrome extens
 
 - Default Core port is `3210`. In isolated mode, use the `port` from `browser-bridge dev info`.
 - If Core runs on a custom host/port, set `BROWSER_BRIDGE_CORE_HOST` and `BROWSER_BRIDGE_CORE_PORT` before starting the adapter.
+- If endpoint mismatch is suspected, run `browser-bridge diagnostics doctor --json` and compare caller/core/extension runtime endpoints.

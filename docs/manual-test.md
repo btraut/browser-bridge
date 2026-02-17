@@ -109,4 +109,4 @@ This optional script exercises every CLI tool against a deterministic fixture pa
 - `drive tab-list` returns one or more tabs with URL/title metadata.
 - `inspect dom-snapshot` writes a snapshot JSON file.
 - `artifacts screenshot` returns an artifact path on disk.
-- `diagnostics doctor` reports extension connection status, debugger status, and session state.
+- `diagnostics doctor` reports extension connection status, debugger status, session state, and caller/core/extension runtime context for mismatch diagnosis.
