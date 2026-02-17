@@ -212,7 +212,8 @@ const makeHandler = <T extends { session_id?: string }>(
 const makeDialogHandler = <T extends { session_id: string }>(
   action: 'accept' | 'dismiss',
   schema: SchemaLike<T>,
-  drive: DriveController
+  drive: DriveController,
+  aliasName?: 'dialog.accept' | 'dialog.dismiss'
 ) => {
   return (req: RequestLike, res: ResponseLike): void => {
     const parsed = parseBody(schema, req.body ?? {});
@@ -234,9 +235,29 @@ const makeDialogHandler = <T extends { session_id: string }>(
       .execute(sessionId, 'drive.handle_dialog', params)
       .then((result) => {
         if (result.ok) {
-          const payload =
+          const basePayload =
             result.result === undefined ? { ok: true } : result.result;
-          sendResult(res, payload);
+          if (
+            !aliasName ||
+            typeof basePayload !== 'object' ||
+            basePayload === null
+          ) {
+            sendResult(res, basePayload);
+            return;
+          }
+          const warning = `${aliasName} is deprecated; use drive.handle_dialog.`;
+          const payload = basePayload as Record<string, unknown>;
+          const warnings = Array.isArray(payload.warnings)
+            ? payload.warnings.filter(
+                (item): item is string => typeof item === 'string'
+              )
+            : [];
+          sendResult(res, {
+            ...payload,
+            warnings: warnings.includes(warning)
+              ? warnings
+              : [...warnings, warning],
+          });
           return;
         }
         sendError(res, errorStatus(result.error.code), result.error);
@@ -303,11 +324,16 @@ export const registerDriveRoutes = (
   );
   router.post(
     '/dialog/accept',
-    makeDialogHandler('accept', DialogAcceptInputSchema, drive)
+    makeDialogHandler('accept', DialogAcceptInputSchema, drive, 'dialog.accept')
   );
   router.post(
     '/dialog/dismiss',
-    makeDialogHandler('dismiss', DialogDismissInputSchema, drive)
+    makeDialogHandler(
+      'dismiss',
+      DialogDismissInputSchema,
+      drive,
+      'dialog.dismiss'
+    )
   );
   router.post(
     '/drive/key',

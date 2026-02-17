@@ -268,7 +268,7 @@ export const CLI_TOOL_FIXTURES: CliToolFixture[] = [
   {
     name: 'dialog.accept',
     kind: 'core',
-    corePath: '/dialog/accept',
+    corePath: '/drive/handle_dialog',
     argv: [
       'dialog',
       'accept',
@@ -281,6 +281,7 @@ export const CLI_TOOL_FIXTURES: CliToolFixture[] = [
     ],
     payload: {
       session_id: 'session-1',
+      action: 'accept',
       promptText: 'Sure',
       tab_id: 2,
     },
@@ -288,10 +289,11 @@ export const CLI_TOOL_FIXTURES: CliToolFixture[] = [
   {
     name: 'dialog.dismiss',
     kind: 'core',
-    corePath: '/dialog/dismiss',
+    corePath: '/drive/handle_dialog',
     argv: ['dialog', 'dismiss', '--session-id', 'session-1', '--tab-id', '2'],
     payload: {
       session_id: 'session-1',
+      action: 'dismiss',
       tab_id: 2,
     },
   },

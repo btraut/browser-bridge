@@ -76,8 +76,32 @@ export const MCP_TOOL_DEFINITIONS: McpToolDefinition[] = [
   { name: 'drive.fill_form', corePath: '/drive/fill_form' },
   { name: 'drive.drag', corePath: '/drive/drag' },
   { name: 'drive.handle_dialog', corePath: '/drive/handle_dialog' },
-  { name: 'dialog.accept', corePath: '/dialog/accept' },
-  { name: 'dialog.dismiss', corePath: '/dialog/dismiss' },
+  {
+    name: 'dialog.accept',
+    corePath: '/drive/handle_dialog',
+    deprecation: {
+      stage: 'deprecated',
+      deprecated_since: '2026-02-17',
+      removal_target: '2026-06-01',
+      replacement: 'drive.handle_dialog',
+      warning_behavior: 'warn-on-use',
+      migration_notes:
+        'docs/deprecation-lifecycle-policy.md#current-deprecations',
+    },
+  },
+  {
+    name: 'dialog.dismiss',
+    corePath: '/drive/handle_dialog',
+    deprecation: {
+      stage: 'deprecated',
+      deprecated_since: '2026-02-17',
+      removal_target: '2026-06-01',
+      replacement: 'drive.handle_dialog',
+      warning_behavior: 'warn-on-use',
+      migration_notes:
+        'docs/deprecation-lifecycle-policy.md#current-deprecations',
+    },
+  },
   { name: 'drive.key', corePath: '/drive/key' },
   { name: 'drive.key_press', corePath: '/drive/key_press' },
   { name: 'drive.scroll', corePath: '/drive/scroll' },

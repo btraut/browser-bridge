@@ -189,4 +189,45 @@ describe('registerDriveRoutes', () => {
       },
     });
   });
+
+  it('maps dialog.accept alias to drive.handle_dialog with deprecation warning', async () => {
+    const registry = new SessionRegistry();
+    const session = registry.create();
+    const execute = vi.fn().mockResolvedValue({
+      ok: true,
+      result: { ok: true },
+    });
+    const drive = { execute } as unknown as DriveController;
+
+    const harness = createRouteHarness();
+    registerDriveRoutes(harness.router, { drive, registry });
+
+    const accept = harness.handlers.get('/dialog/accept');
+    expect(accept).toBeDefined();
+
+    const response = createResponse();
+    accept?.(
+      {
+        body: {
+          session_id: session.id,
+          promptText: 'ok',
+        },
+      },
+      response.res
+    );
+    await flushAsync();
+
+    expect(execute).toHaveBeenCalledWith(session.id, 'drive.handle_dialog', {
+      promptText: 'ok',
+      action: 'accept',
+    });
+    expect(response.statusCode()).toBe(200);
+    expect(response.payload()).toEqual({
+      ok: true,
+      result: {
+        ok: true,
+        warnings: ['dialog.accept is deprecated; use drive.handle_dialog.'],
+      },
+    });
+  });
 });

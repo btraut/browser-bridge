@@ -187,8 +187,8 @@ Drive and dialog endpoints include:
 - `/drive/fill_form`
 - `/drive/drag`
 - `/drive/handle_dialog`
-- `/dialog/accept`
-- `/dialog/dismiss`
+- `/dialog/accept` (deprecated compatibility alias)
+- `/dialog/dismiss` (deprecated compatibility alias)
 - `/drive/key`
 - `/drive/key_press`
 - `/drive/scroll`
@@ -248,8 +248,8 @@ MCP tool catalog is defined by shared tool map and consumed by adapter (`package
 14. `drive.fill_form` -> `/drive/fill_form`
 15. `drive.drag` -> `/drive/drag`
 16. `drive.handle_dialog` -> `/drive/handle_dialog`
-17. `dialog.accept` -> `/dialog/accept`
-18. `dialog.dismiss` -> `/dialog/dismiss`
+17. `dialog.accept` -> `/drive/handle_dialog` (deprecated alias, `action=accept`)
+18. `dialog.dismiss` -> `/drive/handle_dialog` (deprecated alias, `action=dismiss`)
 19. `drive.key` -> `/drive/key`
 20. `drive.key_press` -> `/drive/key_press`
 21. `drive.scroll` -> `/drive/scroll`
@@ -538,6 +538,7 @@ Diagnostics routes and report model include:
 Current compatibility and legacy behaviors worth explicitly deciding whether to preserve:
 
 - `drive.back` and `drive.forward` remain as deprecated CLI/MCP aliases, but Core routes and extension actions are canonicalized to `drive.go_back` and `drive.go_forward`.
+- `dialog.accept` and `dialog.dismiss` remain as deprecated CLI/MCP aliases, but the canonical dialog model is `drive.handle_dialog` with explicit `action`.
 - Deprecation lifecycle metadata is now tracked in `packages/shared/src/tooling.ts` and documented in `docs/deprecation-lifecycle-policy.md`.
 - Bare `browser-bridge mcp` still behaves as server start path.
 - `artifacts screenshot --full-page` acts as alias-like UX behavior.

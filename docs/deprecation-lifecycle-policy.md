@@ -37,6 +37,8 @@ The current registry is in `packages/shared/src/tooling.ts` (`MCP_TOOL_DEFINITIO
 
 - `drive.back` -> `drive.go_back`
 - `drive.forward` -> `drive.go_forward`
+- `dialog.accept` -> `drive.handle_dialog` (`action: accept`)
+- `dialog.dismiss` -> `drive.handle_dialog` (`action: dismiss`)
 
 Both entries carry full lifecycle metadata and share migration notes here.
 

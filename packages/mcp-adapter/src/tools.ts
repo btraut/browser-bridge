@@ -93,7 +93,11 @@ type ToolConfig = {
   inputSchema: AnySchema | ZodRawShapeCompat;
   outputSchema: AnySchema | ZodRawShapeCompat;
   corePath: string;
-  deprecatedAliasOf?: string;
+  deprecationAlias?: {
+    alias: string;
+    replacement: string;
+  };
+  transformInput?: (args: unknown) => unknown;
 };
 
 type ToolRegistrar = Pick<McpServer, 'registerTool'>;
@@ -124,12 +128,18 @@ const toInternalErrorEnvelope = (error: unknown) => ({
 
 const envelope = (schema: EnvelopeInput) => successEnvelopeSchema(schema);
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
 const addDeprecatedAliasWarning = (
   envelopeResult: ApiEnvelope<unknown>,
-  aliasName?: string
+  deprecationAlias?: {
+    alias: string;
+    replacement: string;
+  }
 ): ApiEnvelope<unknown> => {
   if (
-    !aliasName ||
+    !deprecationAlias ||
     !envelopeResult.ok ||
     typeof envelopeResult.result !== 'object' ||
     !envelopeResult.result
@@ -137,10 +147,7 @@ const addDeprecatedAliasWarning = (
     return envelopeResult;
   }
 
-  const warning = `${aliasName} is deprecated; use ${aliasName.replace(
-    'drive.',
-    'drive.go_'
-  )}.`;
+  const warning = `${deprecationAlias.alias} is deprecated; use ${deprecationAlias.replacement}.`;
   const result = envelopeResult.result as Record<string, unknown>;
   const existingWarnings = Array.isArray(result.warnings)
     ? result.warnings.filter((item): item is string => typeof item === 'string')
@@ -236,7 +243,10 @@ export const TOOL_DEFINITIONS: Array<{ name: string; config: ToolConfig }> = [
       inputSchema: DriveGoBackInputSchema,
       outputSchema: envelope(DriveGoBackOutputSchema),
       corePath: '/drive/go_back',
-      deprecatedAliasOf: 'drive.back',
+      deprecationAlias: {
+        alias: 'drive.back',
+        replacement: 'drive.go_back',
+      },
     },
   },
   {
@@ -247,7 +257,10 @@ export const TOOL_DEFINITIONS: Array<{ name: string; config: ToolConfig }> = [
       inputSchema: DriveGoForwardInputSchema,
       outputSchema: envelope(DriveGoForwardOutputSchema),
       corePath: '/drive/go_forward',
-      deprecatedAliasOf: 'drive.forward',
+      deprecationAlias: {
+        alias: 'drive.forward',
+        replacement: 'drive.go_forward',
+      },
     },
   },
   {
@@ -324,20 +337,32 @@ export const TOOL_DEFINITIONS: Array<{ name: string; config: ToolConfig }> = [
     name: 'dialog.accept',
     config: {
       title: 'Dialog Accept',
-      description: 'Accept a JavaScript dialog.',
+      description: 'Deprecated alias for drive.handle_dialog (action=accept).',
       inputSchema: DialogAcceptInputSchema,
       outputSchema: envelope(DialogAcceptOutputSchema),
-      corePath: '/dialog/accept',
+      corePath: '/drive/handle_dialog',
+      deprecationAlias: {
+        alias: 'dialog.accept',
+        replacement: 'drive.handle_dialog',
+      },
+      transformInput: (args) =>
+        isRecord(args) ? { ...args, action: 'accept' } : args,
     },
   },
   {
     name: 'dialog.dismiss',
     config: {
       title: 'Dialog Dismiss',
-      description: 'Dismiss a JavaScript dialog.',
+      description: 'Deprecated alias for drive.handle_dialog (action=dismiss).',
       inputSchema: DialogDismissInputSchema,
       outputSchema: envelope(DialogDismissOutputSchema),
-      corePath: '/dialog/dismiss',
+      corePath: '/drive/handle_dialog',
+      deprecationAlias: {
+        alias: 'dialog.dismiss',
+        replacement: 'drive.handle_dialog',
+      },
+      transformInput: (args) =>
+        isRecord(args) ? { ...args, action: 'dismiss' } : args,
     },
   },
   {
@@ -537,7 +562,11 @@ export const TOOL_DEFINITIONS: Array<{ name: string; config: ToolConfig }> = [
 export const createToolHandler = (
   clientProvider: CoreClientProvider,
   corePath: string,
-  deprecatedAliasOf?: string
+  deprecationAlias?: {
+    alias: string;
+    replacement: string;
+  },
+  transformInput?: (args: unknown) => unknown
 ): ToolCallback<AnySchema> => {
   return (async (args: unknown, _extra: unknown): Promise<ToolResult> => {
     void _extra;
@@ -546,9 +575,12 @@ export const createToolHandler = (
         typeof clientProvider === 'function'
           ? await clientProvider()
           : clientProvider;
-      const envelopeResult = await client.post(corePath, args);
+      const envelopeResult = await client.post(
+        corePath,
+        transformInput ? transformInput(args) : args
+      );
       return toToolResult(
-        addDeprecatedAliasWarning(envelopeResult, deprecatedAliasOf)
+        addDeprecatedAliasWarning(envelopeResult, deprecationAlias)
       );
     } catch (error) {
       const parsed = ErrorEnvelopeSchema.safeParse(error);
@@ -576,7 +608,8 @@ export const registerBrowserBridgeTools = (
       createToolHandler(
         clientProvider,
         tool.config.corePath,
-        tool.config.deprecatedAliasOf
+        tool.config.deprecationAlias,
+        tool.config.transformInput
       )
     );
   }

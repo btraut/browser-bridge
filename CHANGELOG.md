@@ -17,6 +17,7 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 - Public error taxonomy is now canonicalized: legacy/internal codes are normalized to a smaller non-overlapping public set, with typed migration details (`legacy_code`, `reason`, and structured context fields) attached to mapped responses.
 - Retry semantics now use centralized structured hints: shared `retry` metadata (`retryable`, `reason`, `retry_after_ms`, `max_attempts`) and shared retry policy logic replace boolean-only retry decisions in core drive flows, while preserving compatibility via `retryable`.
 - API route style is now explicitly RPC-over-HTTP POST: canonical health diagnostics route is `/health/check` (with legacy `/health_check` alias), and readiness supports canonical `POST /health` while retaining `GET /health` compatibility.
+- Dialog operations are now canonicalized to `drive.handle_dialog`; `dialog.accept`/`dialog.dismiss` are deprecated aliases that map to canonical payloads and emit explicit warnings.
 
 ### Fixed
 

@@ -250,28 +250,32 @@ export const MCP_TOOL_FIXTURES: ToolFixture[] = [
   },
   {
     name: 'dialog.accept',
-    corePath: '/dialog/accept',
+    corePath: '/drive/handle_dialog',
     input: {
       session_id: 'session-1',
+      action: 'accept',
       promptText: 'confirm',
     },
     successEnvelope: {
       ok: true,
       result: {
         ok: true,
+        warnings: ['dialog.accept is deprecated; use drive.handle_dialog.'],
       },
     },
   },
   {
     name: 'dialog.dismiss',
-    corePath: '/dialog/dismiss',
+    corePath: '/drive/handle_dialog',
     input: {
       session_id: 'session-1',
+      action: 'dismiss',
     },
     successEnvelope: {
       ok: true,
       result: {
         ok: true,
+        warnings: ['dialog.dismiss is deprecated; use drive.handle_dialog.'],
       },
     },
   },
