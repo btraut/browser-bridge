@@ -1,4 +1,5 @@
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { spawn } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -8,8 +9,18 @@ const makeResponse = (body: unknown, ok = true) =>
   ({
     ok,
     status: ok ? 200 : 500,
+    json: async () => body,
     text: async () => JSON.stringify(body),
   }) as unknown as Response;
+
+const makeSpawnImpl = (): typeof spawn =>
+  vi.fn(
+    () =>
+      ({
+        on: vi.fn(),
+        unref: vi.fn(),
+      }) as unknown as ReturnType<typeof spawn>
+  ) as unknown as typeof spawn;
 
 const trackedTempDirs: string[] = [];
 
@@ -114,6 +125,75 @@ describe('mcp core client', () => {
         });
         expect(fromOptions.baseUrl).toBe('http://option.local:5333');
       }
+    );
+  });
+
+  it('auto-starts core on first request when ensureDaemon is enabled', async () => {
+    let healthChecks = 0;
+    const fetchImpl = vi.fn(async (url: string) => {
+      if (url.endsWith('/health')) {
+        healthChecks += 1;
+        return makeResponse({ ok: healthChecks > 1 });
+      }
+      return makeResponse({ ok: true, result: { started: true } });
+    }) as unknown as typeof fetch;
+
+    const spawnImpl = makeSpawnImpl();
+
+    const client = createCoreClient({
+      host: '127.0.0.1',
+      port: 3210,
+      ensureDaemon: true,
+      healthRetryMs: 1,
+      healthAttempts: 5,
+      fetchImpl,
+      spawnImpl,
+    });
+
+    const result = await client.post('/session/create', {});
+
+    expect(result).toEqual({ ok: true, result: { started: true } });
+    expect(spawnImpl).toHaveBeenCalledTimes(1);
+    expect(fetchImpl).toHaveBeenCalledWith(
+      'http://127.0.0.1:3210/health',
+      expect.anything()
+    );
+  });
+
+  it('returns retryable unavailable envelope when ensure-ready cannot make core healthy', async () => {
+    const fetchImpl = vi.fn(async (url: string) => {
+      if (url.endsWith('/health')) {
+        return makeResponse({ ok: false });
+      }
+      return makeResponse({ ok: true, result: { unexpected: true } });
+    }) as unknown as typeof fetch;
+
+    const spawnImpl = makeSpawnImpl();
+
+    const client = createCoreClient({
+      host: '127.0.0.1',
+      port: 3210,
+      ensureDaemon: true,
+      healthRetryMs: 1,
+      healthAttempts: 2,
+      fetchImpl,
+      spawnImpl,
+    });
+
+    await expect(client.post('/session/create', {})).rejects.toEqual(
+      expect.objectContaining({
+        ok: false,
+        error: expect.objectContaining({
+          code: 'UNAVAILABLE',
+          retryable: true,
+        }),
+      })
+    );
+
+    expect(spawnImpl).toHaveBeenCalledTimes(1);
+    expect(fetchImpl).not.toHaveBeenCalledWith(
+      'http://127.0.0.1:3210/session/create',
+      expect.anything()
     );
   });
 });

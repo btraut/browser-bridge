@@ -9,6 +9,11 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 ### Changed
 
 - Core runtime bootstrap: CLI and MCP adapter now share one Core readiness/runtime resolution path (default/env/metadata precedence + health/ensure-ready behavior), with new shared parity tests.
+- MCP adapter now enables Core ensure-ready by default when constructing its client, so first tool calls auto-bootstrap Core after cold start.
+
+### Fixed
+
+- MCP adapter now returns bounded retryable `UNAVAILABLE` envelopes when Core ensure-ready cannot establish health, instead of opaque internal failures.
 
 ## [0.11.1] - 2026-02-16
 

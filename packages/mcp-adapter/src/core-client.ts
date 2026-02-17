@@ -1,5 +1,6 @@
 import {
   ApiEnvelope,
+  ErrorEnvelope,
   JsonlLogger,
   createCoreReadinessController,
   createJsonlLogger,
@@ -17,6 +18,8 @@ export type CoreClientOptions = {
   cwd?: string;
   timeoutMs?: number;
   ensureDaemon?: boolean;
+  healthRetryMs?: number;
+  healthAttempts?: number;
   fetchImpl?: FetchLike;
   spawnImpl?: SpawnLike;
   logger?: JsonlLogger;
@@ -36,6 +39,24 @@ const normalizePath = (path: string): string =>
 
 const durationMs = (startedAt: bigint): number =>
   Number((Number(process.hrtime.bigint() - startedAt) / 1_000_000).toFixed(3));
+
+const toReadinessErrorEnvelope = (
+  error: unknown,
+  baseUrl: string
+): ErrorEnvelope => ({
+  ok: false,
+  error: {
+    code: 'UNAVAILABLE',
+    message:
+      error instanceof Error
+        ? `Core not ready at ${baseUrl}: ${error.message}`
+        : `Core not ready at ${baseUrl}.`,
+    retryable: true,
+    details: {
+      base_url: baseUrl,
+    },
+  },
+});
 
 export const createCoreClient = (
   options: CoreClientOptions = {}
@@ -62,6 +83,8 @@ export const createCoreClient = (
     fetchImpl,
     logger,
     logPrefix: 'mcp.core',
+    healthRetryMs: options.healthRetryMs,
+    healthAttempts: options.healthAttempts,
     spawnDaemon: ensureDaemon
       ? (runtime) => {
           const coreEntry = resolve(__dirname, 'api.js');
@@ -174,7 +197,15 @@ export const createCoreClient = (
     path: string,
     body?: unknown
   ): Promise<ApiEnvelope<T>> => {
-    await readiness.ensureReady();
+    try {
+      await readiness.ensureReady();
+    } catch (error) {
+      logger.warn('mcp.core.ensure_ready.unavailable', {
+        base_url: readiness.baseUrl,
+        error,
+      });
+      throw toReadinessErrorEnvelope(error, readiness.baseUrl);
+    }
     readiness.refreshRuntime();
     return requestJson<ApiEnvelope<T>>(path, body);
   };

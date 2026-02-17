@@ -67,6 +67,7 @@ export const createMcpServer = (
     options.coreClient ??
     createCoreClient({
       ...options,
+      ensureDaemon: options.ensureDaemon ?? true,
       logger: logger.child({ scope: 'core-client' }),
     });
 
@@ -163,6 +164,7 @@ export const startMcpHttpServer = async (
     options.coreClient ??
     createCoreClient({
       ...options,
+      ensureDaemon: options.ensureDaemon ?? true,
       logger: logger.child({ scope: 'core-client' }),
     });
 
