@@ -44,4 +44,20 @@ describe('ConnectionStateTracker', () => {
     const third = tracker.consumeFailureLogBudget();
     expect(third).toEqual({ shouldLog: true, suppressedCount: 1 });
   });
+
+  it('clears retry metadata outside backoff state', () => {
+    let now = 1_700_000_000_000;
+    const tracker = new ConnectionStateTracker(() => now);
+    tracker.markBackoff(3000);
+
+    tracker.markConnecting();
+    expect(tracker.getStatus().retry_at).toBeUndefined();
+    expect(tracker.getStatus().reconnect_delay_ms).toBeUndefined();
+
+    tracker.markBackoff(2000);
+    now += 500;
+    tracker.markDisconnected();
+    expect(tracker.getStatus().retry_at).toBeUndefined();
+    expect(tracker.getStatus().reconnect_delay_ms).toBeUndefined();
+  });
 });

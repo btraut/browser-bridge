@@ -49,6 +49,8 @@ export class ConnectionStateTracker {
 
   markConnecting(): void {
     this.state = 'connecting';
+    this.reconnectDelayMs = undefined;
+    this.retryAt = undefined;
   }
 
   markConnected(): void {
@@ -61,6 +63,8 @@ export class ConnectionStateTracker {
 
   markDisconnected(): void {
     this.state = 'disconnected';
+    this.reconnectDelayMs = undefined;
+    this.retryAt = undefined;
     this.lastDisconnectedAt = toIso(this.now());
   }
 

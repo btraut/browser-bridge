@@ -36,12 +36,22 @@
           <dt>Next retry</dt>
           <dd id="bb-conn-next-retry">n/a</dd>
         </dl>
-        <p class="bb-health-error" id="bb-conn-error"></p>
+        <p
+          class="bb-health-error"
+          id="bb-conn-error"
+          role="status"
+          aria-live="polite"
+        ></p>
         <div class="bb-health-actions">
           <button class="bb-health-copy" id="bb-copy-diagnostics" type="button">
             Copy diagnostics
           </button>
-          <span class="bb-health-copy-status" id="bb-copy-status"></span>
+          <span
+            class="bb-health-copy-status"
+            id="bb-copy-status"
+            role="status"
+            aria-live="polite"
+          ></span>
         </div>
       </section>
 

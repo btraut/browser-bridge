@@ -71,6 +71,7 @@ beforeEach(() => {
 
 afterEach(() => {
   window.dispatchEvent(new Event('unload'));
+  vi.useRealTimers();
 });
 
 describe('popup-ui', () => {
@@ -104,5 +105,78 @@ describe('popup-ui', () => {
     });
 
     expect(writeText).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not copy stale diagnostics after refresh failure', async () => {
+    vi.useFakeTimers();
+
+    const runtime = (
+      globalThis as unknown as {
+        chrome: {
+          runtime: {
+            sendMessage: ReturnType<typeof vi.fn>;
+          };
+        };
+      }
+    ).chrome.runtime;
+
+    let statusRequests = 0;
+    runtime.sendMessage.mockImplementation(
+      (
+        _payload: unknown,
+        callback: (response: { ok: boolean; result?: unknown }) => void
+      ) => {
+        statusRequests += 1;
+        if (statusRequests === 1) {
+          callback({
+            ok: true,
+            result: {
+              state: 'connected',
+              endpoint: {
+                host: '127.0.0.1',
+                port: 3210,
+                portSource: 'default',
+              },
+              ws_url: 'ws://127.0.0.1:3210/drive',
+              consecutive_failures: 0,
+            },
+          });
+          return;
+        }
+        callback({ ok: false });
+      }
+    );
+
+    const writeText = vi.fn(async () => undefined);
+    Object.assign(navigator, {
+      clipboard: { writeText },
+    });
+
+    await import('./popup-ui');
+
+    await vi.waitFor(() => {
+      expect(document.getElementById('bb-conn-state')?.textContent).toBe(
+        'connected'
+      );
+    });
+
+    await vi.advanceTimersByTimeAsync(1500);
+
+    await vi.waitFor(() => {
+      expect(document.getElementById('bb-conn-error')?.textContent).toBe(
+        'Connection status is unavailable.'
+      );
+    });
+
+    document
+      .getElementById('bb-copy-diagnostics')
+      ?.dispatchEvent(new MouseEvent('click'));
+
+    await vi.waitFor(() => {
+      expect(document.getElementById('bb-copy-status')?.textContent).toBe(
+        'Connection status unavailable.'
+      );
+    });
+    expect(writeText).not.toHaveBeenCalled();
   });
 });

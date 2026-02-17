@@ -179,6 +179,11 @@ const main = (): void => {
         error instanceof Error
           ? error.message
           : 'Failed to read connection status.';
+      latestStatus = null;
+      renderStatus({
+        state: 'disconnected',
+        consecutive_failures: 0,
+      });
       setStateBadge('disconnected');
       setText('bb-conn-error', message);
     }
@@ -195,6 +200,7 @@ const main = (): void => {
   copyButton.addEventListener('click', () => {
     void (async () => {
       if (!latestStatus) {
+        setText('bb-copy-status', 'Connection status unavailable.');
         return;
       }
       const payload = {
