@@ -1,6 +1,7 @@
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { setTimeout as delay } from 'node:timers/promises';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createCoreReadinessController } from './core-readiness';
 
@@ -143,5 +144,68 @@ describe('createCoreReadinessController', () => {
     expect(fetchImpl).toHaveBeenCalledTimes(2);
     await controller.ensureReady();
     expect(spawnDaemon).toHaveBeenCalledTimes(1);
+  });
+
+  it('retries readiness after a failed startup attempt', async () => {
+    let healthy = false;
+    const fetchImpl = vi.fn(async () =>
+      makeResponse({ ok: healthy })
+    ) as unknown as typeof fetch;
+    const spawnDaemon = vi.fn();
+    const controller = createCoreReadinessController({
+      host: '127.0.0.1',
+      port: 3210,
+      fetchImpl,
+      spawnDaemon,
+      ensureDaemon: true,
+      healthRetryMs: 1,
+      healthAttempts: 1,
+      healthBudgetMs: 20,
+    });
+
+    await expect(controller.ensureReady()).rejects.toThrow(/failed to start/i);
+    expect(spawnDaemon).toHaveBeenCalledTimes(1);
+
+    healthy = true;
+    await expect(controller.ensureReady()).resolves.toBeUndefined();
+    expect(spawnDaemon).toHaveBeenCalledTimes(1);
+  });
+
+  it('deduplicates concurrent ensureReady callers', async () => {
+    let healthChecks = 0;
+    let releaseReadyCheck: (() => void) | undefined;
+    const readyCheck = new Promise<void>((resolve) => {
+      releaseReadyCheck = () => resolve();
+    });
+    const fetchImpl = vi.fn(async () => {
+      healthChecks += 1;
+      if (healthChecks === 1) {
+        return makeResponse({ ok: false });
+      }
+      await readyCheck;
+      return makeResponse({ ok: true });
+    }) as unknown as typeof fetch;
+    const spawnDaemon = vi.fn();
+    const controller = createCoreReadinessController({
+      host: '127.0.0.1',
+      port: 3210,
+      fetchImpl,
+      spawnDaemon,
+      ensureDaemon: true,
+      healthRetryMs: 1,
+      healthAttempts: 3,
+      healthBudgetMs: 100,
+    });
+
+    const first = controller.ensureReady();
+    const second = controller.ensureReady();
+    await delay(5);
+    expect(spawnDaemon).toHaveBeenCalledTimes(1);
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+
+    releaseReadyCheck?.();
+    await Promise.all([first, second]);
+    expect(spawnDaemon).toHaveBeenCalledTimes(1);
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
   });
 });

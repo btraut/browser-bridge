@@ -20,6 +20,7 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 
 - MCP adapter now returns bounded retryable `UNAVAILABLE` envelopes when Core ensure-ready cannot establish health, instead of opaque internal failures.
 - Extension reconnect failures now use throttled warning logs to avoid disconnect spam while preserving exponential backoff behavior.
+- Shared Core readiness now resets failed ensure-ready attempts for next-caller retry, adds bounded health probe timeouts/budget, and covers retry/dedupe behavior with regression tests.
 
 ## [0.11.1] - 2026-02-16
 

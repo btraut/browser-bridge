@@ -16,6 +16,8 @@ export type CoreReadinessOptions = {
   logPrefix?: string;
   healthRetryMs?: number;
   healthAttempts?: number;
+  healthTimeoutMs?: number;
+  healthBudgetMs?: number;
   spawnDaemon?: (runtime: ResolvedCoreRuntime) => void;
 };
 
@@ -30,6 +32,8 @@ export type CoreReadinessController = {
 const DEFAULT_TIMEOUT_MS = 30000;
 const DEFAULT_HEALTH_RETRY_MS = 250;
 const DEFAULT_HEALTH_ATTEMPTS = 20;
+const DEFAULT_HEALTH_TIMEOUT_MS = 2000;
+const DEFAULT_HEALTH_BUDGET_MS = 15000;
 
 const resolveTimeoutMs = (timeoutMs?: number): number => {
   const candidate =
@@ -50,6 +54,19 @@ const resolveTimeoutMs = (timeoutMs?: number): number => {
   }
 
   return Math.floor(parsed);
+};
+
+const resolvePositiveInteger = (
+  value: number | undefined,
+  fallback: number
+): number => {
+  if (value === undefined) {
+    return fallback;
+  }
+  if (!Number.isFinite(value) || value <= 0) {
+    throw new Error(`Invalid positive integer value: ${String(value)}`);
+  }
+  return Math.floor(value);
 };
 
 const hasExplicitRuntimeInput = (
@@ -76,8 +93,22 @@ export const createCoreReadinessController = (
   const timeoutMs = resolveTimeoutMs(options.timeoutMs);
   const fetchImpl = options.fetchImpl ?? fetch;
   const ensureDaemon = options.ensureDaemon ?? true;
-  const healthRetryMs = options.healthRetryMs ?? DEFAULT_HEALTH_RETRY_MS;
-  const healthAttempts = options.healthAttempts ?? DEFAULT_HEALTH_ATTEMPTS;
+  const healthRetryMs = resolvePositiveInteger(
+    options.healthRetryMs,
+    DEFAULT_HEALTH_RETRY_MS
+  );
+  const healthAttempts = resolvePositiveInteger(
+    options.healthAttempts,
+    DEFAULT_HEALTH_ATTEMPTS
+  );
+  const healthTimeoutMs = resolvePositiveInteger(
+    options.healthTimeoutMs,
+    Math.min(timeoutMs, DEFAULT_HEALTH_TIMEOUT_MS)
+  );
+  const healthBudgetMs = resolvePositiveInteger(
+    options.healthBudgetMs,
+    DEFAULT_HEALTH_BUDGET_MS
+  );
 
   let runtime = resolveCoreRuntime({
     host: options.host,
@@ -103,7 +134,7 @@ export const createCoreReadinessController = (
   const checkHealth = async (): Promise<boolean> => {
     try {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), timeoutMs);
+      const timeout = setTimeout(() => controller.abort(), healthTimeoutMs);
       try {
         let response: Response;
         try {
@@ -118,7 +149,7 @@ export const createCoreReadinessController = (
           ) {
             logger.warn(`${logPrefix}.health.timeout`, {
               base_url: baseUrl,
-              timeout_ms: timeoutMs,
+              timeout_ms: healthTimeoutMs,
             });
             return false;
           }
@@ -177,8 +208,13 @@ export const createCoreReadinessController = (
     }
     options.spawnDaemon(runtime);
 
+    const deadlineAt = Date.now() + healthBudgetMs;
     for (let attempt = 0; attempt < healthAttempts; attempt += 1) {
-      await delay(healthRetryMs);
+      const remainingBudgetMs = deadlineAt - Date.now();
+      if (remainingBudgetMs <= 0) {
+        break;
+      }
+      await delay(Math.min(healthRetryMs, remainingBudgetMs));
       refreshRuntime();
       if (await checkHealth()) {
         logger.info(`${logPrefix}.ensure_ready.ready`, {
@@ -193,6 +229,8 @@ export const createCoreReadinessController = (
       host: runtime.host,
       port: runtime.port,
       attempts: healthAttempts,
+      health_budget_ms: healthBudgetMs,
+      health_timeout_ms: healthTimeoutMs,
     });
     throw new Error(
       `Core daemon failed to start on ${runtime.host}:${runtime.port}.`
@@ -205,7 +243,10 @@ export const createCoreReadinessController = (
       return;
     }
     if (!ensurePromise) {
-      ensurePromise = ensureCoreRunning();
+      ensurePromise = ensureCoreRunning().catch((error) => {
+        ensurePromise = null;
+        throw error;
+      });
     }
     await ensurePromise;
   };
