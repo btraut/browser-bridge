@@ -18,6 +18,7 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 - Retry semantics now use centralized structured hints: shared `retry` metadata (`retryable`, `reason`, `retry_after_ms`, `max_attempts`) and shared retry policy logic replace boolean-only retry decisions in core drive flows, while preserving compatibility via `retryable`.
 - API route style is now explicitly RPC-over-HTTP POST: canonical health diagnostics route is `/health/check` (with legacy `/health_check` alias), and readiness supports canonical `POST /health` while retaining `GET /health` compatibility.
 - Dialog operations are now canonicalized to `drive.handle_dialog`; `dialog.accept`/`dialog.dismiss` are deprecated aliases that map to canonical payloads and emit explicit warnings.
+- Extension-core handshake now negotiates capabilities explicitly: `drive.hello` includes capability map metadata, and core gates non-negotiated or unsupported actions with deterministic errors.
 
 ### Fixed
 

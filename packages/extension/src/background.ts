@@ -79,6 +79,31 @@ const AGENT_TAB_BRANDING_ACTION = 'drive.agent_tab_branding';
 const AGENT_TAB_GROUP_RETRY_DELAYS_MS = [0, 120, 300] as const;
 const AGENT_TAB_BRANDING_TIMEOUT_MS = 1500;
 
+const NEGOTIATED_CAPABILITIES: Record<string, boolean> = Object.freeze({
+  'drive.navigate': true,
+  'drive.go_back': true,
+  'drive.go_forward': true,
+  'drive.click': true,
+  'drive.hover': true,
+  'drive.select': true,
+  'drive.type': true,
+  'drive.fill_form': true,
+  'drive.drag': true,
+  'drive.handle_dialog': true,
+  'drive.key': true,
+  'drive.key_press': true,
+  'drive.scroll': true,
+  'drive.screenshot': true,
+  'drive.wait_for': true,
+  'drive.tab_list': true,
+  'drive.tab_activate': true,
+  'drive.tab_close': true,
+  'drive.ping': true,
+  'debugger.attach': true,
+  'debugger.detach': true,
+  'debugger.command': true,
+});
+
 const getAgentTabBootstrapUrl = (): string => {
   return typeof chrome.runtime?.getURL === 'function'
     ? chrome.runtime.getURL(AGENT_TAB_BOOTSTRAP_PATH)
@@ -1155,6 +1180,7 @@ class DriveSocket {
     const params: DriveHelloParams = {
       version: manifest.version,
       protocol_version: DRIVE_WS_PROTOCOL_VERSION,
+      capabilities: NEGOTIATED_CAPABILITIES,
       core_host: endpoint.host,
       core_port: endpoint.port,
       core_port_source: endpoint.portSource,

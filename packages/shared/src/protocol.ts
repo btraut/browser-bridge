@@ -161,9 +161,12 @@ export type DriveTabCloseParams = {
   tab_id: number;
 };
 
+export type ExtensionCapabilityMap = Record<string, boolean>;
+
 export type DriveHelloParams = {
   version?: string;
   protocol_version?: string;
+  capabilities?: ExtensionCapabilityMap;
   core_host?: string;
   core_port?: number;
   core_port_source?: 'default' | 'storage';

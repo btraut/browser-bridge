@@ -461,7 +461,7 @@ Message envelope fields:
 
 Key event/request actions emitted by extension background:
 
-- `drive.hello` (event): includes extension `version`, websocket `protocol_version`, core identity, and tab inventory
+- `drive.hello` (event): includes extension `version`, websocket `protocol_version`, negotiated `capabilities` map, core identity, and tab inventory
 - `drive.keepalive` (event): periodic heartbeat (empty params)
 - `drive.tab_report` (event): tab inventory updates
 - `drive.ping` (request handling path returns `{ ok: true }`)

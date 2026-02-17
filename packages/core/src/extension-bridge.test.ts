@@ -72,6 +72,10 @@ describe('ExtensionBridge debugger routing', () => {
       params: {
         version: '1.2.3',
         protocol_version: DRIVE_WS_PROTOCOL_VERSION,
+        capabilities: {
+          'drive.navigate': true,
+          'drive.handle_dialog': true,
+        },
         core_host: '127.0.0.1',
         core_port: 3210,
         core_port_source: 'storage',
@@ -84,6 +88,11 @@ describe('ExtensionBridge debugger routing', () => {
         version: '1.2.3',
         protocolVersion: DRIVE_WS_PROTOCOL_VERSION,
         protocolMismatch: undefined,
+        capabilityNegotiated: true,
+        capabilities: {
+          'drive.navigate': true,
+          'drive.handle_dialog': true,
+        },
         coreHost: '127.0.0.1',
         corePort: 3210,
         corePortSource: 'storage',
@@ -103,6 +112,8 @@ describe('ExtensionBridge debugger routing', () => {
         version: undefined,
         protocolVersion: undefined,
         protocolMismatch: undefined,
+        capabilityNegotiated: false,
+        capabilities: {},
         coreHost: undefined,
         corePort: undefined,
         corePortSource: undefined,
@@ -131,6 +142,30 @@ describe('ExtensionBridge debugger routing', () => {
         expected: DRIVE_WS_PROTOCOL_VERSION,
         received: 'legacy-0',
       },
+    });
+  });
+
+  it('returns deterministic errors when requested action is not negotiated', async () => {
+    const bridge = new ExtensionBridge();
+    const writable = bridge as unknown as {
+      connected: boolean;
+      socket: { readyState: number; send: (message: string) => void };
+      capabilityNegotiated: boolean;
+      capabilities: Record<string, boolean>;
+    };
+    writable.connected = true;
+    writable.socket = {
+      readyState: 1,
+      send: vi.fn(),
+    };
+    writable.capabilityNegotiated = true;
+    writable.capabilities = {
+      'drive.navigate': true,
+    };
+
+    await expect(bridge.request('drive.click', {})).rejects.toMatchObject({
+      code: 'NOT_IMPLEMENTED',
+      details: { action: 'drive.click' },
     });
   });
 });

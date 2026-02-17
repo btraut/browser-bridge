@@ -33,6 +33,8 @@ export type ExtensionBridgeStatus = {
   coreHost?: string;
   corePort?: number;
   corePortSource?: 'default' | 'storage';
+  capabilityNegotiated: boolean;
+  capabilities: Record<string, boolean>;
   tabs: DriveTabInfo[];
 };
 
@@ -85,6 +87,8 @@ export class ExtensionBridge {
   private coreHost?: string;
   private corePort?: number;
   private corePortSource?: 'default' | 'storage';
+  private capabilityNegotiated = false;
+  private capabilities: Record<string, boolean> = {};
   private tabs: DriveTabInfo[] = [];
   private badMessageLogsRemaining = 3;
   private heartbeatInterval: ReturnType<typeof setInterval> | null = null;
@@ -135,6 +139,8 @@ export class ExtensionBridge {
       coreHost: this.coreHost,
       corePort: this.corePort,
       corePortSource: this.corePortSource,
+      capabilityNegotiated: this.capabilityNegotiated,
+      capabilities: this.capabilities,
       tabs: this.tabs,
     };
   }
@@ -184,6 +190,26 @@ export class ExtensionBridge {
         'Extension is not connected.',
         true
       );
+    }
+
+    if (action !== 'drive.ping') {
+      if (!this.capabilityNegotiated) {
+        throw new ExtensionBridgeError(
+          'FAILED_PRECONDITION',
+          'Capability negotiation has not completed yet.',
+          true,
+          { action, expected: 'drive.hello.capabilities' }
+        );
+      }
+
+      if (this.capabilities[action] !== true) {
+        throw new ExtensionBridgeError(
+          'NOT_IMPLEMENTED',
+          `Extension does not advertise capability for ${action}.`,
+          false,
+          { action }
+        );
+      }
     }
 
     const id = randomUUID();
@@ -321,6 +347,8 @@ export class ExtensionBridge {
     this.coreHost = undefined;
     this.corePort = undefined;
     this.corePortSource = undefined;
+    this.capabilityNegotiated = false;
+    this.capabilities = {};
     this.lastSeenAt = new Date().toISOString();
     this.applyDriveDisconnected();
 
@@ -422,6 +450,19 @@ export class ExtensionBridge {
           params?.core_port_source === 'storage'
         ) {
           this.corePortSource = params.core_port_source;
+        }
+        const capabilities = params?.capabilities;
+        if (capabilities && typeof capabilities === 'object') {
+          this.capabilities = Object.fromEntries(
+            Object.entries(capabilities).filter(
+              ([name, supported]) =>
+                typeof name === 'string' && typeof supported === 'boolean'
+            )
+          );
+          this.capabilityNegotiated = true;
+        } else {
+          this.capabilities = {};
+          this.capabilityNegotiated = false;
         }
       }
     }

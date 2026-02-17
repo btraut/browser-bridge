@@ -18,7 +18,7 @@ Reduce accidental complexity in Browser Bridge's public interface while preservi
 5. ✅ Resolve route-shape inconsistency and define canonical API style (RPC-style POST or mixed REST with GET reads). (Adopted RPC-over-HTTP POST style with canonical `/health/check` route and compatibility aliases/tests for legacy health paths.)
 6. ✅ Unify dialog operation model to one canonical action family. (Canonicalized to `drive.handle_dialog`; `dialog.accept`/`dialog.dismiss` now map to canonical payloads as deprecated aliases with explicit warnings.)
 7. Introduce least-privilege permission posture in extension defaults and capability escalation path.
-8. Add explicit capability negotiation in extension-core handshake for feature/version drift detection.
+8. ✅ Add explicit capability negotiation in extension-core handshake for feature/version drift detection. (Handshake now carries a capability map, core tracks negotiated capabilities, and unsupported/non-negotiated actions fail deterministically.)
 9. Update refactor guardrails to preserve semantic contracts without freezing accidental internal paths.
 10. ✅ Define and enforce a deprecation policy with lifecycle metadata and removal timelines. (Implemented via `docs/deprecation-lifecycle-policy.md`, `packages/shared/src/tooling.ts` metadata, and `packages/shared/src/tooling.test.ts` contract checks.)
 

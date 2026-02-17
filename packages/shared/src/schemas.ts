@@ -111,6 +111,8 @@ const DiagnosticsRuntimeContextSchema = z.object({
     .object({
       version: z.string().optional(),
       protocol_version: z.string().optional(),
+      capability_negotiated: z.boolean().optional(),
+      capabilities: z.record(z.string(), z.boolean()).optional(),
       endpoint: DiagnosticsRuntimeEndpointSchema.optional(),
       port_source: z.enum(['default', 'storage']).optional(),
     })

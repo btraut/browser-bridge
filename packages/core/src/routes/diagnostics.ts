@@ -212,6 +212,8 @@ export const registerDiagnosticsRoutes = (
           context.runtime.extension = {
             version: status.version,
             protocolVersion: status.protocolVersion,
+            capabilityNegotiated: status.capabilityNegotiated,
+            capabilities: status.capabilities,
             endpoint:
               status.coreHost && typeof status.corePort === 'number'
                 ? {
