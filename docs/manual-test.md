@@ -10,6 +10,7 @@ This checklist validates the Drive + Inspect planes and artifact handling end-to
 3. Load the extension from `packages/extension` (repo) or `node_modules/@btraut/browser-bridge/extension` (npm install) in `chrome://extensions`.
 4. Open a dedicated Chrome tab you do not mind navigating (example: `about:blank` or `https://example.com`).
 5. Ensure DevTools is closed on the target tab (the debugger cannot attach while DevTools is open).
+6. In extension options, enable **Debugger-based inspect** before running `inspect.*` checks.
 
 ## Runtime Setup
 
@@ -74,6 +75,14 @@ This checklist validates the Drive + Inspect planes and artifact handling end-to
 8. Verify revoke takes effect immediately:
    - Revoke the site in the options page.
    - Run a drive action on that site again; it should prompt again.
+
+## Checklist (Inspect Capability Toggle)
+
+1. Open extension options and ensure **Debugger-based inspect** is disabled.
+2. Run an inspect command (for example `inspect dom-snapshot`).
+3. Verify it fails with `ATTACH_DENIED` and guidance to enable debugger-based inspect.
+4. Enable **Debugger-based inspect** in options.
+5. Retry the inspect command and verify it succeeds.
 
 ## Checklist (Popup Connection Indicator)
 

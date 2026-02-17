@@ -18,6 +18,7 @@ import { PermissionPromptController } from './permission-prompt.js';
 import {
   allowSiteAlways,
   isSiteAllowed,
+  readDebuggerCapabilityEnabled,
   readSitePermissionsMode,
   siteKeyFromUrl,
   touchSiteLastUsed,
@@ -79,7 +80,7 @@ const AGENT_TAB_BRANDING_ACTION = 'drive.agent_tab_branding';
 const AGENT_TAB_GROUP_RETRY_DELAYS_MS = [0, 120, 300] as const;
 const AGENT_TAB_BRANDING_TIMEOUT_MS = 1500;
 
-const NEGOTIATED_CAPABILITIES: Record<string, boolean> = Object.freeze({
+const BASE_NEGOTIATED_CAPABILITIES: Record<string, boolean> = Object.freeze({
   'drive.navigate': true,
   'drive.go_back': true,
   'drive.go_forward': true,
@@ -99,10 +100,39 @@ const NEGOTIATED_CAPABILITIES: Record<string, boolean> = Object.freeze({
   'drive.tab_activate': true,
   'drive.tab_close': true,
   'drive.ping': true,
-  'debugger.attach': true,
-  'debugger.detach': true,
-  'debugger.command': true,
 });
+
+const DEBUGGER_CAPABILITY_ACTIONS = [
+  'debugger.attach',
+  'debugger.detach',
+  'debugger.command',
+] as const;
+
+const buildNegotiatedCapabilities = (
+  debuggerCapabilityEnabled: boolean
+): Record<string, boolean> => {
+  const capabilities: Record<string, boolean> = {
+    ...BASE_NEGOTIATED_CAPABILITIES,
+  };
+  for (const action of DEBUGGER_CAPABILITY_ACTIONS) {
+    capabilities[action] = debuggerCapabilityEnabled;
+  }
+  return capabilities;
+};
+
+const debuggerCapabilityDisabledError = (): DriveErrorInfo => {
+  return {
+    code: 'ATTACH_DENIED',
+    message:
+      'Debugger capability is disabled. Enable debugger-based inspect in extension options and retry.',
+    retryable: false,
+    details: {
+      reason: 'debugger_capability_disabled',
+      next_step:
+        'Open Browser Bridge extension options, enable debugger-based inspect, then retry.',
+    },
+  };
+};
 
 const getAgentTabBootstrapUrl = (): string => {
   return typeof chrome.runtime?.getURL === 'function'
@@ -1134,6 +1164,12 @@ class DriveSocket {
     return this.connection.getStatus();
   }
 
+  refreshCapabilities(): void {
+    void this.sendHello().catch((error) => {
+      console.error('DriveSocket refreshCapabilities failed:', error);
+    });
+  }
+
   private handleSocketUnavailable(socket: WebSocket, reason: string): void {
     if (this.socket !== socket) {
       return;
@@ -1170,6 +1206,7 @@ class DriveSocket {
   private async sendHello(): Promise<void> {
     const manifest = chrome.runtime.getManifest();
     const endpoint = await readCoreEndpointConfig();
+    const debuggerCapabilityEnabled = await readDebuggerCapabilityEnabled();
     let tabs: DriveTabInfo[] = [];
     try {
       tabs = await queryTabs();
@@ -1180,7 +1217,7 @@ class DriveSocket {
     const params: DriveHelloParams = {
       version: manifest.version,
       protocol_version: DRIVE_WS_PROTOCOL_VERSION,
-      capabilities: NEGOTIATED_CAPABILITIES,
+      capabilities: buildNegotiatedCapabilities(debuggerCapabilityEnabled),
       core_host: endpoint.host,
       core_port: endpoint.port,
       core_port_source: endpoint.portSource,
@@ -1311,6 +1348,15 @@ class DriveSocket {
         return;
       }
       if (message.action.startsWith('debugger.')) {
+        if (!(await readDebuggerCapabilityEnabled())) {
+          this.sendMessage({
+            id: message.id,
+            action: message.action,
+            status: 'error',
+            error: sanitizeDriveErrorInfo(debuggerCapabilityDisabledError()),
+          });
+          return;
+        }
         await this.handleDebuggerRequest(message as DebuggerRequest);
         return;
       }
@@ -3587,18 +3633,23 @@ chrome.runtime.onMessage.addListener(
     _sender: unknown,
     sendResponse: (response: unknown) => void
   ) => {
-    if (
-      !message ||
-      typeof message !== 'object' ||
-      (message as { action?: unknown }).action !== 'drive.connection_status'
-    ) {
+    if (!message || typeof message !== 'object') {
       return undefined;
     }
-    sendResponse({
-      ok: true,
-      result: socket.getConnectionStatus(),
-    });
-    return true;
+    const action = (message as { action?: unknown }).action;
+    if (action === 'drive.connection_status') {
+      sendResponse({
+        ok: true,
+        result: socket.getConnectionStatus(),
+      });
+      return true;
+    }
+    if (action === 'drive.refresh_capabilities') {
+      socket.refreshCapabilities();
+      sendResponse({ ok: true, result: { refreshed: true } });
+      return true;
+    }
+    return undefined;
   }
 );
 

@@ -2,9 +2,11 @@ export const SITE_ALLOWLIST_KEY = 'siteAllowlist';
 export const PERMISSION_PROMPT_WAIT_MS_KEY = 'permissionPromptWaitMs';
 export const DEFAULT_PERMISSION_PROMPT_WAIT_MS = 30_000;
 export const SITE_PERMISSIONS_MODE_KEY = 'sitePermissionsMode';
+export const DEBUGGER_CAPABILITY_ENABLED_KEY = 'debuggerCapabilityEnabled';
 
 export type SitePermissionsMode = 'granular' | 'bypass';
 export const DEFAULT_SITE_PERMISSIONS_MODE: SitePermissionsMode = 'granular';
+export const DEFAULT_DEBUGGER_CAPABILITY_ENABLED = false;
 
 export type SiteAllowlistEntry = {
   createdAt: string; // ISO
@@ -140,6 +142,44 @@ export const readPermissionPromptWaitMs = async (): Promise<number> => {
 
         resolve(DEFAULT_PERMISSION_PROMPT_WAIT_MS);
       }
+    );
+  });
+};
+
+export const readDebuggerCapabilityEnabled = async (): Promise<boolean> => {
+  return await new Promise<boolean>((resolve) => {
+    chrome.storage.local.get(
+      [DEBUGGER_CAPABILITY_ENABLED_KEY],
+      (result: Record<string, unknown>) => {
+        const raw = result?.[DEBUGGER_CAPABILITY_ENABLED_KEY];
+        if (typeof raw === 'boolean') {
+          resolve(raw);
+          return;
+        }
+
+        // Keep storage canonical so UI/background can rely on deterministic
+        // booleans after first read.
+        try {
+          chrome.storage.local.set({
+            [DEBUGGER_CAPABILITY_ENABLED_KEY]:
+              DEFAULT_DEBUGGER_CAPABILITY_ENABLED,
+          });
+        } catch {
+          // ignore
+        }
+        resolve(DEFAULT_DEBUGGER_CAPABILITY_ENABLED);
+      }
+    );
+  });
+};
+
+export const writeDebuggerCapabilityEnabled = async (
+  enabled: boolean
+): Promise<void> => {
+  return await new Promise<void>((resolve) => {
+    chrome.storage.local.set(
+      { [DEBUGGER_CAPABILITY_ENABLED_KEY]: Boolean(enabled) },
+      () => resolve()
     );
   });
 };

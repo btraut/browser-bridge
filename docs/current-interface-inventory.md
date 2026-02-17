@@ -444,10 +444,10 @@ Input validation contract:
 Manifest (`packages/extension/manifest.json`) currently includes:
 
 - MV3 background service worker
-- content script on `<all_urls>` at `document_idle`
+- content script on `http://*/*` and `https://*/*` at `document_idle`
 - popup/options/permission/agent-tab pages
-- permissions including debugger/tabs/storage/webNavigation/tabGroups
-- host permission `<all_urls>`
+- permissions including debugger/tabs/storage/webNavigation
+- host permissions limited to `http://*/*` and `https://*/*`
 - web-accessible icon resources for agent-tab branding (`assets/icons/icon-16|32|48.png`)
 
 ### 9.2 Extension <-> Core WebSocket Messages
@@ -467,13 +467,14 @@ Key event/request actions emitted by extension background:
 - `drive.ping` (request handling path returns `{ ok: true }`)
 - `debugger.event` (event): includes tab id, method, params, timestamp
 
-Background currently only processes `drive.*` and `debugger.*` action namespaces.
+Background currently only processes `drive.*` and `debugger.*` action namespaces. `debugger.*` requests are explicitly gated by extension options (`debuggerCapabilityEnabled`); when disabled they return deterministic `ATTACH_DENIED` guidance.
 
 ### 9.3 Runtime Message Action (`chrome.runtime.onMessage`) Contract
 
 Runtime message action exposed by background:
 
 - `{ action: 'drive.connection_status' }` -> returns connection state tracker status
+- `{ action: 'drive.refresh_capabilities' }` -> re-emits `drive.hello` with refreshed capability map (used by options UI after debugger-capability changes)
 
 ### 9.4 Content Script Action Contract (`runDriveAction`)
 
@@ -515,6 +516,7 @@ Permission gating in background layer:
 - allowlist storage model exists (`allow_once`/`allow_always` flow)
 - site permissions mode supports `granular` and `bypass`
 - permission prompt timeout is configurable (default 30s)
+- debugger capability toggle (`debuggerCapabilityEnabled`) defaults to disabled and gates `debugger.*` inspect actions until explicitly enabled
 
 ### 9.6 Connection State Tracker Contract
 

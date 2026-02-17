@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
+  DEBUGGER_CAPABILITY_ENABLED_KEY,
   DEFAULT_SITE_PERMISSIONS_MODE,
+  DEFAULT_DEBUGGER_CAPABILITY_ENABLED,
   DEFAULT_PERMISSION_PROMPT_WAIT_MS,
   PERMISSION_PROMPT_WAIT_MS_KEY,
   SITE_ALLOWLIST_KEY,
@@ -9,12 +11,14 @@ import {
   allowSiteAlways,
   getAllowlistedSites,
   isSiteAllowed,
+  readDebuggerCapabilityEnabled,
   readPermissionPromptWaitMs,
   readSitePermissionsMode,
   revokeSite,
   siteKeyFromUrl,
   touchSiteLastUsed,
   upsertAllowlistedSites,
+  writeDebuggerCapabilityEnabled,
   writeSitePermissionsMode,
 } from './site-permissions';
 
@@ -192,5 +196,34 @@ describe('site permissions', () => {
     const mode: SitePermissionsMode = 'granular';
     await writeSitePermissionsMode(mode);
     expect(store[SITE_PERMISSIONS_MODE_KEY]).toBe('granular');
+  });
+
+  it('reads and writes debugger capability state with a safe default', async () => {
+    expect(await readDebuggerCapabilityEnabled()).toBe(
+      DEFAULT_DEBUGGER_CAPABILITY_ENABLED
+    );
+    expect(store[DEBUGGER_CAPABILITY_ENABLED_KEY]).toBe(
+      DEFAULT_DEBUGGER_CAPABILITY_ENABLED
+    );
+
+    store[DEBUGGER_CAPABILITY_ENABLED_KEY] = true;
+    expect(await readDebuggerCapabilityEnabled()).toBe(true);
+
+    store[DEBUGGER_CAPABILITY_ENABLED_KEY] = false;
+    expect(await readDebuggerCapabilityEnabled()).toBe(false);
+
+    store[DEBUGGER_CAPABILITY_ENABLED_KEY] = 'nope';
+    expect(await readDebuggerCapabilityEnabled()).toBe(
+      DEFAULT_DEBUGGER_CAPABILITY_ENABLED
+    );
+    expect(store[DEBUGGER_CAPABILITY_ENABLED_KEY]).toBe(
+      DEFAULT_DEBUGGER_CAPABILITY_ENABLED
+    );
+
+    await writeDebuggerCapabilityEnabled(true);
+    expect(store[DEBUGGER_CAPABILITY_ENABLED_KEY]).toBe(true);
+
+    await writeDebuggerCapabilityEnabled(false);
+    expect(store[DEBUGGER_CAPABILITY_ENABLED_KEY]).toBe(false);
   });
 });
