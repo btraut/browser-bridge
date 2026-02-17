@@ -12,6 +12,7 @@ describe('mcp-adapter server', () => {
   it('registers all tools on createMcpServer', () => {
     const coreClient: CoreClient = {
       baseUrl: 'http://core',
+      ensureReady: vi.fn().mockResolvedValue(undefined),
       post: vi.fn(),
     };
 
@@ -34,6 +35,7 @@ describe('mcp-adapter server', () => {
   it('connects via stdio transport on startMcpServer', async () => {
     const coreClient: CoreClient = {
       baseUrl: 'http://core',
+      ensureReady: vi.fn().mockResolvedValue(undefined),
       post: vi.fn(),
     };
 
@@ -59,6 +61,7 @@ describe('mcp-adapter server', () => {
     );
     const coreClient: CoreClient = {
       baseUrl: 'http://core',
+      ensureReady: vi.fn().mockResolvedValue(undefined),
       post: vi.fn().mockImplementation(async (path: string, body?: unknown) => {
         const fixture = fixturesByPath.get(path);
         if (!fixture) {
@@ -102,6 +105,7 @@ describe('mcp-adapter server', () => {
   it('starts streamable HTTP transport on startMcpHttpServer', async () => {
     const coreClient: CoreClient = {
       baseUrl: 'http://core',
+      ensureReady: vi.fn().mockResolvedValue(undefined),
       post: vi.fn(),
     };
 

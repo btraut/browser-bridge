@@ -1,23 +1,30 @@
 import {
   ApiEnvelope,
   JsonlLogger,
+  createCoreReadinessController,
   createJsonlLogger,
-  resolveCoreRuntime,
 } from '@btraut/browser-bridge-shared';
+import { spawn } from 'node:child_process';
+import { resolve } from 'node:path';
 
 type FetchLike = typeof fetch;
+
+type SpawnLike = typeof spawn;
 
 export type CoreClientOptions = {
   host?: string;
   port?: number | string;
   cwd?: string;
   timeoutMs?: number;
+  ensureDaemon?: boolean;
   fetchImpl?: FetchLike;
+  spawnImpl?: SpawnLike;
   logger?: JsonlLogger;
 };
 
 export type CoreClient = {
   baseUrl: string;
+  ensureReady: () => Promise<void>;
   post: <T>(path: string, body?: unknown) => Promise<ApiEnvelope<T>>;
 };
 
@@ -40,30 +47,76 @@ export const createCoreClient = (
       cwd: options.cwd,
     }).child({ scope: 'core-client' });
 
-  const runtime = resolveCoreRuntime({
+  const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  const fetchImpl = options.fetchImpl ?? fetch;
+  const spawnImpl = options.spawnImpl ?? spawn;
+  const ensureDaemon = options.ensureDaemon ?? false;
+
+  const readiness = createCoreReadinessController({
     host: options.host,
     port: options.port,
     cwd: options.cwd,
+    timeoutMs,
+    ensureDaemon,
     strictEnvPort: true,
+    fetchImpl,
+    logger,
+    logPrefix: 'mcp.core',
+    spawnDaemon: ensureDaemon
+      ? (runtime) => {
+          const coreEntry = resolve(__dirname, 'api.js');
+          const startOptions: string[] = [];
+          if (runtime.hostSource === 'option' || runtime.hostSource === 'env') {
+            startOptions.push(`host: ${JSON.stringify(runtime.host)}`);
+          }
+          if (runtime.portSource === 'option' || runtime.portSource === 'env') {
+            startOptions.push(`port: ${runtime.port}`);
+          }
+
+          const script = `const { startCoreServer } = require(${JSON.stringify(
+            coreEntry
+          )});\nstartCoreServer({ ${startOptions.join(
+            ', '
+          )} })\n  .catch((err) => { console.error(err); process.exit(1); });`;
+
+          logger.info('mcp.core.spawn.start', {
+            host: runtime.host,
+            port: runtime.port,
+            host_source: runtime.hostSource,
+            port_source: runtime.portSource,
+          });
+
+          const child = spawnImpl(process.execPath, ['-e', script], {
+            detached: true,
+            stdio: 'ignore',
+            env: { ...process.env },
+          });
+
+          child.on('error', (error) => {
+            logger.error('mcp.core.spawn.error', {
+              host: runtime.host,
+              port: runtime.port,
+              error,
+            });
+          });
+
+          child.unref();
+        }
+      : undefined,
   });
-  const host = runtime.host;
-  const port = runtime.port;
-  const baseUrl = `http://${host}:${port}`;
-  const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
-  const fetchImpl = options.fetchImpl ?? fetch;
 
   const requestJson = async <T>(path: string, body?: unknown): Promise<T> => {
     const requestPath = normalizePath(path);
     const startedAt = process.hrtime.bigint();
     logger.debug('mcp.core.request.start', {
       path: requestPath,
-      base_url: baseUrl,
+      base_url: readiness.baseUrl,
     });
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
     try {
-      const response = await fetchImpl(`${baseUrl}${requestPath}`, {
+      const response = await fetchImpl(`${readiness.baseUrl}${requestPath}`, {
         method: 'POST',
         headers: {
           'content-type': 'application/json',
@@ -76,7 +129,7 @@ export const createCoreClient = (
       if (!raw) {
         logger.warn('mcp.core.request.empty_response', {
           path: requestPath,
-          base_url: baseUrl,
+          base_url: readiness.baseUrl,
           status: response.status,
           duration_ms: durationMs(startedAt),
         });
@@ -87,7 +140,7 @@ export const createCoreClient = (
         const parsed = JSON.parse(raw) as T;
         logger.debug('mcp.core.request.end', {
           path: requestPath,
-          base_url: baseUrl,
+          base_url: readiness.baseUrl,
           status: response.status,
           duration_ms: durationMs(startedAt),
         });
@@ -97,7 +150,7 @@ export const createCoreClient = (
           error instanceof Error ? error.message : 'Unknown JSON parse error';
         logger.error('mcp.core.request.invalid_json', {
           path: requestPath,
-          base_url: baseUrl,
+          base_url: readiness.baseUrl,
           status: response.status,
           duration_ms: durationMs(startedAt),
           error,
@@ -107,7 +160,7 @@ export const createCoreClient = (
     } catch (error) {
       logger.error('mcp.core.request.failed', {
         path: requestPath,
-        base_url: baseUrl,
+        base_url: readiness.baseUrl,
         duration_ms: durationMs(startedAt),
         error,
       });
@@ -121,8 +174,16 @@ export const createCoreClient = (
     path: string,
     body?: unknown
   ): Promise<ApiEnvelope<T>> => {
+    await readiness.ensureReady();
+    readiness.refreshRuntime();
     return requestJson<ApiEnvelope<T>>(path, body);
   };
 
-  return { baseUrl, post };
+  return {
+    get baseUrl() {
+      return readiness.baseUrl;
+    },
+    ensureReady: readiness.ensureReady,
+    post,
+  };
 };

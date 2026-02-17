@@ -6,6 +6,10 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 
 ## [Unreleased]
 
+### Changed
+
+- Core runtime bootstrap: CLI and MCP adapter now share one Core readiness/runtime resolution path (default/env/metadata precedence + health/ensure-ready behavior), with new shared parity tests.
+
 ## [0.11.1] - 2026-02-16
 
 ### Fixed

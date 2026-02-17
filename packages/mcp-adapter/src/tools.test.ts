@@ -13,6 +13,7 @@ describe('mcp-adapter tools', () => {
     const envelope = { ok: true as const, result: { ok: true } };
     const client: CoreClient = {
       baseUrl: 'http://core',
+      ensureReady: vi.fn().mockResolvedValue(undefined),
       post: vi.fn().mockResolvedValue(envelope),
     };
 
@@ -46,6 +47,7 @@ describe('mcp-adapter tools', () => {
     };
     const client: CoreClient = {
       baseUrl: 'http://core',
+      ensureReady: vi.fn().mockResolvedValue(undefined),
       post: vi.fn().mockResolvedValue(envelope),
     };
 
@@ -75,6 +77,7 @@ describe('mcp-adapter tools', () => {
     );
     const client: CoreClient = {
       baseUrl: 'http://core',
+      ensureReady: vi.fn().mockResolvedValue(undefined),
       post: vi.fn().mockImplementation(async (path: string, body?: unknown) => {
         calls.push({ path, body });
         const fixture = fixturesByPath.get(path);
