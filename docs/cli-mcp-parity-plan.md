@@ -37,7 +37,7 @@ Browser Bridge currently drifts between CLI and MCP behavior for session handlin
 
 ### Milestone B - Adapter parity and docs
 
-- [ ] Remove CLI-only behavior branches that bypass shared contracts.
+- [x] ✅ Remove CLI-only behavior branches that bypass shared contracts. - CLI `drive navigate` no longer creates sessions locally and now forwards directly to Core like MCP.
 - [ ] Ensure MCP and CLI produce identical shape/semantics for the same call.
 - [ ] Align docs/manual test/spec references with the new single policy.
 

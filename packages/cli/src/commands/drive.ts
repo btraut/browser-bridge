@@ -46,14 +46,19 @@ export const registerDriveCommands = (program: Command): void => {
   drive
     .command('navigate')
     .description('Navigate to a URL')
-    .requiredOption('--session-id <id>', 'Session identifier')
+    .option(
+      '--session-id <id>',
+      'Session identifier (auto-created when omitted)'
+    )
     .requiredOption('--url <url>', 'URL to navigate to')
     .option('--tab-id <id>', 'Tab identifier (defaults to agent window/tab)')
     .option('--wait <mode>', 'Wait mode (none, domcontentloaded)')
     .action(async (options, command) => {
       await runCommand(command, (client) => {
         const payload = parseInput(DriveNavigateInputSchema, {
-          session_id: options.sessionId,
+          ...(options.sessionId
+            ? { session_id: options.sessionId as string }
+            : {}),
           url: options.url,
           tab_id: parseNumber(options.tabId),
           wait: options.wait,
