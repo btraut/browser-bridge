@@ -1,6 +1,20 @@
 export type McpToolDefinition = {
   name: string;
   corePath: string;
+  deprecation?: DeprecationLifecycle;
+};
+
+export type DeprecationLifecycleStage = 'deprecated';
+
+export type DeprecationWarningBehavior = 'warn-on-use';
+
+export type DeprecationLifecycle = {
+  stage: DeprecationLifecycleStage;
+  deprecated_since: string;
+  removal_target: string;
+  replacement: string;
+  warning_behavior: DeprecationWarningBehavior;
+  migration_notes: string;
 };
 
 export type DriveNavigateParityCase = {
@@ -16,6 +30,11 @@ export type DriveNavigateParityCase = {
   };
 };
 
+export const DEPRECATION_POLICY = {
+  minimum_notice_days: 90,
+  migration_notes_path: 'docs/deprecation-lifecycle-policy.md',
+} as const;
+
 export const MCP_TOOL_DEFINITIONS: McpToolDefinition[] = [
   { name: 'session.create', corePath: '/session/create' },
   { name: 'session.status', corePath: '/session/status' },
@@ -24,8 +43,32 @@ export const MCP_TOOL_DEFINITIONS: McpToolDefinition[] = [
   { name: 'drive.navigate', corePath: '/drive/navigate' },
   { name: 'drive.go_back', corePath: '/drive/go_back' },
   { name: 'drive.go_forward', corePath: '/drive/go_forward' },
-  { name: 'drive.back', corePath: '/drive/back' },
-  { name: 'drive.forward', corePath: '/drive/forward' },
+  {
+    name: 'drive.back',
+    corePath: '/drive/back',
+    deprecation: {
+      stage: 'deprecated',
+      deprecated_since: '2026-02-17',
+      removal_target: '2026-06-01',
+      replacement: 'drive.go_back',
+      warning_behavior: 'warn-on-use',
+      migration_notes:
+        'docs/deprecation-lifecycle-policy.md#current-deprecations',
+    },
+  },
+  {
+    name: 'drive.forward',
+    corePath: '/drive/forward',
+    deprecation: {
+      stage: 'deprecated',
+      deprecated_since: '2026-02-17',
+      removal_target: '2026-06-01',
+      replacement: 'drive.go_forward',
+      warning_behavior: 'warn-on-use',
+      migration_notes:
+        'docs/deprecation-lifecycle-policy.md#current-deprecations',
+    },
+  },
   { name: 'drive.click', corePath: '/drive/click' },
   { name: 'drive.hover', corePath: '/drive/hover' },
   { name: 'drive.select', corePath: '/drive/select' },

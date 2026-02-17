@@ -11,6 +11,7 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 - `drive.navigate` now supports omitted `session_id` through both CLI and MCP; Core auto-creates the session and returns canonical `result.session_id` in the success payload.
 - CLI and MCP now share parity guardrails for `drive.navigate` contracts via shared explicit/missing-session fixture variants and contract checks.
 - Diagnostics caller runtime context is now normalized across CLI and MCP, with both clients attaching equivalent endpoint/process metadata for `diagnostics.doctor`.
+- Deprecation lifecycle policy is now explicit and machine-checked: shared tool metadata includes `deprecated_since`/`removal_target`/replacement fields and `packages/shared/src/tooling.test.ts` enforces notice window + migration metadata requirements.
 
 ### Fixed
 
