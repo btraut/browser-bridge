@@ -19,14 +19,22 @@ import type {
 } from './drive-protocol';
 import { SessionRegistry } from './session';
 import { SessionState } from './state';
+import { DRIVE_WS_PROTOCOL_VERSION } from '@btraut/browser-bridge-shared';
 
 export type ExtensionBridgeStatus = {
   connected: boolean;
   lastSeenAt?: string;
   version?: string;
+  protocolVersion?: string;
+  protocolMismatch?: {
+    expected: string;
+    received: string;
+  };
   coreHost?: string;
   corePort?: number;
   corePortSource?: 'default' | 'storage';
+  capabilityNegotiated: boolean;
+  capabilities: Record<string, boolean>;
   tabs: DriveTabInfo[];
 };
 
@@ -37,6 +45,11 @@ type PendingRequest = {
 };
 
 type DebuggerEventListener = (event: DebuggerEvent) => void;
+
+type CapabilityNegotiationFailure = {
+  reason: 'missing_capabilities';
+  expected: 'drive.hello.capabilities';
+};
 
 export class ExtensionBridgeError extends Error {
   public readonly code: string;
@@ -71,9 +84,17 @@ export class ExtensionBridge {
   private connected = false;
   private lastSeenAt?: string;
   private version?: string;
+  private protocolVersion?: string;
+  private protocolMismatch?: {
+    expected: string;
+    received: string;
+  };
   private coreHost?: string;
   private corePort?: number;
   private corePortSource?: 'default' | 'storage';
+  private capabilityNegotiated = false;
+  private capabilityNegotiationFailure?: CapabilityNegotiationFailure;
+  private capabilities: Record<string, boolean> = {};
   private tabs: DriveTabInfo[] = [];
   private badMessageLogsRemaining = 3;
   private heartbeatInterval: ReturnType<typeof setInterval> | null = null;
@@ -119,9 +140,13 @@ export class ExtensionBridge {
       connected: this.connected,
       lastSeenAt: this.lastSeenAt,
       version: this.version,
+      protocolVersion: this.protocolVersion,
+      protocolMismatch: this.protocolMismatch,
       coreHost: this.coreHost,
       corePort: this.corePort,
       corePortSource: this.corePortSource,
+      capabilityNegotiated: this.capabilityNegotiated,
+      capabilities: this.capabilities,
       tabs: this.tabs,
     };
   }
@@ -156,12 +181,53 @@ export class ExtensionBridge {
     params?: Record<string, unknown>,
     timeoutMs = 30000
   ): Promise<ExtensionResponse> {
+    if (this.protocolMismatch && action !== 'drive.ping') {
+      throw new ExtensionBridgeError(
+        'FAILED_PRECONDITION',
+        'Extension protocol version mismatch.',
+        false,
+        this.protocolMismatch
+      );
+    }
+
     if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
       throw new ExtensionBridgeError(
         'EXTENSION_DISCONNECTED',
         'Extension is not connected.',
         true
       );
+    }
+
+    if (action !== 'drive.ping') {
+      if (!this.capabilityNegotiated) {
+        throw new ExtensionBridgeError(
+          'FAILED_PRECONDITION',
+          'Capability negotiation has not completed yet.',
+          true,
+          { action, expected: 'drive.hello.capabilities' }
+        );
+      }
+
+      if (this.capabilityNegotiationFailure) {
+        throw new ExtensionBridgeError(
+          'FAILED_PRECONDITION',
+          'Capability negotiation failed: extension hello payload is missing capabilities.',
+          false,
+          {
+            action,
+            ...this.capabilityNegotiationFailure,
+          }
+        );
+      }
+
+      if (this.capabilities[action] !== true) {
+        throw new ExtensionBridgeError(
+          'NOT_IMPLEMENTED',
+          `Extension does not advertise capability for ${action}.`,
+          false,
+          { action }
+        );
+      }
     }
 
     const id = randomUUID();
@@ -294,9 +360,14 @@ export class ExtensionBridge {
     this.connected = false;
     this.socket = null;
     this.version = undefined;
+    this.protocolVersion = undefined;
+    this.protocolMismatch = undefined;
     this.coreHost = undefined;
     this.corePort = undefined;
     this.corePortSource = undefined;
+    this.capabilityNegotiated = false;
+    this.capabilityNegotiationFailure = undefined;
+    this.capabilities = {};
     this.lastSeenAt = new Date().toISOString();
     this.applyDriveDisconnected();
 
@@ -368,6 +439,22 @@ export class ExtensionBridge {
         if (typeof params?.version === 'string') {
           this.version = params.version;
         }
+        if (typeof params?.protocol_version === 'string') {
+          this.protocolVersion = params.protocol_version;
+        } else {
+          this.protocolVersion = undefined;
+        }
+        if (
+          this.protocolVersion &&
+          this.protocolVersion !== DRIVE_WS_PROTOCOL_VERSION
+        ) {
+          this.protocolMismatch = {
+            expected: DRIVE_WS_PROTOCOL_VERSION,
+            received: this.protocolVersion,
+          };
+        } else {
+          this.protocolMismatch = undefined;
+        }
         if (typeof params?.core_host === 'string') {
           this.coreHost = params.core_host;
         }
@@ -382,6 +469,24 @@ export class ExtensionBridge {
           params?.core_port_source === 'storage'
         ) {
           this.corePortSource = params.core_port_source;
+        }
+        const capabilities = params?.capabilities;
+        if (capabilities && typeof capabilities === 'object') {
+          this.capabilities = Object.fromEntries(
+            Object.entries(capabilities).filter(
+              ([name, supported]) =>
+                typeof name === 'string' && typeof supported === 'boolean'
+            )
+          );
+          this.capabilityNegotiated = true;
+          this.capabilityNegotiationFailure = undefined;
+        } else {
+          this.capabilities = {};
+          this.capabilityNegotiated = true;
+          this.capabilityNegotiationFailure = {
+            reason: 'missing_capabilities',
+            expected: 'drive.hello.capabilities',
+          };
         }
       }
     }
@@ -451,5 +556,10 @@ export const toDriveError = (error: ExtensionBridgeError): DriveErrorInfo => ({
   code: error.code,
   message: error.message,
   retryable: error.retryable,
+  retry: {
+    retryable: error.retryable,
+    reason: String(error.code).toLowerCase(),
+    max_attempts: 1,
+  },
   ...(error.details ? { details: error.details } : {}),
 });

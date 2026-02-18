@@ -139,7 +139,7 @@ export const createCoreReadinessController = (
         let response: Response;
         try {
           response = await fetchImpl(`${baseUrl}/health`, {
-            method: 'GET',
+            method: 'POST',
             signal: controller.signal,
           });
         } catch (error) {

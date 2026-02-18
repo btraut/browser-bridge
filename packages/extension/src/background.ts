@@ -12,11 +12,14 @@ import type {
   ExtensionMessage,
   ExtensionRequest,
 } from './protocol.js';
+import { DRIVE_WS_PROTOCOL_VERSION } from '@btraut/browser-bridge-shared/dist/contract-version';
 import { sanitizeDriveErrorInfo } from './error-sanitizer.js';
 import { PermissionPromptController } from './permission-prompt.js';
 import {
+  DEBUGGER_CAPABILITY_ENABLED_KEY,
   allowSiteAlways,
   isSiteAllowed,
+  readDebuggerCapabilityEnabled,
   readSitePermissionsMode,
   siteKeyFromUrl,
   touchSiteLastUsed,
@@ -55,6 +58,11 @@ type CoreEndpointConfig = {
   portSource: 'default' | 'storage';
 };
 
+type StorageChange = {
+  newValue?: unknown;
+  oldValue?: unknown;
+};
+
 const DEFAULT_CORE_PORT = 3210;
 const CORE_PORT_KEY = 'corePort';
 const CORE_WS_PATH = '/drive';
@@ -77,6 +85,60 @@ const AGENT_TAB_FAVICON_ASSET_PATH = 'assets/icons/icon-32.png';
 const AGENT_TAB_BRANDING_ACTION = 'drive.agent_tab_branding';
 const AGENT_TAB_GROUP_RETRY_DELAYS_MS = [0, 120, 300] as const;
 const AGENT_TAB_BRANDING_TIMEOUT_MS = 1500;
+
+const BASE_NEGOTIATED_CAPABILITIES: Record<string, boolean> = Object.freeze({
+  'drive.navigate': true,
+  'drive.go_back': true,
+  'drive.go_forward': true,
+  'drive.click': true,
+  'drive.hover': true,
+  'drive.select': true,
+  'drive.type': true,
+  'drive.fill_form': true,
+  'drive.drag': true,
+  'drive.handle_dialog': true,
+  'drive.key': true,
+  'drive.key_press': true,
+  'drive.scroll': true,
+  'drive.screenshot': true,
+  'drive.wait_for': true,
+  'drive.tab_list': true,
+  'drive.tab_activate': true,
+  'drive.tab_close': true,
+  'drive.ping': true,
+});
+
+const DEBUGGER_CAPABILITY_ACTIONS = [
+  'debugger.attach',
+  'debugger.detach',
+  'debugger.command',
+] as const;
+
+const buildNegotiatedCapabilities = (
+  debuggerCapabilityEnabled: boolean
+): Record<string, boolean> => {
+  const capabilities: Record<string, boolean> = {
+    ...BASE_NEGOTIATED_CAPABILITIES,
+  };
+  for (const action of DEBUGGER_CAPABILITY_ACTIONS) {
+    capabilities[action] = debuggerCapabilityEnabled;
+  }
+  return capabilities;
+};
+
+const debuggerCapabilityDisabledError = (): DriveErrorInfo => {
+  return {
+    code: 'ATTACH_DENIED',
+    message:
+      'Debugger capability is disabled. Enable debugger-based inspect in extension options and retry.',
+    retryable: false,
+    details: {
+      reason: 'debugger_capability_disabled',
+      next_step:
+        'Open Browser Bridge extension options, enable debugger-based inspect, then retry.',
+    },
+  };
+};
 
 const getAgentTabBootstrapUrl = (): string => {
   return typeof chrome.runtime?.getURL === 'function'
@@ -1108,6 +1170,12 @@ class DriveSocket {
     return this.connection.getStatus();
   }
 
+  refreshCapabilities(): void {
+    void this.sendHello().catch((error) => {
+      console.error('DriveSocket refreshCapabilities failed:', error);
+    });
+  }
+
   private handleSocketUnavailable(socket: WebSocket, reason: string): void {
     if (this.socket !== socket) {
       return;
@@ -1144,6 +1212,7 @@ class DriveSocket {
   private async sendHello(): Promise<void> {
     const manifest = chrome.runtime.getManifest();
     const endpoint = await readCoreEndpointConfig();
+    const debuggerCapabilityEnabled = await readDebuggerCapabilityEnabled();
     let tabs: DriveTabInfo[] = [];
     try {
       tabs = await queryTabs();
@@ -1153,6 +1222,8 @@ class DriveSocket {
     }
     const params: DriveHelloParams = {
       version: manifest.version,
+      protocol_version: DRIVE_WS_PROTOCOL_VERSION,
+      capabilities: buildNegotiatedCapabilities(debuggerCapabilityEnabled),
       core_host: endpoint.host,
       core_port: endpoint.port,
       core_port_source: endpoint.portSource,
@@ -1238,6 +1309,21 @@ class DriveSocket {
     }
   }
 
+  async refreshDebuggerCapabilityState(): Promise<void> {
+    const enabled = await readDebuggerCapabilityEnabled();
+    if (!enabled) {
+      await this.detachAllDebuggerSessions();
+    }
+    this.refreshCapabilities();
+  }
+
+  async handleDebuggerCapabilityChange(enabled: boolean): Promise<void> {
+    if (!enabled) {
+      await this.detachAllDebuggerSessions();
+    }
+    this.refreshCapabilities();
+  }
+
   private async handleRequest(message: ExtensionRequest): Promise<void> {
     let driveMessage: DriveRequest | null = null;
     let gatedSiteKey: string | null = null;
@@ -1283,6 +1369,15 @@ class DriveSocket {
         return;
       }
       if (message.action.startsWith('debugger.')) {
+        if (!(await readDebuggerCapabilityEnabled())) {
+          this.sendMessage({
+            id: message.id,
+            action: message.action,
+            status: 'error',
+            error: sanitizeDriveErrorInfo(debuggerCapabilityDisabledError()),
+          });
+          return;
+        }
         await this.handleDebuggerRequest(message as DebuggerRequest);
         return;
       }
@@ -1297,8 +1392,6 @@ class DriveSocket {
         'drive.navigate',
         'drive.go_back',
         'drive.go_forward',
-        'drive.back',
-        'drive.forward',
         'drive.click',
         'drive.hover',
         'drive.select',
@@ -1533,9 +1626,7 @@ class DriveSocket {
           return;
         }
         case 'drive.go_back':
-        case 'drive.back':
-        case 'drive.go_forward':
-        case 'drive.forward': {
+        case 'drive.go_forward': {
           const params = (message.params ?? {}) as Record<string, unknown>;
           let tabId = params.tab_id;
           if (tabId !== undefined && typeof tabId !== 'number') {
@@ -3221,6 +3312,9 @@ class DriveSocket {
     method: string,
     params?: Record<string, unknown>
   ): Promise<void> {
+    if (!(await readDebuggerCapabilityEnabled())) {
+      return;
+    }
     const tabId = source.tabId;
     if (typeof tabId !== 'number') {
       return;
@@ -3243,6 +3337,9 @@ class DriveSocket {
       return;
     }
     this.clearDebuggerSession(tabId);
+    if (!(await readDebuggerCapabilityEnabled())) {
+      return;
+    }
     this.sendDebuggerEvent({
       tab_id: tabId,
       method: 'Debugger.detached',
@@ -3399,6 +3496,16 @@ class DriveSocket {
       this.clearDebuggerSession(tabId);
     }
     return null;
+  }
+
+  private async detachAllDebuggerSessions(): Promise<void> {
+    const tabIds = Array.from(this.debuggerSessions.keys());
+    for (const tabId of tabIds) {
+      const error = await this.detachDebugger(tabId);
+      if (error) {
+        console.warn('DriveSocket detachDebugger failed:', tabId, error);
+      }
+    }
   }
 
   private async sendDebuggerCommand(
@@ -3563,18 +3670,62 @@ chrome.runtime.onMessage.addListener(
     _sender: unknown,
     sendResponse: (response: unknown) => void
   ) => {
-    if (
-      !message ||
-      typeof message !== 'object' ||
-      (message as { action?: unknown }).action !== 'drive.connection_status'
-    ) {
+    if (!message || typeof message !== 'object') {
       return undefined;
     }
-    sendResponse({
-      ok: true,
-      result: socket.getConnectionStatus(),
+    const action = (message as { action?: unknown }).action;
+    if (action === 'drive.connection_status') {
+      sendResponse({
+        ok: true,
+        result: socket.getConnectionStatus(),
+      });
+      return true;
+    }
+    if (action === 'drive.refresh_capabilities') {
+      void socket
+        .refreshDebuggerCapabilityState()
+        .then(() => {
+          sendResponse({ ok: true, result: { refreshed: true } });
+        })
+        .catch((error) => {
+          const message =
+            error instanceof Error
+              ? error.message
+              : 'Failed to refresh capabilities.';
+          sendResponse({ ok: false, error: { message } });
+        });
+      return true;
+    }
+    return undefined;
+  }
+);
+
+chrome.storage.onChanged.addListener(
+  (changes: Record<string, StorageChange>, areaName: string) => {
+    if (areaName !== 'local') {
+      return;
+    }
+    const debuggerChange = changes[DEBUGGER_CAPABILITY_ENABLED_KEY];
+    if (!debuggerChange) {
+      return;
+    }
+    if (typeof debuggerChange.newValue === 'boolean') {
+      void socket
+        .handleDebuggerCapabilityChange(debuggerChange.newValue)
+        .catch((error) => {
+          console.error(
+            'DriveSocket handleDebuggerCapabilityChange failed:',
+            error
+          );
+        });
+      return;
+    }
+    void socket.refreshDebuggerCapabilityState().catch((error) => {
+      console.error(
+        'DriveSocket refreshDebuggerCapabilityState failed:',
+        error
+      );
     });
-    return true;
   }
 );
 

@@ -2,7 +2,7 @@
 
 ## Context
 
-Browser Bridge's Chrome extension currently has broad access (`<all_urls>`) and can drive any tab/site via `drive.*` actions handled in `packages/extension/src/background.ts`.
+Browser Bridge's Chrome extension targets web pages (`http://*/*` + `https://*/*`) and can drive tabs/sites via `drive.*` actions handled in `packages/extension/src/background.ts`.
 
 This document proposes and plans a "soft permissions" model, similar to the Claude extension UX shown in screenshots:
 
@@ -27,7 +27,7 @@ This document proposes and plans a "soft permissions" model, similar to the Clau
 ## Key Decisions
 
 1. Soft permissions only.
-   - Keep `host_permissions: ["<all_urls>"]`.
+   - Keep host permissions scoped to web pages (`http://*/*`, `https://*/*`).
    - Enforce allowlist checks in the extension background before executing drive actions.
 
 2. Gate at the background boundary (single chokepoint).
@@ -114,7 +114,8 @@ Gate all drive actions that can result in site interaction:
   - `drive.scroll`
   - `drive.wait_for`
   - `drive.screenshot` (optional for v1, but consistent to include)
-  - `drive.back`, `drive.forward`, `drive.go_back`, `drive.go_forward` (optional; can be treated like navigation on current site)
+  - `drive.go_back`, `drive.go_forward` (optional; can be treated like navigation on current site)
+  - `drive.back`/`drive.forward` are deprecated CLI/MCP aliases that forward to the canonical actions above.
 
 Notes:
 

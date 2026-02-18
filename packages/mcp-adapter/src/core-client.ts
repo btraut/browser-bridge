@@ -1,6 +1,8 @@
 import {
   ApiEnvelope,
   ErrorEnvelope,
+  HTTP_CONTRACT_VERSION,
+  HTTP_CONTRACT_VERSION_HEADER,
   JsonlLogger,
   createCoreReadinessController,
   createJsonlLogger,
@@ -53,6 +55,12 @@ const toReadinessErrorEnvelope = (
         ? `Core not ready at ${baseUrl}: ${error.message}`
         : `Core not ready at ${baseUrl}.`,
     retryable: true,
+    retry: {
+      retryable: true,
+      reason: 'core_not_ready',
+      retry_after_ms: 250,
+      max_attempts: 1,
+    },
     details: {
       base_url: baseUrl,
     },
@@ -148,6 +156,7 @@ export const createCoreClient = (
         method: 'POST',
         headers: {
           'content-type': 'application/json',
+          [HTTP_CONTRACT_VERSION_HEADER]: HTTP_CONTRACT_VERSION,
         },
         body: body === undefined ? undefined : JSON.stringify(body),
         signal: controller.signal,

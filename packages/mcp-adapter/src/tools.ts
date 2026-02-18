@@ -1,4 +1,5 @@
 import {
+  type ApiEnvelope,
   successEnvelopeSchema,
   ArtifactsScreenshotInputSchema,
   ArtifactsScreenshotOutputSchema,
@@ -17,10 +18,6 @@ import {
   DriveDragOutputSchema,
   DriveFillFormInputSchema,
   DriveFillFormOutputSchema,
-  DriveBackInputSchema,
-  DriveBackOutputSchema,
-  DriveForwardInputSchema,
-  DriveForwardOutputSchema,
   DriveGoBackInputSchema,
   DriveGoBackOutputSchema,
   DriveGoForwardInputSchema,
@@ -96,6 +93,11 @@ type ToolConfig = {
   inputSchema: AnySchema | ZodRawShapeCompat;
   outputSchema: AnySchema | ZodRawShapeCompat;
   corePath: string;
+  deprecationAlias?: {
+    alias: string;
+    replacement: string;
+  };
+  transformInput?: (args: unknown) => unknown;
 };
 
 type ToolRegistrar = Pick<McpServer, 'registerTool'>;
@@ -125,6 +127,42 @@ const toInternalErrorEnvelope = (error: unknown) => ({
 });
 
 const envelope = (schema: EnvelopeInput) => successEnvelopeSchema(schema);
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
+const addDeprecatedAliasWarning = (
+  envelopeResult: ApiEnvelope<unknown>,
+  deprecationAlias?: {
+    alias: string;
+    replacement: string;
+  }
+): ApiEnvelope<unknown> => {
+  if (
+    !deprecationAlias ||
+    !envelopeResult.ok ||
+    typeof envelopeResult.result !== 'object' ||
+    !envelopeResult.result
+  ) {
+    return envelopeResult;
+  }
+
+  const warning = `${deprecationAlias.alias} is deprecated; use ${deprecationAlias.replacement}.`;
+  const result = envelopeResult.result as Record<string, unknown>;
+  const existingWarnings = Array.isArray(result.warnings)
+    ? result.warnings.filter((item): item is string => typeof item === 'string')
+    : [];
+
+  return {
+    ok: true,
+    result: {
+      ...result,
+      warnings: existingWarnings.includes(warning)
+        ? existingWarnings
+        : [...existingWarnings, warning],
+    },
+  };
+};
 
 export const TOOL_DEFINITIONS: Array<{ name: string; config: ToolConfig }> = [
   {
@@ -201,20 +239,28 @@ export const TOOL_DEFINITIONS: Array<{ name: string; config: ToolConfig }> = [
     name: 'drive.back',
     config: {
       title: 'Drive Back',
-      description: 'Go back in browser history.',
-      inputSchema: DriveBackInputSchema,
-      outputSchema: envelope(DriveBackOutputSchema),
-      corePath: '/drive/back',
+      description: 'Deprecated alias for drive.go_back.',
+      inputSchema: DriveGoBackInputSchema,
+      outputSchema: envelope(DriveGoBackOutputSchema),
+      corePath: '/drive/go_back',
+      deprecationAlias: {
+        alias: 'drive.back',
+        replacement: 'drive.go_back',
+      },
     },
   },
   {
     name: 'drive.forward',
     config: {
       title: 'Drive Forward',
-      description: 'Go forward in browser history.',
-      inputSchema: DriveForwardInputSchema,
-      outputSchema: envelope(DriveForwardOutputSchema),
-      corePath: '/drive/forward',
+      description: 'Deprecated alias for drive.go_forward.',
+      inputSchema: DriveGoForwardInputSchema,
+      outputSchema: envelope(DriveGoForwardOutputSchema),
+      corePath: '/drive/go_forward',
+      deprecationAlias: {
+        alias: 'drive.forward',
+        replacement: 'drive.go_forward',
+      },
     },
   },
   {
@@ -291,20 +337,32 @@ export const TOOL_DEFINITIONS: Array<{ name: string; config: ToolConfig }> = [
     name: 'dialog.accept',
     config: {
       title: 'Dialog Accept',
-      description: 'Accept a JavaScript dialog.',
+      description: 'Deprecated alias for drive.handle_dialog (action=accept).',
       inputSchema: DialogAcceptInputSchema,
       outputSchema: envelope(DialogAcceptOutputSchema),
-      corePath: '/dialog/accept',
+      corePath: '/drive/handle_dialog',
+      deprecationAlias: {
+        alias: 'dialog.accept',
+        replacement: 'drive.handle_dialog',
+      },
+      transformInput: (args) =>
+        isRecord(args) ? { ...args, action: 'accept' } : args,
     },
   },
   {
     name: 'dialog.dismiss',
     config: {
       title: 'Dialog Dismiss',
-      description: 'Dismiss a JavaScript dialog.',
+      description: 'Deprecated alias for drive.handle_dialog (action=dismiss).',
       inputSchema: DialogDismissInputSchema,
       outputSchema: envelope(DialogDismissOutputSchema),
-      corePath: '/dialog/dismiss',
+      corePath: '/drive/handle_dialog',
+      deprecationAlias: {
+        alias: 'dialog.dismiss',
+        replacement: 'drive.handle_dialog',
+      },
+      transformInput: (args) =>
+        isRecord(args) ? { ...args, action: 'dismiss' } : args,
     },
   },
   {
@@ -486,7 +544,7 @@ export const TOOL_DEFINITIONS: Array<{ name: string; config: ToolConfig }> = [
         'Check server health including uptime, memory usage, active session count, and extension connection status.',
       inputSchema: HealthCheckInputSchema,
       outputSchema: envelope(HealthCheckOutputSchema),
-      corePath: '/health_check',
+      corePath: '/health/check',
     },
   },
   {
@@ -503,7 +561,12 @@ export const TOOL_DEFINITIONS: Array<{ name: string; config: ToolConfig }> = [
 
 export const createToolHandler = (
   clientProvider: CoreClientProvider,
-  corePath: string
+  corePath: string,
+  deprecationAlias?: {
+    alias: string;
+    replacement: string;
+  },
+  transformInput?: (args: unknown) => unknown
 ): ToolCallback<AnySchema> => {
   return (async (args: unknown, _extra: unknown): Promise<ToolResult> => {
     void _extra;
@@ -512,8 +575,13 @@ export const createToolHandler = (
         typeof clientProvider === 'function'
           ? await clientProvider()
           : clientProvider;
-      const envelopeResult = await client.post(corePath, args);
-      return toToolResult(envelopeResult);
+      const envelopeResult = await client.post(
+        corePath,
+        transformInput ? transformInput(args) : args
+      );
+      return toToolResult(
+        addDeprecatedAliasWarning(envelopeResult, deprecationAlias)
+      );
     } catch (error) {
       const parsed = ErrorEnvelopeSchema.safeParse(error);
       if (parsed.success) {
@@ -537,7 +605,12 @@ export const registerBrowserBridgeTools = (
         inputSchema: tool.config.inputSchema,
         outputSchema: tool.config.outputSchema,
       },
-      createToolHandler(clientProvider, tool.config.corePath)
+      createToolHandler(
+        clientProvider,
+        tool.config.corePath,
+        tool.config.deprecationAlias,
+        tool.config.transformInput
+      )
     );
   }
 };

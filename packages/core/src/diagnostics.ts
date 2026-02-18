@@ -120,6 +120,9 @@ export type DiagnosticReport = {
     };
     extension?: {
       version?: string;
+      protocol_version?: string;
+      capability_negotiated?: boolean;
+      capabilities?: Record<string, boolean>;
       endpoint?: {
         host?: string;
         port?: number;
@@ -183,6 +186,9 @@ export type DiagnosticsContext = {
     };
     extension?: {
       version?: string;
+      protocolVersion?: string;
+      capabilityNegotiated?: boolean;
+      capabilities?: Record<string, boolean>;
       endpoint?: RuntimeEndpointContext;
       portSource?: 'default' | 'storage';
     };
@@ -531,6 +537,10 @@ export const buildDiagnosticReport = (
           extension: context.runtime.extension
             ? {
                 version: context.runtime.extension.version,
+                protocol_version: context.runtime.extension.protocolVersion,
+                capability_negotiated:
+                  context.runtime.extension.capabilityNegotiated,
+                capabilities: context.runtime.extension.capabilities,
                 endpoint: toRuntimeEndpoint(context.runtime.extension.endpoint),
                 port_source: context.runtime.extension.portSource,
               }

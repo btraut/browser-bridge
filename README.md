@@ -106,7 +106,7 @@ See `docs/cdp-input-model.md` for details and smoke verification.
 
 ## 🔒 Site Permissions (Drive Actions)
 
-Browser Bridge is intentionally safe: **drive actions** (`drive.navigate`, click, type, etc.) require **per-site approval**. `inspect.*` is not gated, so agents can inspect first and only ask for permission when it's time to click/type.
+Browser Bridge is intentionally safe: **drive actions** (`drive.navigate`, click, type, etc.) require **per-site approval**. `inspect.*` is additionally guarded behind an explicit debugger-capability toggle in extension options.
 
 <details>
 <summary>How approvals work (click to expand)</summary>
@@ -124,6 +124,7 @@ Manage approvals (and bypass mode):
 - Switch **Permission mode** to **Bypass (dangerous)** to skip the allowlist and prompts entirely.
 - In bypass mode, the agent can take actions on any website without asking.
 - Restricted URLs (for example `chrome://` and `file://`) are still blocked.
+- `inspect.*` requires enabling **Debugger-based inspect** in extension options. If disabled, inspect calls fail with `ATTACH_DENIED` and a clear next step.
 
 </details>
 
@@ -146,8 +147,8 @@ The CLI mirrors the MCP tool surface.
 - `drive.navigate`
 - `drive.go_back`
 - `drive.go_forward`
-- `drive.back`
-- `drive.forward`
+- `drive.back` (deprecated alias for `drive.go_back`)
+- `drive.forward` (deprecated alias for `drive.go_forward`)
 - `drive.click`
 - `drive.hover`
 - `drive.select`
@@ -165,8 +166,8 @@ The CLI mirrors the MCP tool surface.
 
 **dialog**
 
-- `dialog.accept`
-- `dialog.dismiss`
+- `dialog.accept` (deprecated alias for `drive.handle_dialog` with `action=accept`)
+- `dialog.dismiss` (deprecated alias for `drive.handle_dialog` with `action=dismiss`)
 
 **inspect**
 

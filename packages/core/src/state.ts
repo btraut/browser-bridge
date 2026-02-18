@@ -1,3 +1,6 @@
+import type { RetryHint } from '@btraut/browser-bridge-shared';
+import { shouldRetryByPolicy } from '@btraut/browser-bridge-shared';
+
 export enum SessionState {
   INIT = 'INIT',
   DRIVE_READY = 'DRIVE_READY',
@@ -104,8 +107,9 @@ export const transitionSession = (
 export const shouldRetryDriveOp = (options: {
   attempt: number;
   retryable: boolean;
+  retry?: Partial<RetryHint>;
 }): boolean => {
-  return options.retryable && options.attempt === 0;
+  return shouldRetryByPolicy(options);
 };
 
 export const shouldRetryInspectOp = (options: {

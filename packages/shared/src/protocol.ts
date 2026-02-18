@@ -3,6 +3,7 @@
 // Note: This is distinct from the public "drive" API types in ./schemas + ./types.
 // The protocol is used for WS messages sent between core <-> extension, and it
 // intentionally allows some fields (like tab URL/title) to be omitted.
+import type { RetryHint } from './retry-policy';
 
 export type DriveLocatorRole = {
   name: string;
@@ -160,8 +161,12 @@ export type DriveTabCloseParams = {
   tab_id: number;
 };
 
+export type ExtensionCapabilityMap = Record<string, boolean>;
+
 export type DriveHelloParams = {
   version?: string;
+  protocol_version?: string;
+  capabilities?: ExtensionCapabilityMap;
   core_host?: string;
   core_port?: number;
   core_port_source?: 'default' | 'storage';
@@ -176,8 +181,6 @@ export type DriveAction =
   | 'drive.navigate'
   | 'drive.go_back'
   | 'drive.go_forward'
-  | 'drive.back'
-  | 'drive.forward'
   | 'drive.keepalive'
   | 'drive.click'
   | 'drive.hover'
@@ -211,6 +214,7 @@ export type DriveErrorInfo = {
   code: string;
   message: string;
   retryable: boolean;
+  retry?: RetryHint;
   details?: Record<string, unknown>;
 };
 

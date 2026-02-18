@@ -2,6 +2,10 @@ import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import {
+  HTTP_CONTRACT_VERSION,
+  HTTP_CONTRACT_VERSION_HEADER,
+} from '@btraut/browser-bridge-shared';
 import { createCoreClient } from './core-client';
 
 const makeResponse = (body: unknown, ok = true) =>
@@ -80,7 +84,10 @@ describe('createCoreClient', () => {
       'http://127.0.0.1:3210/session/create',
       expect.objectContaining({
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: {
+          'content-type': 'application/json',
+          [HTTP_CONTRACT_VERSION_HEADER]: HTTP_CONTRACT_VERSION,
+        },
         body: JSON.stringify({ mode: 'auto' }),
       })
     );

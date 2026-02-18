@@ -97,14 +97,14 @@ export const CLI_TOOL_FIXTURES: CliToolFixture[] = [
   {
     name: 'drive.back',
     kind: 'core',
-    corePath: '/drive/back',
+    corePath: '/drive/go_back',
     argv: ['drive', 'back', '--session-id', 'session-1', '--tab-id', '2'],
     payload: { session_id: 'session-1', tab_id: 2 },
   },
   {
     name: 'drive.forward',
     kind: 'core',
-    corePath: '/drive/forward',
+    corePath: '/drive/go_forward',
     argv: ['drive', 'forward', '--session-id', 'session-1', '--tab-id', '2'],
     payload: { session_id: 'session-1', tab_id: 2 },
   },
@@ -268,7 +268,7 @@ export const CLI_TOOL_FIXTURES: CliToolFixture[] = [
   {
     name: 'dialog.accept',
     kind: 'core',
-    corePath: '/dialog/accept',
+    corePath: '/drive/handle_dialog',
     argv: [
       'dialog',
       'accept',
@@ -281,6 +281,7 @@ export const CLI_TOOL_FIXTURES: CliToolFixture[] = [
     ],
     payload: {
       session_id: 'session-1',
+      action: 'accept',
       promptText: 'Sure',
       tab_id: 2,
     },
@@ -288,10 +289,11 @@ export const CLI_TOOL_FIXTURES: CliToolFixture[] = [
   {
     name: 'dialog.dismiss',
     kind: 'core',
-    corePath: '/dialog/dismiss',
+    corePath: '/drive/handle_dialog',
     argv: ['dialog', 'dismiss', '--session-id', 'session-1', '--tab-id', '2'],
     payload: {
       session_id: 'session-1',
+      action: 'dismiss',
       tab_id: 2,
     },
   },
@@ -580,7 +582,7 @@ export const CLI_TOOL_FIXTURES: CliToolFixture[] = [
   {
     name: 'health_check',
     kind: 'core',
-    corePath: '/health_check',
+    corePath: '/health/check',
     argv: ['diagnostics', 'health-check'],
     payload: {},
   },

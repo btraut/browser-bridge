@@ -1,6 +1,8 @@
 import {
   ApiEnvelope,
   ErrorInfo,
+  HTTP_CONTRACT_VERSION,
+  HTTP_CONTRACT_VERSION_HEADER,
   JsonlLogger,
   createCoreReadinessController,
   createJsonlLogger,
@@ -157,6 +159,7 @@ export const createCoreClient = (
           method,
           headers: {
             'content-type': 'application/json',
+            [HTTP_CONTRACT_VERSION_HEADER]: HTTP_CONTRACT_VERSION,
           },
           body: body === undefined ? undefined : JSON.stringify(body),
           signal: controller.signal,
@@ -177,6 +180,12 @@ export const createCoreClient = (
             code: 'TIMEOUT',
             message: `Core request timed out after ${timeoutMs}ms.`,
             retryable: true,
+            retry: {
+              retryable: true,
+              reason: 'core_request_timeout',
+              retry_after_ms: 250,
+              max_attempts: 1,
+            },
             details: {
               timeout_ms: timeoutMs,
               base_url: readiness.baseUrl,

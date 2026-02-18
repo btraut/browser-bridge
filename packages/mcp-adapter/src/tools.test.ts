@@ -58,6 +58,122 @@ describe('mcp-adapter tools', () => {
     expect(result.isError).toBe(true);
   });
 
+  it('adds deprecation warnings for alias tools', async () => {
+    const envelope = { ok: true as const, result: { ok: true } };
+    const client: CoreClient = {
+      baseUrl: 'http://core',
+      ensureReady: vi.fn().mockResolvedValue(undefined),
+      post: vi.fn().mockResolvedValue(envelope),
+    };
+
+    const handler = createToolHandler(client, '/drive/go_back', {
+      alias: 'drive.back',
+      replacement: 'drive.go_back',
+    });
+    const result = await handler({ session_id: 'session-1' }, {} as never);
+
+    expect(result.structuredContent).toEqual({
+      ok: true,
+      result: {
+        ok: true,
+        warnings: ['drive.back is deprecated; use drive.go_back.'],
+      },
+    });
+  });
+
+  it('adds deprecation warning for drive.forward alias tool', async () => {
+    const envelope = { ok: true as const, result: { ok: true } };
+    const client: CoreClient = {
+      baseUrl: 'http://core',
+      ensureReady: vi.fn().mockResolvedValue(undefined),
+      post: vi.fn().mockResolvedValue(envelope),
+    };
+
+    const handler = createToolHandler(client, '/drive/go_forward', {
+      alias: 'drive.forward',
+      replacement: 'drive.go_forward',
+    });
+    const result = await handler({ session_id: 'session-1' }, {} as never);
+
+    expect(result.structuredContent).toEqual({
+      ok: true,
+      result: {
+        ok: true,
+        warnings: ['drive.forward is deprecated; use drive.go_forward.'],
+      },
+    });
+  });
+
+  it('transforms dialog alias payloads to the canonical handle_dialog shape', async () => {
+    const envelope = { ok: true as const, result: { ok: true } };
+    const client: CoreClient = {
+      baseUrl: 'http://core',
+      ensureReady: vi.fn().mockResolvedValue(undefined),
+      post: vi.fn().mockResolvedValue(envelope),
+    };
+
+    const handler = createToolHandler(
+      client,
+      '/drive/handle_dialog',
+      {
+        alias: 'dialog.accept',
+        replacement: 'drive.handle_dialog',
+      },
+      (args) =>
+        typeof args === 'object' && args !== null
+          ? { ...(args as Record<string, unknown>), action: 'accept' }
+          : args
+    );
+
+    await handler({ session_id: 'session-1', promptText: 'ok' }, {} as never);
+
+    expect(client.post).toHaveBeenCalledWith('/drive/handle_dialog', {
+      session_id: 'session-1',
+      promptText: 'ok',
+      action: 'accept',
+    });
+  });
+
+  it('transforms dialog.dismiss alias payloads to action=dismiss', async () => {
+    const envelope = { ok: true as const, result: { ok: true } };
+    const client: CoreClient = {
+      baseUrl: 'http://core',
+      ensureReady: vi.fn().mockResolvedValue(undefined),
+      post: vi.fn().mockResolvedValue(envelope),
+    };
+
+    const handler = createToolHandler(
+      client,
+      '/drive/handle_dialog',
+      {
+        alias: 'dialog.dismiss',
+        replacement: 'drive.handle_dialog',
+      },
+      (args) =>
+        typeof args === 'object' && args !== null
+          ? { ...(args as Record<string, unknown>), action: 'dismiss' }
+          : args
+    );
+
+    const result = await handler(
+      { session_id: 'session-1', promptText: 'cancel' },
+      {} as never
+    );
+
+    expect(client.post).toHaveBeenCalledWith('/drive/handle_dialog', {
+      session_id: 'session-1',
+      promptText: 'cancel',
+      action: 'dismiss',
+    });
+    expect(result.structuredContent).toEqual({
+      ok: true,
+      result: {
+        ok: true,
+        warnings: ['dialog.dismiss is deprecated; use drive.handle_dialog.'],
+      },
+    });
+  });
+
   it('registers all tools and forwards to core paths', async () => {
     const calls: Array<{ path: string; body: unknown }> = [];
     const configs = new Map<
@@ -72,15 +188,16 @@ describe('mcp-adapter tools', () => {
     const fixturesByName = new Map(
       MCP_TOOL_FIXTURES.map((fixture) => [fixture.name, fixture])
     );
-    const fixturesByPath = new Map(
-      MCP_TOOL_FIXTURES.map((fixture) => [fixture.corePath, fixture])
-    );
     const client: CoreClient = {
       baseUrl: 'http://core',
       ensureReady: vi.fn().mockResolvedValue(undefined),
       post: vi.fn().mockImplementation(async (path: string, body?: unknown) => {
         calls.push({ path, body });
-        const fixture = fixturesByPath.get(path);
+        const fixture = MCP_TOOL_FIXTURES.find(
+          (candidate) =>
+            candidate.corePath === path &&
+            JSON.stringify(candidate.input) === JSON.stringify(body)
+        );
         if (!fixture) {
           throw new Error(`Missing fixture for ${path}`);
         }
@@ -128,8 +245,14 @@ describe('mcp-adapter tools', () => {
 
     const expectedPaths = TOOL_DEFINITIONS.map((tool) => tool.config.corePath);
     expect(calls.map((call) => call.path)).toEqual(expectedPaths);
-    for (const call of calls) {
-      const fixture = fixturesByPath.get(call.path);
+    for (const [index, call] of calls.entries()) {
+      const tool = TOOL_DEFINITIONS[index];
+      expect(tool).toBeDefined();
+      if (!tool) {
+        continue;
+      }
+      const fixture = fixturesByName.get(tool.name);
+      expect(fixture).toBeDefined();
       expect(call.body).toEqual(fixture?.input);
     }
   });

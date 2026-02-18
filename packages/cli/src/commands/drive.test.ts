@@ -93,4 +93,70 @@ describe('drive navigate command', () => {
       wait: 'domcontentloaded',
     });
   });
+
+  it('routes deprecated drive back alias to canonical core path', async () => {
+    const post = vi.fn().mockResolvedValue({
+      ok: true as const,
+      result: { ok: true },
+    });
+
+    const client = {
+      baseUrl: 'http://127.0.0.1:3210',
+      ensureReady: async () => undefined,
+      post,
+    } as CoreClient;
+
+    vi.mocked(runCommand).mockImplementation(async (_command, work) => {
+      await work(client, {});
+    });
+
+    const program = buildProgram();
+    await program.parseAsync([
+      'node',
+      'cli',
+      'drive',
+      'back',
+      '--session-id',
+      'session-1',
+    ]);
+
+    expect(post).toHaveBeenCalledTimes(1);
+    expect(post).toHaveBeenCalledWith('/drive/go_back', {
+      session_id: 'session-1',
+      tab_id: undefined,
+    });
+  });
+
+  it('routes deprecated drive forward alias to canonical core path', async () => {
+    const post = vi.fn().mockResolvedValue({
+      ok: true as const,
+      result: { ok: true },
+    });
+
+    const client = {
+      baseUrl: 'http://127.0.0.1:3210',
+      ensureReady: async () => undefined,
+      post,
+    } as CoreClient;
+
+    vi.mocked(runCommand).mockImplementation(async (_command, work) => {
+      await work(client, {});
+    });
+
+    const program = buildProgram();
+    await program.parseAsync([
+      'node',
+      'cli',
+      'drive',
+      'forward',
+      '--session-id',
+      'session-1',
+    ]);
+
+    expect(post).toHaveBeenCalledTimes(1);
+    expect(post).toHaveBeenCalledWith('/drive/go_forward', {
+      session_id: 'session-1',
+      tab_id: undefined,
+    });
+  });
 });

@@ -30,7 +30,7 @@ export const registerDiagnosticsCommands = (program: Command): void => {
     .action(async (_options, command) => {
       await runCommand(command, (client) => {
         const payload = parseInput(HealthCheckInputSchema, {});
-        return client.post('/health_check', payload);
+        return client.post('/health/check', payload);
       });
     });
 };

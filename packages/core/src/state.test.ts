@@ -82,10 +82,24 @@ describe('transitionSession', () => {
 });
 
 describe('retry rules', () => {
-  it('retries drive ops once when retryable', () => {
+  it('retries drive ops via shared retry policy hints', () => {
     expect(shouldRetryDriveOp({ attempt: 0, retryable: true })).toBe(true);
     expect(shouldRetryDriveOp({ attempt: 1, retryable: true })).toBe(false);
     expect(shouldRetryDriveOp({ attempt: 0, retryable: false })).toBe(false);
+    expect(
+      shouldRetryDriveOp({
+        attempt: 1,
+        retryable: true,
+        retry: { retryable: true, max_attempts: 2 },
+      })
+    ).toBe(true);
+    expect(
+      shouldRetryDriveOp({
+        attempt: 2,
+        retryable: true,
+        retry: { retryable: true, max_attempts: 2 },
+      })
+    ).toBe(false);
   });
 
   it('retries inspect ops once when reconnect succeeds', () => {

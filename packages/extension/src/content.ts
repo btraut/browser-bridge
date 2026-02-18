@@ -1082,8 +1082,7 @@ export const runDriveAction = async (
           tick();
         });
       }
-      case 'drive.go_back':
-      case 'drive.back': {
+      case 'drive.go_back': {
         // Trigger history changes on the next tick so the background script gets
         // our response before this page unloads.
         window.setTimeout(() => {
@@ -1091,8 +1090,7 @@ export const runDriveAction = async (
         }, 0);
         return ok();
       }
-      case 'drive.go_forward':
-      case 'drive.forward': {
+      case 'drive.go_forward': {
         window.setTimeout(() => {
           history.forward();
         }, 0);

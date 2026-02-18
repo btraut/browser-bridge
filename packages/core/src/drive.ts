@@ -83,6 +83,12 @@ const preflightLoopbackNavigation = async (
       code: 'NAVIGATION_FAILED',
       message: `Navigation target is unreachable: ${urlValue}`,
       retryable: true,
+      retry: {
+        retryable: true,
+        reason: 'loopback_target_unreachable',
+        retry_after_ms: 250,
+        max_attempts: 1,
+      },
       details: {
         url: urlValue,
         preflight: 'loopback_head',
@@ -177,6 +183,12 @@ export class DriveController {
           message:
             'Extension is not connected. Open Chrome with the Browser Bridge extension enabled, then retry.',
           retryable: true,
+          retry: {
+            retryable: true,
+            reason: 'extension_disconnected',
+            retry_after_ms: 300,
+            max_attempts: 1,
+          },
           details: {
             next_step: 'Ensure Chrome is running and extension.connected=true.',
           },
@@ -216,9 +228,20 @@ export class DriveController {
             code: 'UNKNOWN',
             message: 'Drive operation failed.',
             retryable: false,
+            retry: {
+              retryable: false,
+              reason: 'drive_response_error',
+              max_attempts: 1,
+            },
           };
 
-          if (shouldRetryDriveOp({ attempt, retryable: errorInfo.retryable })) {
+          if (
+            shouldRetryDriveOp({
+              attempt,
+              retryable: errorInfo.retryable,
+              retry: errorInfo.retry,
+            })
+          ) {
             attempt += 1;
             continue;
           }
@@ -232,7 +255,11 @@ export class DriveController {
             }
             const errorInfo = toDriveError(error);
             if (
-              shouldRetryDriveOp({ attempt, retryable: errorInfo.retryable })
+              shouldRetryDriveOp({
+                attempt,
+                retryable: errorInfo.retryable,
+                retry: errorInfo.retry,
+              })
             ) {
               attempt += 1;
               continue;

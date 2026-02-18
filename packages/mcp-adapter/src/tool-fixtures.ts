@@ -118,23 +118,25 @@ export const MCP_TOOL_FIXTURES: ToolFixture[] = [
   },
   {
     name: 'drive.back',
-    corePath: '/drive/back',
+    corePath: '/drive/go_back',
     input: { session_id: 'session-1' },
     successEnvelope: {
       ok: true,
       result: {
         ok: true,
+        warnings: ['drive.back is deprecated; use drive.go_back.'],
       },
     },
   },
   {
     name: 'drive.forward',
-    corePath: '/drive/forward',
+    corePath: '/drive/go_forward',
     input: { session_id: 'session-1' },
     successEnvelope: {
       ok: true,
       result: {
         ok: true,
+        warnings: ['drive.forward is deprecated; use drive.go_forward.'],
       },
     },
   },
@@ -248,28 +250,32 @@ export const MCP_TOOL_FIXTURES: ToolFixture[] = [
   },
   {
     name: 'dialog.accept',
-    corePath: '/dialog/accept',
+    corePath: '/drive/handle_dialog',
     input: {
       session_id: 'session-1',
+      action: 'accept',
       promptText: 'confirm',
     },
     successEnvelope: {
       ok: true,
       result: {
         ok: true,
+        warnings: ['dialog.accept is deprecated; use drive.handle_dialog.'],
       },
     },
   },
   {
     name: 'dialog.dismiss',
-    corePath: '/dialog/dismiss',
+    corePath: '/drive/handle_dialog',
     input: {
       session_id: 'session-1',
+      action: 'dismiss',
     },
     successEnvelope: {
       ok: true,
       result: {
         ok: true,
+        warnings: ['dialog.dismiss is deprecated; use drive.handle_dialog.'],
       },
     },
   },
@@ -528,7 +534,7 @@ export const MCP_TOOL_FIXTURES: ToolFixture[] = [
   },
   {
     name: 'health_check',
-    corePath: '/health_check',
+    corePath: '/health/check',
     input: {},
     successEnvelope: {
       ok: true,

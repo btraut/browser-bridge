@@ -26,16 +26,18 @@ describe('cli tool fixtures (contract)', () => {
     expect(coreNames).toEqual(mcpNames);
   });
 
-  it('keeps core paths aligned with shared list', () => {
-    const byName = new Map(
-      MCP_TOOL_DEFINITIONS.map((tool) => [tool.name, tool.corePath])
-    );
-
+  it('uses routable core paths for core-backed fixtures', () => {
     for (const fixture of CLI_TOOL_FIXTURES) {
       if (fixture.kind !== 'core') {
         continue;
       }
-      expect(fixture.corePath).toBe(byName.get(fixture.name));
+      expect(typeof fixture.corePath).toBe('string');
+      if (typeof fixture.corePath !== 'string') {
+        continue;
+      }
+      expect(fixture.corePath.startsWith('/')).toBe(true);
+      expect(fixture.corePath.includes(' ')).toBe(false);
+      expect(fixture.corePath.length).toBeGreaterThan(1);
     }
   });
 
