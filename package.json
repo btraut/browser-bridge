@@ -1,6 +1,6 @@
 {
   "name": "browser-bridge",
-  "version": "0.13.1",
+  "version": "0.13.2",
   "license": "MIT",
   "private": true,
   "workspaces": [

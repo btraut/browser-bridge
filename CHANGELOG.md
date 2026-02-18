@@ -6,6 +6,16 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 
 ## [Unreleased]
 
+## [0.13.2] - 2026-02-18
+
+### Changed
+
+- Maintenance patch release for `0.13.2`.
+
+### Fixed
+
+- MCP adapter readiness tests now model POST/GET health probing correctly, preventing false failures when daemon auto-start is enabled.
+
 ## [0.13.1] - 2026-02-18
 
 ### Fixed
