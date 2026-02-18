@@ -6,6 +6,8 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-02-18
+
 ### Changed
 
 - `drive.navigate` now supports omitted `session_id` through both CLI and MCP; Core auto-creates the session and returns canonical `result.session_id` in the success payload.
@@ -24,6 +26,7 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 
 ### Fixed
 
+- MCP adapter integration coverage now disambiguates fixtures that share core routes (for example, dialog aliases), preventing false failures from path-only fixture collisions.
 - Filled test/doc gaps for deprecated aliases: added missing `dialog.dismiss` core route coverage, added MCP coverage for `drive.forward` warnings and `dialog.dismiss` input transform, and clarified deprecation/error-code docs.
 - Extension now re-applies the `Browser Bridge` tab-group title for reused dedicated agent tabs, so stale groups no longer stay untitled.
 - Extension now reapplies the toolbar robot icon as the dedicated agent tab favicon after agent-driven navigations.

@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { createCoreClient } from './core-client';
 import { MCP_TOOL_FIXTURES } from './tool-fixtures';
+import type { ToolFixture } from './tool-fixtures';
 import { registerBrowserBridgeTools } from './tools';
 
 const makeSpawnImpl = (): typeof spawn =>
@@ -18,10 +19,17 @@ const makeSpawnImpl = (): typeof spawn =>
 
 describe('mcp-adapter integration', () => {
   it('routes tool calls through the core client and ensure-ready bootstrap', async () => {
-    const fixturesByPath = new Map(
-      MCP_TOOL_FIXTURES.map((fixture) => [fixture.corePath, fixture])
-    );
-    const requests = new Map<string, unknown>();
+    const fixturesByPath = new Map<string, ToolFixture[]>();
+    for (const fixture of MCP_TOOL_FIXTURES) {
+      const existing = fixturesByPath.get(fixture.corePath);
+      if (existing) {
+        existing.push(fixture);
+        continue;
+      }
+      fixturesByPath.set(fixture.corePath, [fixture]);
+    }
+
+    const requests = new Map<string, unknown[]>();
     let healthChecks = 0;
 
     const server = createServer((req, res) => {
@@ -40,9 +48,8 @@ describe('mcp-adapter integration', () => {
           return;
         }
 
-        const fixture = fixturesByPath.get(url.pathname);
-
-        if (!fixture) {
+        const candidateFixtures = fixturesByPath.get(url.pathname);
+        if (!candidateFixtures) {
           res.statusCode = 404;
           res.setHeader('content-type', 'application/json');
           res.end(
@@ -58,7 +65,15 @@ describe('mcp-adapter integration', () => {
           return;
         }
 
-        requests.set(url.pathname, body);
+        const fixture =
+          candidateFixtures.find(
+            (candidate) =>
+              JSON.stringify(candidate.input) === JSON.stringify(body)
+          ) ?? candidateFixtures[0];
+
+        const requestBodies = requests.get(url.pathname) ?? [];
+        requestBodies.push(body);
+        requests.set(url.pathname, requestBodies);
         res.statusCode = 200;
         res.setHeader('content-type', 'application/json');
         res.end(JSON.stringify(fixture.successEnvelope));
@@ -97,16 +112,16 @@ describe('mcp-adapter integration', () => {
         const handler = handlers.get(fixture.name);
         expect(handler).toBeDefined();
         const result = await handler?.(fixture.input, {} as never);
-        expect(result).toEqual(
-          expect.objectContaining({
-            structuredContent: fixture.successEnvelope,
-          })
-        );
+        expect(result).toMatchObject({
+          structuredContent: fixture.successEnvelope,
+        });
       }
 
       for (const fixture of MCP_TOOL_FIXTURES) {
-        const requestBody = requests.get(fixture.corePath);
+        const requestBodies = requests.get(fixture.corePath) ?? [];
+        expect(requestBodies.length).toBeGreaterThan(0);
         if (fixture.corePath === '/diagnostics/doctor') {
+          const requestBody = requestBodies[0];
           expect(requestBody).toEqual(
             expect.objectContaining(fixture.input as Record<string, unknown>)
           );
@@ -115,7 +130,7 @@ describe('mcp-adapter integration', () => {
               .caller?.process?.component
           ).toBe('mcp');
         } else {
-          expect(requestBody).toEqual(fixture.input);
+          expect(requestBodies).toContainEqual(fixture.input);
         }
       }
       expect(healthChecks).toBeGreaterThan(0);
