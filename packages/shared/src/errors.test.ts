@@ -39,4 +39,22 @@ describe('public error taxonomy normalization', () => {
       })
     );
   });
+
+  it('never throws when normalizing unknown error codes', () => {
+    const normalized = normalizeErrorInfo({
+      code: 'SOMETHING_NEW',
+      message: 'Unexpected.',
+      retryable: false,
+      details: { session_id: 'session-2' },
+    });
+
+    expect(normalized.code).toBe('INTERNAL');
+    expect(normalized.details).toEqual(
+      expect.objectContaining({
+        legacy_code: 'SOMETHING_NEW',
+        reason: 'unknown_code',
+        session_id: 'session-2',
+      })
+    );
+  });
 });

@@ -46,6 +46,11 @@ type PendingRequest = {
 
 type DebuggerEventListener = (event: DebuggerEvent) => void;
 
+type CapabilityNegotiationFailure = {
+  reason: 'missing_capabilities';
+  expected: 'drive.hello.capabilities';
+};
+
 export class ExtensionBridgeError extends Error {
   public readonly code: string;
   public readonly retryable: boolean;
@@ -88,6 +93,7 @@ export class ExtensionBridge {
   private corePort?: number;
   private corePortSource?: 'default' | 'storage';
   private capabilityNegotiated = false;
+  private capabilityNegotiationFailure?: CapabilityNegotiationFailure;
   private capabilities: Record<string, boolean> = {};
   private tabs: DriveTabInfo[] = [];
   private badMessageLogsRemaining = 3;
@@ -199,6 +205,18 @@ export class ExtensionBridge {
           'Capability negotiation has not completed yet.',
           true,
           { action, expected: 'drive.hello.capabilities' }
+        );
+      }
+
+      if (this.capabilityNegotiationFailure) {
+        throw new ExtensionBridgeError(
+          'FAILED_PRECONDITION',
+          'Capability negotiation failed: extension hello payload is missing capabilities.',
+          false,
+          {
+            action,
+            ...this.capabilityNegotiationFailure,
+          }
         );
       }
 
@@ -348,6 +366,7 @@ export class ExtensionBridge {
     this.corePort = undefined;
     this.corePortSource = undefined;
     this.capabilityNegotiated = false;
+    this.capabilityNegotiationFailure = undefined;
     this.capabilities = {};
     this.lastSeenAt = new Date().toISOString();
     this.applyDriveDisconnected();
@@ -460,9 +479,14 @@ export class ExtensionBridge {
             )
           );
           this.capabilityNegotiated = true;
+          this.capabilityNegotiationFailure = undefined;
         } else {
           this.capabilities = {};
-          this.capabilityNegotiated = false;
+          this.capabilityNegotiated = true;
+          this.capabilityNegotiationFailure = {
+            reason: 'missing_capabilities',
+            expected: 'drive.hello.capabilities',
+          };
         }
       }
     }

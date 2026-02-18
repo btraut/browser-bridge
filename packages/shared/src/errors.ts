@@ -185,6 +185,7 @@ export const normalizeErrorInfo = (error: ErrorLike): ErrorInfo => {
   const normalizedInputCode: ErrorCode = parsedCode.success
     ? parsedCode.data
     : 'INTERNAL';
+  const existingDetails = isRecord(error.details) ? error.details : {};
 
   const normalizedInput: ErrorInfo = {
     ...error,
@@ -192,11 +193,11 @@ export const normalizeErrorInfo = (error: ErrorLike): ErrorInfo => {
     ...(parsedCode.success
       ? {}
       : {
-          details: PublicErrorDetailsSchema.parse({
-            ...(isRecord(error.details) ? error.details : {}),
+          details: {
+            ...existingDetails,
             legacy_code: error.code,
             reason: 'unknown_code',
-          }),
+          },
         }),
   };
 
@@ -205,11 +206,11 @@ export const normalizeErrorInfo = (error: ErrorLike): ErrorInfo => {
     return normalizedInput;
   }
 
-  const existingDetails = isRecord(normalizedInput.details)
+  const mappedDetails = isRecord(normalizedInput.details)
     ? normalizedInput.details
     : {};
   const details: PublicErrorDetails = {
-    ...existingDetails,
+    ...mappedDetails,
     legacy_code: normalizedInput.code,
     reason: mapping.reason,
     ...(mapping.resource ? { resource: mapping.resource } : {}),

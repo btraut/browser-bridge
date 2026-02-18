@@ -81,6 +81,29 @@ describe('mcp-adapter tools', () => {
     });
   });
 
+  it('adds deprecation warning for drive.forward alias tool', async () => {
+    const envelope = { ok: true as const, result: { ok: true } };
+    const client: CoreClient = {
+      baseUrl: 'http://core',
+      ensureReady: vi.fn().mockResolvedValue(undefined),
+      post: vi.fn().mockResolvedValue(envelope),
+    };
+
+    const handler = createToolHandler(client, '/drive/go_forward', {
+      alias: 'drive.forward',
+      replacement: 'drive.go_forward',
+    });
+    const result = await handler({ session_id: 'session-1' }, {} as never);
+
+    expect(result.structuredContent).toEqual({
+      ok: true,
+      result: {
+        ok: true,
+        warnings: ['drive.forward is deprecated; use drive.go_forward.'],
+      },
+    });
+  });
+
   it('transforms dialog alias payloads to the canonical handle_dialog shape', async () => {
     const envelope = { ok: true as const, result: { ok: true } };
     const client: CoreClient = {
@@ -108,6 +131,46 @@ describe('mcp-adapter tools', () => {
       session_id: 'session-1',
       promptText: 'ok',
       action: 'accept',
+    });
+  });
+
+  it('transforms dialog.dismiss alias payloads to action=dismiss', async () => {
+    const envelope = { ok: true as const, result: { ok: true } };
+    const client: CoreClient = {
+      baseUrl: 'http://core',
+      ensureReady: vi.fn().mockResolvedValue(undefined),
+      post: vi.fn().mockResolvedValue(envelope),
+    };
+
+    const handler = createToolHandler(
+      client,
+      '/drive/handle_dialog',
+      {
+        alias: 'dialog.dismiss',
+        replacement: 'drive.handle_dialog',
+      },
+      (args) =>
+        typeof args === 'object' && args !== null
+          ? { ...(args as Record<string, unknown>), action: 'dismiss' }
+          : args
+    );
+
+    const result = await handler(
+      { session_id: 'session-1', promptText: 'cancel' },
+      {} as never
+    );
+
+    expect(client.post).toHaveBeenCalledWith('/drive/handle_dialog', {
+      session_id: 'session-1',
+      promptText: 'cancel',
+      action: 'dismiss',
+    });
+    expect(result.structuredContent).toEqual({
+      ok: true,
+      result: {
+        ok: true,
+        warnings: ['dialog.dismiss is deprecated; use drive.handle_dialog.'],
+      },
     });
   });
 

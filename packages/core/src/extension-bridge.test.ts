@@ -168,4 +168,45 @@ describe('ExtensionBridge debugger routing', () => {
       details: { action: 'drive.click' },
     });
   });
+
+  it('fails deterministically when drive.hello omits capabilities', async () => {
+    const bridge = new ExtensionBridge();
+    const writable = bridge as unknown as {
+      connected: boolean;
+      socket: { readyState: number; send: (message: string) => void };
+    };
+    writable.connected = true;
+    writable.socket = {
+      readyState: 1,
+      send: vi.fn(),
+    };
+
+    callPrivate(bridge, {
+      id: 'evt-hello',
+      action: 'drive.hello',
+      status: 'event',
+      params: {
+        version: '1.2.3',
+        protocol_version: DRIVE_WS_PROTOCOL_VERSION,
+        tabs: [],
+      },
+    });
+
+    expect(bridge.getStatus()).toEqual(
+      expect.objectContaining({
+        capabilityNegotiated: true,
+        capabilities: {},
+      })
+    );
+
+    await expect(bridge.request('drive.navigate', {})).rejects.toMatchObject({
+      code: 'FAILED_PRECONDITION',
+      retryable: false,
+      details: {
+        action: 'drive.navigate',
+        reason: 'missing_capabilities',
+        expected: 'drive.hello.capabilities',
+      },
+    });
+  });
 });

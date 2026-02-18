@@ -166,8 +166,8 @@ The CLI mirrors the MCP tool surface.
 
 **dialog**
 
-- `dialog.accept`
-- `dialog.dismiss`
+- `dialog.accept` (deprecated alias for `drive.handle_dialog` with `action=accept`)
+- `dialog.dismiss` (deprecated alias for `drive.handle_dialog` with `action=dismiss`)
 
 **inspect**
 

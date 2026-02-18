@@ -24,6 +24,7 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 
 ### Fixed
 
+- Filled test/doc gaps for deprecated aliases: added missing `dialog.dismiss` core route coverage, added MCP coverage for `drive.forward` warnings and `dialog.dismiss` input transform, and clarified deprecation/error-code docs.
 - Extension now re-applies the `Browser Bridge` tab-group title for reused dedicated agent tabs, so stale groups no longer stay untitled.
 - Extension now reapplies the toolbar robot icon as the dedicated agent tab favicon after agent-driven navigations.
 - Core drive preflight now fails fast with an explicit `EXTENSION_DISCONNECTED` error when the extension is offline, instead of attempting a drive call first.

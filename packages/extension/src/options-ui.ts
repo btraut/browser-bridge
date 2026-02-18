@@ -212,6 +212,7 @@ const getDebuggerEls = (): DebuggerEls => {
 let lastMode: SitePermissionsMode | null = null;
 let modeWriteInProgress = false;
 let debuggerWriteInProgress = false;
+let pendingDebuggerCapability: boolean | null = null;
 
 const applyMode = (mode: SitePermissionsMode): void => {
   const els = getModeEls();
@@ -390,23 +391,29 @@ const setMode = async (mode: SitePermissionsMode): Promise<void> => {
 };
 
 const setDebuggerCapability = async (enabled: boolean): Promise<void> => {
+  pendingDebuggerCapability = enabled;
+  applyDebuggerCapability(enabled);
   if (debuggerWriteInProgress) {
     return;
   }
-
   debuggerWriteInProgress = true;
   try {
-    await writeDebuggerCapabilityEnabled(enabled);
-    applyDebuggerCapability(enabled);
-    await new Promise<void>((resolve) => {
-      chrome.runtime.sendMessage({ action: 'drive.refresh_capabilities' }, () =>
-        resolve()
-      );
-    });
+    while (pendingDebuggerCapability !== null) {
+      const next = pendingDebuggerCapability;
+      pendingDebuggerCapability = null;
+      await writeDebuggerCapabilityEnabled(next);
+      await new Promise<void>((resolve) => {
+        chrome.runtime.sendMessage(
+          { action: 'drive.refresh_capabilities' },
+          () => resolve()
+        );
+      });
+    }
   } catch {
     applyDebuggerCapability(DEFAULT_DEBUGGER_CAPABILITY_ENABLED);
   } finally {
     debuggerWriteInProgress = false;
+    await refreshDebuggerCapability();
   }
 };
 

@@ -35,12 +35,14 @@ Current enforcement constants live in `packages/shared/src/tooling.ts` as `DEPRE
 
 The current registry is in `packages/shared/src/tooling.ts` (`MCP_TOOL_DEFINITIONS`).
 
-- `drive.back` -> `drive.go_back`
-- `drive.forward` -> `drive.go_forward`
-- `dialog.accept` -> `drive.handle_dialog` (`action: accept`)
-- `dialog.dismiss` -> `drive.handle_dialog` (`action: dismiss`)
+| Deprecated tool | Replacement | deprecated_since | removal_target | Notes |
+| --- | --- | --- | --- | --- |
+| `drive.back` | `drive.go_back` | `2026-02-17` | `2026-06-01` | warn-on-use |
+| `drive.forward` | `drive.go_forward` | `2026-02-17` | `2026-06-01` | warn-on-use |
+| `dialog.accept` | `drive.handle_dialog` | `2026-02-17` | `2026-06-01` | `action: accept`, warn-on-use |
+| `dialog.dismiss` | `drive.handle_dialog` | `2026-02-17` | `2026-06-01` | `action: dismiss`, warn-on-use |
 
-Both entries carry full lifecycle metadata and share migration notes here.
+All deprecated entries above use `migration_notes: docs/deprecation-lifecycle-policy.md#current-deprecations`.
 
 ## Automated Contract Check
 

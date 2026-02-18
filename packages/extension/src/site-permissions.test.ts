@@ -226,4 +226,13 @@ describe('site permissions', () => {
     await writeDebuggerCapabilityEnabled(false);
     expect(store[DEBUGGER_CAPABILITY_ENABLED_KEY]).toBe(false);
   });
+
+  it('persists the latest debugger capability write during rapid toggles', async () => {
+    const first = writeDebuggerCapabilityEnabled(true);
+    const second = writeDebuggerCapabilityEnabled(false);
+
+    await Promise.all([first, second]);
+    expect(await readDebuggerCapabilityEnabled()).toBe(false);
+    expect(store[DEBUGGER_CAPABILITY_ENABLED_KEY]).toBe(false);
+  });
 });

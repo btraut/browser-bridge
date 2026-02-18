@@ -112,6 +112,11 @@ Legacy/internal codes are normalized to the canonical set in route responses via
 - `details.reason`
 - optional typed context fields (`resource`, `session_id`, `tab_id`, `field`, `retry_after_ms`, `next_step`)
 
+Interpretation guardrail:
+
+- `error.code` is the only canonical public error identifier.
+- `details.legacy_code` and `details.reason` are migration/detail fields, not additional public `error.code` values.
+
 ### 4.3 Retryability Semantics
 
 Retry metadata is now standardized as:
