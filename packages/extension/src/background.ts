@@ -16,6 +16,11 @@ import { DRIVE_WS_PROTOCOL_VERSION } from '@btraut/browser-bridge-shared/dist/co
 import { sanitizeDriveErrorInfo } from './error-sanitizer.js';
 import { PermissionPromptController } from './permission-prompt.js';
 import {
+  getTabChannelRetryDelayMs,
+  isLikelyNavigationCommitted,
+  isTransientTabChannelError,
+} from './drive-reliability.js';
+import {
   DEBUGGER_CAPABILITY_ENABLED_KEY,
   allowSiteAlways,
   isSiteAllowed,
@@ -830,12 +835,20 @@ const sendToTab = async (
       chrome.tabs.sendMessage(tabId, message, (response: ContentResult) => {
         const error = chrome.runtime.lastError;
         if (error) {
+          const retryable = isTransientTabChannelError(error.message);
           finish({
             ok: false,
             error: {
               code: 'EVALUATION_FAILED',
               message: error.message,
-              retryable: false,
+              retryable,
+              ...(retryable
+                ? {
+                    details: {
+                      reason: 'transient_tab_channel_error',
+                    },
+                  }
+                : {}),
             },
           });
           return;
@@ -856,33 +869,22 @@ const sendToTab = async (
     });
   };
 
-  // After navigation, MV3 content scripts can lag slightly behind the tab's URL
-  // update. Retrying avoids flaky "Receiving end does not exist" failures.
-  const MAX_ATTEMPTS = 5;
-  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
+  // After navigation, MV3 message channels can close briefly while the content
+  // script reattaches (for example, BFCache/page lifecycle transitions).
+  for (let attempt = 1; ; attempt += 1) {
     const result = await attemptSend();
     if (result.ok) {
       return result;
     }
-    const message = result.error?.message;
-    const isNoReceiver =
-      typeof message === 'string' &&
-      message.toLowerCase().includes('receiving end does not exist');
-    if (!isNoReceiver || attempt === MAX_ATTEMPTS) {
+    if (!isTransientTabChannelError(result.error?.message)) {
       return result;
     }
-    await delayMs(200);
+    const retryDelayMs = getTabChannelRetryDelayMs(attempt);
+    if (retryDelayMs === undefined) {
+      return result;
+    }
+    await delayMs(retryDelayMs);
   }
-
-  // Unreachable (loop always returns), but keeps TS happy if this code moves.
-  return {
-    ok: false,
-    error: {
-      code: 'INTERNAL',
-      message: 'Failed to send message to content script.',
-      retryable: false,
-    },
-  };
 };
 
 const refreshAgentTabBranding = async (tabId: number): Promise<void> => {
@@ -1602,27 +1604,47 @@ class DriveSocket {
             params.wait === 'none' || params.wait === 'domcontentloaded'
               ? params.wait
               : 'domcontentloaded';
+          const domContentLoadedSignal =
+            waitMode === 'domcontentloaded'
+              ? waitForDomContentLoaded(tabId as number, 30000)
+              : null;
+          const warnings: string[] = [];
           await wrapChromeVoid((callback) =>
             chrome.tabs.update(tabId as number, { url }, () => callback())
           );
           markTabActive(tabId as number);
-          if (waitMode === 'domcontentloaded') {
+          if (domContentLoadedSignal) {
             try {
-              await waitForDomContentLoaded(tabId as number, 30000);
+              await domContentLoadedSignal;
             } catch (error) {
-              respondError({
-                code: 'TIMEOUT',
-                message:
-                  error instanceof Error ? error.message : 'Timed out waiting.',
-                retryable: true,
-              });
-              return;
+              const tab = await getTab(tabId as number).catch(() => undefined);
+              if (
+                tab &&
+                isLikelyNavigationCommitted(url, tab.url ?? undefined)
+              ) {
+                warnings.push(
+                  'Timed out waiting for DOMContentLoaded, but the tab URL already updated to the requested target.'
+                );
+              } else {
+                respondError({
+                  code: 'TIMEOUT',
+                  message:
+                    error instanceof Error
+                      ? error.message
+                      : 'Timed out waiting.',
+                  retryable: true,
+                });
+                return;
+              }
             }
           }
           if (tabId === agentTabId) {
             void refreshAgentTabBranding(tabId as number);
           }
-          respondOk({ ok: true });
+          respondOk({
+            ok: true,
+            ...(warnings.length > 0 ? { warnings } : {}),
+          });
           return;
         }
         case 'drive.go_back':
@@ -1670,14 +1692,18 @@ class DriveSocket {
             }
           } catch {
             if (!result.ok) {
-              respondError(result.error);
+              respondError({
+                ...result.error,
+              });
               return;
             }
           }
           if (tabId === agentTabId) {
             void refreshAgentTabBranding(tabId as number);
           }
-          respondOk({ ok: true });
+          respondOk({
+            ok: true,
+          });
           return;
         }
         case 'drive.tab_list': {

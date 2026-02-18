@@ -218,6 +218,17 @@ const endpointLabel = (endpoint?: RuntimeEndpointContext): string => {
   return 'unknown';
 };
 
+const readCapability = (
+  capabilities: Record<string, boolean> | undefined,
+  name: string
+): boolean | undefined => {
+  if (!capabilities) {
+    return undefined;
+  }
+  const candidate = capabilities[name];
+  return typeof candidate === 'boolean' ? candidate : undefined;
+};
+
 const hasEndpoint = (
   endpoint?: RuntimeEndpointContext
 ): endpoint is RuntimeEndpointContext & {
@@ -351,6 +362,26 @@ export const buildDiagnosticReport = (
     });
   }
 
+  if (callerEndpoint?.metadataPath && coreEndpoint?.metadataPath) {
+    const matches = callerEndpoint.metadataPath === coreEndpoint.metadataPath;
+    checks.push({
+      name: 'runtime.caller.metadata_path_match',
+      ok: matches,
+      message: matches
+        ? 'Caller metadata path matches the active core runtime metadata path.'
+        : 'Caller metadata path differs from core runtime metadata path (shared core across worktrees).',
+      details: {
+        caller_metadata_path: callerEndpoint.metadataPath,
+        core_metadata_path: coreEndpoint.metadataPath,
+      },
+    });
+    if (!matches) {
+      warnings.push(
+        'CLI is talking to a core process started from a different worktree metadata path. If daemon auto-start fails, retry with --no-daemon or enable isolated mode.'
+      );
+    }
+  }
+
   if (
     extensionConnected &&
     hasEndpoint(coreEndpoint) &&
@@ -375,6 +406,69 @@ export const buildDiagnosticReport = (
         core_port_source: coreEndpoint.portSource,
       },
     });
+  }
+
+  if (extensionConnected) {
+    const capabilityNegotiated =
+      context.runtime?.extension?.capabilityNegotiated ?? false;
+    const capabilities = context.runtime?.extension?.capabilities;
+    const driveNavigateCapability = readCapability(
+      capabilities,
+      'drive.navigate'
+    );
+    const inspectAttachCapability = readCapability(
+      capabilities,
+      'debugger.attach'
+    );
+    const inspectCommandCapability = readCapability(
+      capabilities,
+      'debugger.command'
+    );
+
+    checks.push({
+      name: 'runtime.extension.capability_negotiated',
+      ok: capabilityNegotiated,
+      message: capabilityNegotiated
+        ? 'Extension capability negotiation completed.'
+        : 'Extension capability negotiation is incomplete; action availability may be stale.',
+    });
+
+    checks.push({
+      name: 'drive.capability',
+      ok: driveNavigateCapability !== false,
+      message:
+        driveNavigateCapability === false
+          ? 'Drive actions are disabled by extension capability negotiation.'
+          : 'Drive actions are available.',
+      details:
+        driveNavigateCapability === undefined
+          ? { capability: 'drive.navigate', state: 'unknown' }
+          : { capability: 'drive.navigate', enabled: driveNavigateCapability },
+    });
+
+    const inspectEnabled =
+      inspectAttachCapability === true && inspectCommandCapability === true;
+    checks.push({
+      name: 'inspect.capability',
+      ok: capabilityNegotiated && inspectEnabled,
+      message:
+        capabilityNegotiated && inspectEnabled
+          ? 'Inspect debugger capability is enabled.'
+          : capabilityNegotiated
+            ? 'Inspect debugger capability is disabled in extension options.'
+            : 'Inspect capability is unknown until extension capability negotiation completes.',
+      details: {
+        required_capabilities: ['debugger.attach', 'debugger.command'],
+        debugger_attach: inspectAttachCapability,
+        debugger_command: inspectCommandCapability,
+      },
+    });
+
+    if (capabilityNegotiated && !inspectEnabled) {
+      warnings.push(
+        'Inspect commands require debugger capability. Enable debugger-based inspect in extension options to use inspect.* routes.'
+      );
+    }
   }
 
   const callerVersion = context.runtime?.caller?.process?.version;

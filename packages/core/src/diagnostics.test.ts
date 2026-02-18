@@ -93,6 +93,16 @@ describe('buildDiagnosticReport', () => {
     const report = buildDiagnosticReport('session-123', {
       sessionState: SessionState.DRIVE_READY,
       extension: { connected: true },
+      runtime: {
+        extension: {
+          capabilityNegotiated: true,
+          capabilities: {
+            'drive.navigate': true,
+            'debugger.attach': true,
+            'debugger.command': true,
+          },
+        },
+      },
       driveLastError: {
         code: 'TIMEOUT',
         message: 'stale drive timeout',
@@ -236,6 +246,12 @@ describe('buildDiagnosticReport', () => {
         },
         extension: {
           version: '2.0.0',
+          capabilityNegotiated: true,
+          capabilities: {
+            'drive.navigate': true,
+            'debugger.attach': true,
+            'debugger.command': true,
+          },
           endpoint: {
             host: '127.0.0.1',
             port: 3210,
@@ -254,6 +270,14 @@ describe('buildDiagnosticReport', () => {
     );
     expect(extensionCheck?.ok).toBe(true);
     expect(versionCheck?.ok).toBe(true);
+    const capabilityNegotiated = report.checks?.find(
+      (check) => check.name === 'runtime.extension.capability_negotiated'
+    );
+    const inspectCapability = report.checks?.find(
+      (check) => check.name === 'inspect.capability'
+    );
+    expect(capabilityNegotiated?.ok).toBe(true);
+    expect(inspectCapability?.ok).toBe(true);
   });
 
   it('ignores extension runtime mismatch checks when extension is disconnected', () => {
@@ -304,5 +328,64 @@ describe('buildDiagnosticReport', () => {
     );
     expect(extensionEndpointCheck).toBeUndefined();
     expect(extensionVersionCheck).toBeUndefined();
+  });
+
+  it('flags inspect capability when debugger actions are disabled', () => {
+    const report = buildDiagnosticReport(undefined, {
+      extension: {
+        connected: true,
+      },
+      runtime: {
+        extension: {
+          capabilityNegotiated: true,
+          capabilities: {
+            'drive.navigate': true,
+            'debugger.attach': false,
+            'debugger.command': false,
+          },
+        },
+      },
+    });
+
+    const inspectCapability = report.checks?.find(
+      (check) => check.name === 'inspect.capability'
+    );
+    expect(inspectCapability?.ok).toBe(false);
+    expect(inspectCapability?.message).toContain('disabled');
+    expect(
+      report.warnings?.some((warning) => warning.includes('Inspect'))
+    ).toBe(true);
+  });
+
+  it('flags caller/core metadata path mismatch for shared-core collisions', () => {
+    const report = buildDiagnosticReport(undefined, {
+      runtime: {
+        caller: {
+          endpoint: {
+            host: '127.0.0.1',
+            port: 3210,
+            metadataPath: '/tmp/wt-a/.context/browser-bridge/dev.json',
+          },
+        },
+        core: {
+          endpoint: {
+            host: '127.0.0.1',
+            port: 3210,
+            metadataPath: '/tmp/wt-b/.context/browser-bridge/dev.json',
+          },
+        },
+      },
+    });
+
+    const metadataCheck = report.checks?.find(
+      (check) => check.name === 'runtime.caller.metadata_path_match'
+    );
+    expect(metadataCheck?.ok).toBe(false);
+    expect(metadataCheck?.message).toContain('shared core');
+    expect(
+      report.warnings?.some((warning) =>
+        warning.includes('different worktree metadata path')
+      )
+    ).toBe(true);
   });
 });
