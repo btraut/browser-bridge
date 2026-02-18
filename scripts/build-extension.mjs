@@ -8,7 +8,33 @@ const __dirname = path.dirname(__filename);
 
 const repoRoot = path.resolve(__dirname, '..');
 const extensionRoot = path.join(repoRoot, 'packages', 'extension');
+const sharedSrcRoot = path.join(repoRoot, 'packages', 'shared', 'src');
 const outdir = path.join(extensionRoot, 'dist');
+
+const internalWorkspacePlugin = {
+  name: 'internal-workspace-shared',
+  setup(buildCtx) {
+    buildCtx.onResolve(
+      { filter: /^@btraut\/browser-bridge-shared(?:\/dist\/.+)?$/ },
+      (args) => {
+        if (args.path === '@btraut/browser-bridge-shared') {
+          return { path: path.join(sharedSrcRoot, 'index.ts') };
+        }
+
+        const distPrefix = '@btraut/browser-bridge-shared/dist/';
+        if (!args.path.startsWith(distPrefix)) {
+          return null;
+        }
+
+        const remainder = args.path.slice(distPrefix.length);
+        const sourceFile = remainder.endsWith('.js')
+          ? remainder.replace(/\.js$/, '.ts')
+          : `${remainder}.ts`;
+        return { path: path.join(sharedSrcRoot, sourceFile) };
+      }
+    );
+  },
+};
 
 // Keep the unpacked extension dir clean (avoids publishing stale build outputs).
 await fs.rm(outdir, { recursive: true, force: true });
@@ -25,6 +51,7 @@ const buildClassicScript = async (infile, outfile) => {
     target: ['es2020'],
     sourcemap: true,
     logLevel: 'info',
+    plugins: [internalWorkspacePlugin],
   });
 };
 
@@ -38,6 +65,7 @@ await build({
   target: ['es2020'],
   sourcemap: true,
   logLevel: 'info',
+  plugins: [internalWorkspacePlugin],
 });
 
 await buildClassicScript(
