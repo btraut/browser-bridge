@@ -6,6 +6,8 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 
 ## [Unreleased]
 
+## [0.13.1] - 2026-02-18
+
 ### Fixed
 
 - Extension packaging now resolves `@btraut/browser-bridge-shared/dist/*` imports from workspace source during zip builds, so release packaging works from clean CI checkouts without prebuilt shared artifacts.

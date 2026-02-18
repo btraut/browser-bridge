@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Browser Bridge",
-  "version": "0.13.0",
+  "version": "0.13.1",
   "description": "Control Chrome for Browser Bridge: drive tabs and inspect pages for coding agents.",
   "icons": {
     "16": "assets/icons/icon-16.png",
