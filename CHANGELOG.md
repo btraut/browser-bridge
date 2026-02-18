@@ -9,6 +9,7 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 ### Fixed
 
 - Extension packaging now resolves `@btraut/browser-bridge-shared/dist/*` imports from workspace source during zip builds, so release packaging works from clean CI checkouts without prebuilt shared artifacts.
+- Core startup now handles shared-port collisions more clearly (POST/GET health compatibility probe + actionable occupied-port fallback), drive tab messaging retries transient post-navigation channel-closure races more aggressively, `drive.navigate` avoids false timeouts when URL commit succeeds without a DOM event, and diagnostics now surfaces inspect capability + shared-core metadata mismatch checks in one pass.
 
 ## [0.13.0] - 2026-02-18
 

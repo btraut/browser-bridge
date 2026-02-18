@@ -1,8 +1,12 @@
 import { setTimeout as delay } from 'node:timers/promises';
+import { Socket } from 'node:net';
 import { type JsonlLogger, createJsonlLogger } from './logging';
 import { type ResolvedCoreRuntime, resolveCoreRuntime } from './runtime-config';
 
 type FetchLike = typeof fetch;
+type PortReachabilityCheck = (
+  runtime: Pick<ResolvedCoreRuntime, 'host' | 'port'>
+) => Promise<boolean>;
 
 export type CoreReadinessOptions = {
   host?: string;
@@ -18,6 +22,7 @@ export type CoreReadinessOptions = {
   healthAttempts?: number;
   healthTimeoutMs?: number;
   healthBudgetMs?: number;
+  portReachabilityCheck?: PortReachabilityCheck;
   spawnDaemon?: (runtime: ResolvedCoreRuntime) => void;
 };
 
@@ -34,6 +39,29 @@ const DEFAULT_HEALTH_RETRY_MS = 250;
 const DEFAULT_HEALTH_ATTEMPTS = 20;
 const DEFAULT_HEALTH_TIMEOUT_MS = 2000;
 const DEFAULT_HEALTH_BUDGET_MS = 15000;
+const DEFAULT_PORT_REACHABILITY_TIMEOUT_MS = 300;
+
+const isPortReachableDefault: PortReachabilityCheck = async (runtime) => {
+  return await new Promise<boolean>((resolve) => {
+    const socket = new Socket();
+    let settled = false;
+    const finish = (reachable: boolean) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      socket.removeAllListeners();
+      socket.destroy();
+      resolve(reachable);
+    };
+
+    socket.setTimeout(DEFAULT_PORT_REACHABILITY_TIMEOUT_MS);
+    socket.once('connect', () => finish(true));
+    socket.once('timeout', () => finish(false));
+    socket.once('error', () => finish(false));
+    socket.connect(runtime.port, runtime.host);
+  });
+};
 
 const resolveTimeoutMs = (timeoutMs?: number): number => {
   const candidate =
@@ -132,63 +160,78 @@ export const createCoreReadinessController = (
   };
 
   const checkHealth = async (): Promise<boolean> => {
-    try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), healthTimeoutMs);
+    for (const method of ['POST', 'GET'] as const) {
       try {
-        let response: Response;
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), healthTimeoutMs);
         try {
-          response = await fetchImpl(`${baseUrl}/health`, {
-            method: 'POST',
-            signal: controller.signal,
-          });
-        } catch (error) {
-          if (
-            controller.signal.aborted ||
-            (error instanceof Error && error.name === 'AbortError')
-          ) {
-            logger.warn(`${logPrefix}.health.timeout`, {
-              base_url: baseUrl,
-              timeout_ms: healthTimeoutMs,
+          let response: Response;
+          try {
+            response = await fetchImpl(`${baseUrl}/health`, {
+              method,
+              signal: controller.signal,
             });
-            return false;
+          } catch (error) {
+            if (
+              controller.signal.aborted ||
+              (error instanceof Error && error.name === 'AbortError')
+            ) {
+              logger.warn(`${logPrefix}.health.timeout`, {
+                base_url: baseUrl,
+                method,
+                timeout_ms: healthTimeoutMs,
+              });
+              continue;
+            }
+            logger.warn(`${logPrefix}.health.fetch_failed`, {
+              base_url: baseUrl,
+              method,
+              error,
+            });
+            throw error;
           }
-          logger.warn(`${logPrefix}.health.fetch_failed`, {
-            base_url: baseUrl,
-            error,
-          });
-          throw error;
-        }
-        if (!response.ok) {
-          logger.warn(`${logPrefix}.health.non_ok`, {
-            base_url: baseUrl,
-            status: response.status,
-          });
-          return false;
-        }
-        const data = (await response.json().catch(() => null)) as {
-          ok?: boolean;
-        } | null;
-        const ok = Boolean(data?.ok);
-        if (!ok) {
+          if (!response.ok) {
+            logger.warn(`${logPrefix}.health.non_ok`, {
+              base_url: baseUrl,
+              method,
+              status: response.status,
+            });
+            continue;
+          }
+          const data = (await response.json().catch(() => null)) as {
+            ok?: boolean;
+          } | null;
+          const ok = Boolean(data?.ok);
+          if (ok) {
+            if (method === 'GET') {
+              logger.info(`${logPrefix}.health.compat_probe`, {
+                base_url: baseUrl,
+                method,
+              });
+            }
+            return true;
+          }
           logger.warn(`${logPrefix}.health.not_ready`, {
             base_url: baseUrl,
+            method,
           });
+        } finally {
+          clearTimeout(timeout);
         }
-        return ok;
-      } finally {
-        clearTimeout(timeout);
+      } catch (error) {
+        logger.warn(`${logPrefix}.health.error`, {
+          base_url: baseUrl,
+          method,
+          error,
+        });
       }
-    } catch (error) {
-      logger.warn(`${logPrefix}.health.error`, {
-        base_url: baseUrl,
-        error,
-      });
-      return false;
     }
+    return false;
   };
 
   const ensureCoreRunning = async (): Promise<void> => {
+    const portReachabilityCheck =
+      options.portReachabilityCheck ?? isPortReachableDefault;
     refreshRuntime();
     if (await checkHealth()) {
       logger.debug(`${logPrefix}.ensure_ready.already_running`, {
@@ -232,6 +275,21 @@ export const createCoreReadinessController = (
       health_budget_ms: healthBudgetMs,
       health_timeout_ms: healthTimeoutMs,
     });
+    let portOccupied = false;
+    try {
+      portOccupied = await portReachabilityCheck(runtime);
+    } catch (error) {
+      logger.warn(`${logPrefix}.ensure_ready.port_probe_failed`, {
+        host: runtime.host,
+        port: runtime.port,
+        error,
+      });
+    }
+    if (portOccupied) {
+      throw new Error(
+        `Core daemon failed to start on ${runtime.host}:${runtime.port}. A process is already listening on this port but did not pass Browser Bridge health checks. Retry with --no-daemon to reuse it, or enable isolated mode (BROWSER_BRIDGE_ISOLATED_MODE=1) for per-worktree ports.`
+      );
+    }
     throw new Error(
       `Core daemon failed to start on ${runtime.host}:${runtime.port}.`
     );

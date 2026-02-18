@@ -122,11 +122,16 @@ describe('createCoreReadinessController', () => {
   });
 
   it('spawns core once when health is initially unavailable', async () => {
-    let healthAttempts = 0;
-    const fetchImpl = vi.fn(async () => {
-      healthAttempts += 1;
-      return makeResponse({ ok: healthAttempts > 1 });
-    }) as unknown as typeof fetch;
+    let postAttempts = 0;
+    const fetchImpl = vi.fn(
+      async (_url: string, init?: Parameters<typeof fetch>[1]) => {
+        if (init?.method === 'GET') {
+          return makeResponse({ ok: false }, false);
+        }
+        postAttempts += 1;
+        return makeResponse({ ok: postAttempts > 1 });
+      }
+    ) as unknown as typeof fetch;
     const spawnDaemon = vi.fn();
     const controller = createCoreReadinessController({
       host: '127.0.0.1',
@@ -141,7 +146,7 @@ describe('createCoreReadinessController', () => {
     await controller.ensureReady();
 
     expect(spawnDaemon).toHaveBeenCalledTimes(1);
-    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(fetchImpl).toHaveBeenCalledTimes(3);
     await controller.ensureReady();
     expect(spawnDaemon).toHaveBeenCalledTimes(1);
   });
@@ -171,20 +176,81 @@ describe('createCoreReadinessController', () => {
     expect(spawnDaemon).toHaveBeenCalledTimes(1);
   });
 
+  it('falls back to GET /health when POST is unavailable', async () => {
+    const fetchImpl = vi.fn(
+      async (_url: string, init?: Parameters<typeof fetch>[1]) => {
+        if (init?.method === 'POST') {
+          return makeResponse({ ok: false }, false);
+        }
+        return makeResponse({ ok: true });
+      }
+    ) as unknown as typeof fetch;
+    const spawnDaemon = vi.fn();
+    const controller = createCoreReadinessController({
+      host: '127.0.0.1',
+      port: 3210,
+      fetchImpl,
+      spawnDaemon,
+      ensureDaemon: true,
+      healthRetryMs: 1,
+      healthAttempts: 2,
+      healthBudgetMs: 25,
+    });
+
+    await expect(controller.ensureReady()).resolves.toBeUndefined();
+    expect(spawnDaemon).not.toHaveBeenCalled();
+    expect(fetchImpl).toHaveBeenCalledWith(
+      'http://127.0.0.1:3210/health',
+      expect.objectContaining({ method: 'POST' })
+    );
+    expect(fetchImpl).toHaveBeenCalledWith(
+      'http://127.0.0.1:3210/health',
+      expect.objectContaining({ method: 'GET' })
+    );
+  });
+
+  it('returns actionable guidance when target port is occupied by an unhealthy process', async () => {
+    const fetchImpl = vi.fn(async () =>
+      makeResponse({ ok: false }, false)
+    ) as unknown as typeof fetch;
+    const spawnDaemon = vi.fn();
+    const controller = createCoreReadinessController({
+      host: '127.0.0.1',
+      port: 3210,
+      fetchImpl,
+      spawnDaemon,
+      ensureDaemon: true,
+      healthRetryMs: 1,
+      healthAttempts: 1,
+      healthBudgetMs: 20,
+      portReachabilityCheck: vi.fn(async () => true),
+    });
+
+    await expect(controller.ensureReady()).rejects.toThrow(
+      /--no-daemon to reuse it, or enable isolated mode/i
+    );
+    expect(spawnDaemon).toHaveBeenCalledTimes(1);
+  });
+
   it('deduplicates concurrent ensureReady callers', async () => {
-    let healthChecks = 0;
+    let postChecks = 0;
     let releaseReadyCheck: (() => void) | undefined;
     const readyCheck = new Promise<void>((resolve) => {
       releaseReadyCheck = () => resolve();
     });
-    const fetchImpl = vi.fn(async () => {
-      healthChecks += 1;
-      if (healthChecks === 1) {
-        return makeResponse({ ok: false });
+    const fetchImpl = vi.fn(
+      async (_url: string, init?: Parameters<typeof fetch>[1]) => {
+        if (init?.method === 'GET') {
+          return makeResponse({ ok: false });
+        }
+        postChecks += 1;
+        if (postChecks === 1) {
+          return makeResponse({ ok: false });
+        }
+        await readyCheck;
+        return makeResponse({ ok: true });
       }
-      await readyCheck;
-      return makeResponse({ ok: true });
-    }) as unknown as typeof fetch;
+    ) as unknown as typeof fetch;
     const spawnDaemon = vi.fn();
     const controller = createCoreReadinessController({
       host: '127.0.0.1',
@@ -201,11 +267,11 @@ describe('createCoreReadinessController', () => {
     const second = controller.ensureReady();
     await delay(5);
     expect(spawnDaemon).toHaveBeenCalledTimes(1);
-    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(fetchImpl).toHaveBeenCalledTimes(3);
 
     releaseReadyCheck?.();
     await Promise.all([first, second]);
     expect(spawnDaemon).toHaveBeenCalledTimes(1);
-    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(fetchImpl).toHaveBeenCalledTimes(3);
   });
 });
