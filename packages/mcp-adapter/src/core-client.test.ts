@@ -142,7 +142,7 @@ describe('mcp core client', () => {
     const fetchImpl = vi.fn(async (url: string) => {
       if (url.endsWith('/health')) {
         healthChecks += 1;
-        return makeResponse({ ok: healthChecks > 1 });
+        return makeResponse({ ok: healthChecks > 2 });
       }
       return makeResponse({ ok: true, result: { started: true } });
     }) as unknown as typeof fetch;
