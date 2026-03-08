@@ -126,7 +126,7 @@ export type DiagnosticReport = {
         host_source?: string;
         port_source?: string;
       };
-      port_source?: 'default' | 'storage';
+      port_source?: 'default';
     };
   };
 };

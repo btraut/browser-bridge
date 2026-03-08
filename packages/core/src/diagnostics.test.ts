@@ -234,7 +234,7 @@ describe('buildDiagnosticReport', () => {
             port: 4333,
             baseUrl: 'http://127.0.0.1:4333',
           },
-          portSource: 'storage',
+          portSource: 'default',
         },
       },
     });
@@ -255,7 +255,7 @@ describe('buildDiagnosticReport', () => {
     expect(report.runtime?.core?.endpoint?.base_url).toBe(
       'http://127.0.0.1:3210'
     );
-    expect(report.runtime?.extension?.port_source).toBe('storage');
+    expect(report.runtime?.extension?.port_source).toBe('default');
   });
 
   it('reports runtime endpoint/version matches when extension is connected', () => {
@@ -369,7 +369,7 @@ describe('buildDiagnosticReport', () => {
             port: 4333,
             baseUrl: 'http://127.0.0.1:4333',
           },
-          portSource: 'storage',
+          portSource: 'default',
         },
       },
     });

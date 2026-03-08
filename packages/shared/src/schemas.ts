@@ -113,7 +113,7 @@ const DiagnosticsRuntimeContextSchema = z.object({
       capability_negotiated: z.boolean().optional(),
       capabilities: z.record(z.string(), z.boolean()).optional(),
       endpoint: DiagnosticsRuntimeEndpointSchema.optional(),
-      port_source: z.enum(['default', 'storage']).optional(),
+      port_source: z.enum(['default']).optional(),
     })
     .optional(),
 });
