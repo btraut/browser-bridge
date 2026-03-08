@@ -194,9 +194,7 @@ export type DiagnosticsContext = {
 };
 
 const STALE_ERROR_THRESHOLD_MS = 2 * 60 * 1000;
-const ACTIVATION_FLAG_PARAM = 'bb_activate';
-const ACTIVATION_PORT_PARAM = 'corePort';
-const ACTIVATION_ENABLE_INSPECT_PARAM = 'enableInspect';
+const ENABLE_INSPECT_FLAG_PARAM = 'bb_enable_inspect';
 
 const getErrorAgeMs = (timestamp: string): number | undefined => {
   const parsed = Date.parse(timestamp);
@@ -231,19 +229,16 @@ const readCapability = (
 };
 
 const buildInspectEnableCommand = (): string =>
-  'browser-bridge dev activate --enable-inspect';
+  'browser-bridge dev enable-inspect';
 
 const buildInspectActivationUrl = (
-  extensionId: string | undefined,
-  corePort: number | undefined
+  extensionId: string | undefined
 ): string | undefined => {
-  if (!extensionId || corePort === undefined) {
+  if (!extensionId) {
     return undefined;
   }
   const search = new URLSearchParams();
-  search.set(ACTIVATION_FLAG_PARAM, '1');
-  search.set(ACTIVATION_PORT_PARAM, String(corePort));
-  search.set(ACTIVATION_ENABLE_INSPECT_PARAM, '1');
+  search.set(ENABLE_INSPECT_FLAG_PARAM, '1');
   return `chrome-extension://${extensionId}/options.html?${search.toString()}`;
 };
 
@@ -427,10 +422,7 @@ export const buildDiagnosticReport = (
     const extensionId =
       context.runtime?.extension?.extensionId ?? context.extension?.extensionId;
     const inspectEnableCommand = buildInspectEnableCommand();
-    const inspectActivationUrl = buildInspectActivationUrl(
-      extensionId,
-      coreEndpoint?.port
-    );
+    const inspectActivationUrl = buildInspectActivationUrl(extensionId);
 
     checks.push({
       name: 'runtime.extension.capability_negotiated',

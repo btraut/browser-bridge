@@ -29,9 +29,7 @@ type DebuggerEls = {
   status: HTMLElement;
 };
 
-const ACTIVATION_FLAG_PARAM = 'bb_activate';
-const ACTIVATION_PORT_PARAM = 'corePort';
-const ACTIVATION_ENABLE_INSPECT_PARAM = 'enableInspect';
+const ENABLE_INSPECT_FLAG_PARAM = 'bb_enable_inspect';
 
 const byId = (id: string): HTMLElement => {
   const el = document.getElementById(id);
@@ -69,17 +67,6 @@ const formatTime = (iso: string): string => {
   }
 };
 
-const parseActivationPort = (value: string | null): number | null => {
-  if (!value) {
-    return null;
-  }
-  const parsed = Number.parseInt(value, 10);
-  if (!Number.isFinite(parsed) || parsed <= 0) {
-    return null;
-  }
-  return Math.floor(parsed);
-};
-
 const clearActivationQueryParams = (): void => {
   const url = new URL(window.location.href);
   if (!url.search) {
@@ -93,19 +80,6 @@ const clearActivationQueryParams = (): void => {
   );
 };
 
-const writeCorePort = async (corePort: number): Promise<void> => {
-  await new Promise<void>((resolve, reject) => {
-    chrome.storage.local.set({ corePort }, () => {
-      const error = chrome.runtime.lastError;
-      if (error) {
-        reject(new Error(error.message));
-        return;
-      }
-      resolve();
-    });
-  });
-};
-
 const refreshCapabilities = async (): Promise<void> => {
   await new Promise<void>((resolve) => {
     chrome.runtime.sendMessage({ action: 'drive.refresh_capabilities' }, () =>
@@ -117,33 +91,19 @@ const refreshCapabilities = async (): Promise<void> => {
 const applyActivationQueryParams = async (): Promise<void> => {
   const url = new URL(window.location.href);
   const params = url.searchParams;
-  if (params.get(ACTIVATION_FLAG_PARAM) !== '1') {
+  if (params.get(ENABLE_INSPECT_FLAG_PARAM) !== '1') {
     return;
   }
 
-  const corePort = parseActivationPort(params.get(ACTIVATION_PORT_PARAM));
-  const enableInspect = params.get(ACTIVATION_ENABLE_INSPECT_PARAM) === '1';
   try {
     try {
-      if (corePort !== null) {
-        await writeCorePort(corePort);
-      } else {
-        console.warn('Ignoring dev activation request with invalid corePort.');
-      }
+      await writeDebuggerCapabilityEnabled(true);
+      await refreshCapabilities();
     } catch (error) {
-      console.warn('Failed to apply dev activation corePort.', error);
-    }
-
-    if (enableInspect) {
-      try {
-        await writeDebuggerCapabilityEnabled(true);
-        await refreshCapabilities();
-      } catch (error) {
-        console.warn(
-          'Failed to enable inspect debugger capability from activation request.',
-          error
-        );
-      }
+      console.warn(
+        'Failed to enable inspect debugger capability from options URL.',
+        error
+      );
     }
   } finally {
     clearActivationQueryParams();

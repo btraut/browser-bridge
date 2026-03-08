@@ -19,9 +19,9 @@ describe('restricted URL helpers', () => {
     expect(error.details).toMatchObject({
       reason: 'restricted_internal_url',
       url_kind: 'extension_internal',
-      next_step: 'browser-bridge dev activate --extension-id <id>',
+      next_step: 'browser-bridge dev enable-inspect --extension-id <id>',
       alternatives: expect.arrayContaining([
-        'browser-bridge dev activate --extension-id <id>',
+        'browser-bridge dev enable-inspect --extension-id <id>',
         'browser-bridge dev info',
       ]),
     });

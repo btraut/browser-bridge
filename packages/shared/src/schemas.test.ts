@@ -388,6 +388,8 @@ describe('shared schemas', () => {
           base_url: 'http://127.0.0.1:3210',
           host_source: 'default',
           port_source: 'default',
+          metadata_path: '/tmp/runtime/dev.json',
+          isolated_mode: true,
         },
         process: {
           component: 'cli',
@@ -397,6 +399,8 @@ describe('shared schemas', () => {
     });
     expect(parsed.caller?.endpoint?.port).toBe(3210);
     expect(parsed.caller?.process?.component).toBe('cli');
+    expect(parsed.caller?.endpoint).not.toHaveProperty('metadata_path');
+    expect(parsed.caller?.endpoint).not.toHaveProperty('isolated_mode');
   });
 
   it('parses health check output', () => {

@@ -415,9 +415,9 @@ describe('buildDiagnosticReport', () => {
     expect(inspectCapability?.message).toContain('disabled');
     expect(inspectCapability?.details).toMatchObject({
       remediation: {
-        enable_command: 'browser-bridge dev activate --enable-inspect',
+        enable_command: 'browser-bridge dev enable-inspect',
         activation_url:
-          'chrome-extension://abcdefghijklmnopabcdefghijklmnop/options.html?bb_activate=1&corePort=3210&enableInspect=1',
+          'chrome-extension://abcdefghijklmnopabcdefghijklmnop/options.html?bb_enable_inspect=1',
         verify_check: 'inspect.capability',
       },
     });
@@ -426,35 +426,4 @@ describe('buildDiagnosticReport', () => {
     ).toBe(true);
   });
 
-  it('flags caller/core metadata path mismatch for shared-core collisions', () => {
-    const report = buildDiagnosticReport(undefined, {
-      runtime: {
-        caller: {
-          endpoint: {
-            host: '127.0.0.1',
-            port: 3210,
-            metadataPath: '/tmp/wt-a/.context/browser-bridge/dev.json',
-          },
-        },
-        core: {
-          endpoint: {
-            host: '127.0.0.1',
-            port: 3210,
-            metadataPath: '/tmp/wt-b/.context/browser-bridge/dev.json',
-          },
-        },
-      },
-    });
-
-    const metadataCheck = report.checks?.find(
-      (check) => check.name === 'runtime.caller.metadata_path_match'
-    );
-    expect(metadataCheck?.ok).toBe(false);
-    expect(metadataCheck?.message).toContain('shared core');
-    expect(
-      report.warnings?.some((warning) =>
-        warning.includes('different worktree metadata path')
-      )
-    ).toBe(true);
-  });
 });

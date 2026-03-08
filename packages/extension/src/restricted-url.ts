@@ -65,7 +65,7 @@ const getAlternativeCommands = (url: string): string[] => {
     lowered.startsWith('chrome-extension://') ||
     lowered.startsWith('chrome://extensions')
   ) {
-    commands.unshift('browser-bridge dev activate --extension-id <id>');
+    commands.unshift('browser-bridge dev enable-inspect --extension-id <id>');
   }
   return commands;
 };

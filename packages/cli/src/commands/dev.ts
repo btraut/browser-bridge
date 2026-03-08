@@ -3,9 +3,7 @@ import {
   type DiagnosticReport,
   resolveCoreRuntime,
   resolveLogDirectory,
-  writeRuntimeMetadata,
   type ResolvedCoreRuntime,
-  type RuntimeMetadata,
 } from '@btraut/browser-bridge-shared';
 import { CliError } from '../cli-output';
 import { createCoreClient } from '../core-client';
@@ -14,11 +12,9 @@ import { openPath } from '../open-path';
 import { discoverActivationExtensionId } from '../extension-id-discovery';
 
 const ENV_EXTENSION_ID = 'BROWSER_BRIDGE_EXTENSION_ID';
-const ACTIVATION_FLAG_PARAM = 'bb_activate';
-const ACTIVATION_PORT_PARAM = 'corePort';
-const ACTIVATION_ENABLE_INSPECT_PARAM = 'enableInspect';
-const ACTIVATION_WAIT_TIMEOUT_MS = 30000;
-const ACTIVATION_WAIT_INTERVAL_MS = 500;
+const ENABLE_INSPECT_FLAG_PARAM = 'bb_enable_inspect';
+const ENABLE_INSPECT_WAIT_TIMEOUT_MS = 30000;
+const ENABLE_INSPECT_WAIT_INTERVAL_MS = 500;
 
 type ExtensionIdSource = 'flag' | 'env' | 'metadata' | 'connected' | 'profile';
 
@@ -58,29 +54,15 @@ export const resolveActivationExtensionId = (options: {
   return null;
 };
 
-export const buildActivationOptionsUrl = (options: {
+export const buildEnableInspectOptionsUrl = (options: {
   extensionId: string;
-  corePort: number;
-  enableInspect?: boolean;
 }): string => {
   const search = new URLSearchParams();
-  search.set(ACTIVATION_FLAG_PARAM, '1');
-  search.set(ACTIVATION_PORT_PARAM, String(options.corePort));
-  if (options.enableInspect) {
-    search.set(ACTIVATION_ENABLE_INSPECT_PARAM, '1');
-  }
+  search.set(ENABLE_INSPECT_FLAG_PARAM, '1');
   return `chrome-extension://${
     options.extensionId
   }/options.html?${search.toString()}`;
 };
-
-const buildPersistedRuntimeMetadata = (
-  runtime: ResolvedCoreRuntime,
-  extensionId: string
-): RuntimeMetadata => ({
-  extension_id: extensionId,
-  updated_at: new Date().toISOString(),
-});
 
 const resolveRuntimeForCommand = (
   options: {
@@ -105,14 +87,16 @@ const sleep = async (ms: number): Promise<void> =>
     setTimeout(resolve, ms);
   });
 
-const resolveActivationWaitTimeoutMs = (): number => {
-  const raw = process.env.BROWSER_BRIDGE_ACTIVATE_TIMEOUT_MS;
+const resolveEnableInspectWaitTimeoutMs = (): number => {
+  const raw =
+    process.env.BROWSER_BRIDGE_ENABLE_INSPECT_TIMEOUT_MS ??
+    process.env.BROWSER_BRIDGE_ACTIVATE_TIMEOUT_MS;
   if (!raw) {
-    return ACTIVATION_WAIT_TIMEOUT_MS;
+    return ENABLE_INSPECT_WAIT_TIMEOUT_MS;
   }
   const parsed = Number.parseInt(raw, 10);
   if (!Number.isFinite(parsed) || parsed <= 0) {
-    return ACTIVATION_WAIT_TIMEOUT_MS;
+    return ENABLE_INSPECT_WAIT_TIMEOUT_MS;
   }
   return parsed;
 };
@@ -123,16 +107,12 @@ const hasPassingCheck = (
 ): boolean =>
   report?.checks?.some((check) => check.name === name && check.ok) ?? false;
 
-const waitForIsolatedActivation = async (
+const waitForInspectEnablement = async (
   runtime: ResolvedCoreRuntime,
   expectedExtensionId: string,
-  activationUrl: string,
-  options: {
-    requireInspectCapability?: boolean;
-  } = {}
+  optionsUrl: string
 ): Promise<void> => {
-  const requireInspectCapability = options.requireInspectCapability ?? false;
-  const timeoutMs = resolveActivationWaitTimeoutMs();
+  const timeoutMs = resolveEnableInspectWaitTimeoutMs();
   const client = createCoreClient({
     host: runtime.host,
     port: runtime.port,
@@ -155,31 +135,22 @@ const waitForIsolatedActivation = async (
     }
 
     const extensionConnected = lastReport?.extension?.connected === true;
-    const endpointMatch = hasPassingCheck(
-      lastReport,
-      'runtime.extension.endpoint_match'
-    );
     const runtimeExtensionId = lastReport?.runtime?.extension?.extension_id;
     const extensionIdMatch =
       !runtimeExtensionId || runtimeExtensionId === expectedExtensionId;
     const inspectCapability = hasPassingCheck(lastReport, 'inspect.capability');
 
-    if (
-      extensionConnected &&
-      endpointMatch &&
-      extensionIdMatch &&
-      (!requireInspectCapability || inspectCapability)
-    ) {
+    if (extensionConnected && extensionIdMatch && inspectCapability) {
       return;
     }
 
-    await sleep(ACTIVATION_WAIT_INTERVAL_MS);
+    await sleep(ENABLE_INSPECT_WAIT_INTERVAL_MS);
   }
 
   throw new CliError({
     code: 'FAILED_PRECONDITION',
     message:
-      'Isolated activation did not complete: extension did not bind to the isolated runtime before timeout.',
+      'Inspect enablement did not complete: extension did not report debugger capability before timeout.',
     retryable: true,
     details: {
       timeoutMs,
@@ -188,13 +159,11 @@ const waitForIsolatedActivation = async (
       expectedExtensionId,
       observedConnected: lastReport?.extension?.connected ?? false,
       observedExtensionId: lastReport?.runtime?.extension?.extension_id,
-      observedEndpoint: lastReport?.runtime?.extension?.endpoint?.base_url,
-      requiredInspectCapability: requireInspectCapability,
       observedInspectCapability: hasPassingCheck(
         lastReport,
         'inspect.capability'
       ),
-      activationUrl,
+      optionsUrl,
     },
   });
 };
@@ -204,7 +173,7 @@ export const registerDevCommands = (program: Command): void => {
 
   dev
     .command('info')
-    .description('Print resolved runtime details for the current worktree')
+    .description('Print resolved runtime details for the current environment')
     .action(async (_options, command: Command) => {
       await runLocal(command, async (globalOptions) => {
         const runtime = resolveRuntimeForCommand(globalOptions);
@@ -225,23 +194,16 @@ export const registerDevCommands = (program: Command): void => {
     });
 
   dev
-    .command('activate')
+    .command('enable-inspect')
     .description(
-      'Enable isolated worktree routing and open extension options for activation'
+      'Open extension options and enable debugger-based inspect capability'
     )
     .option(
       '--extension-id <id>',
-      'Chrome extension id to activate for isolated worktree routing'
-    )
-    .option(
-      '--enable-inspect',
-      'Enable debugger-based inspect capability in extension options during activation'
+      'Chrome extension id to configure for debugger-based inspect'
     )
     .action(
-      async (
-        options: { extensionId?: string; enableInspect?: boolean },
-        command: Command
-      ) => {
+      async (options: { extensionId?: string }, command: Command) => {
         await runLocal(command, async (globalOptions) => {
           const runtime = resolveRuntimeForCommand(globalOptions);
           const extension = resolveActivationExtensionId({
@@ -278,10 +240,9 @@ export const registerDevCommands = (program: Command): void => {
             throw new CliError({
               code: 'INVALID_ARGUMENT',
               message:
-                'Missing extension id. Provide --extension-id <id>, set BROWSER_BRIDGE_EXTENSION_ID, or persist extension_id in metadata by running dev activate with --extension-id once (only needed for isolated worktree routing).',
+                'Missing extension id. Provide --extension-id <id> or set BROWSER_BRIDGE_EXTENSION_ID.',
               retryable: false,
               details: {
-                metadataPath: runtime.metadataPath,
                 searchedPaths:
                   discoveryResult && discoveryResult.kind !== 'resolved'
                     ? discoveryResult.searchedPaths
@@ -290,25 +251,15 @@ export const registerDevCommands = (program: Command): void => {
             });
           }
 
-          const metadataPath = writeRuntimeMetadata(
-            buildPersistedRuntimeMetadata(
-              runtime,
-              resolvedExtension.extensionId
-            ),
-            { metadataPath: runtime.metadataPath }
-          );
-          const activationUrl = buildActivationOptionsUrl({
+          const optionsUrl = buildEnableInspectOptionsUrl({
             extensionId: resolvedExtension.extensionId,
-            corePort: runtime.port,
-            enableInspect: options.enableInspect,
           });
 
-          await openPath(activationUrl);
-          await waitForIsolatedActivation(
+          await openPath(optionsUrl);
+          await waitForInspectEnablement(
             runtime,
             resolvedExtension.extensionId,
-            activationUrl,
-            { requireInspectCapability: options.enableInspect === true }
+            optionsUrl
           );
 
           return {
@@ -318,10 +269,7 @@ export const registerDevCommands = (program: Command): void => {
               extensionIdSource: resolvedExtension.source,
               host: runtime.host,
               port: runtime.port,
-              isolatedMode: true,
-              metadataPath,
-              activationUrl,
-              inspectEnabledRequested: options.enableInspect === true,
+              optionsUrl,
             },
           };
         });

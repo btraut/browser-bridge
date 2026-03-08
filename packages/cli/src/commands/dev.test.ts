@@ -4,17 +4,13 @@ import type {
   DiagnosticReport,
   ResolvedCoreRuntime,
 } from '@btraut/browser-bridge-shared';
-import {
-  resolveCoreRuntime,
-  resolveLogDirectory,
-  writeRuntimeMetadata,
-} from '@btraut/browser-bridge-shared';
+import { resolveCoreRuntime, resolveLogDirectory } from '@btraut/browser-bridge-shared';
 import { runLocal } from '../cli-runtime';
 import { createCoreClient } from '../core-client';
 import { openPath } from '../open-path';
 import { discoverActivationExtensionId } from '../extension-id-discovery';
 import {
-  buildActivationOptionsUrl,
+  buildEnableInspectOptionsUrl,
   registerDevCommands,
   resolveActivationExtensionId,
 } from './dev';
@@ -44,9 +40,6 @@ vi.mock('@btraut/browser-bridge-shared', async () => {
     ...actual,
     resolveCoreRuntime: vi.fn(),
     resolveLogDirectory: vi.fn(),
-    writeRuntimeMetadata: vi.fn((_, options?: { metadataPath?: string }) => {
-      return options?.metadataPath ?? '/tmp/dev.json';
-    }),
   };
 });
 
@@ -66,22 +59,45 @@ const createRuntime = (
   overrides: Partial<ResolvedCoreRuntime> = {}
 ): ResolvedCoreRuntime => ({
   host: '127.0.0.1',
-  port: 4321,
+  port: 3210,
   hostSource: 'default',
   portSource: 'default',
   metadataPath: '/tmp/runtime/dev.json',
   metadata: {
-    host: '127.0.0.1',
-    port: 4321,
     extension_id: 'metadata-ext',
   },
   gitRoot: '/tmp/repo',
-  worktreeId: 'wt-abc',
-  deterministicPort: 4321,
-  isolatedMode: false,
-  isolatedModeSource: 'default',
   ...overrides,
 });
+
+const inspectReport = (options: {
+  inspectCapability?: boolean;
+  extensionConnected?: boolean;
+  extensionId?: string;
+} = {}): DiagnosticReport => {
+  const runtime =
+    options.extensionId === undefined
+      ? {}
+      : {
+          extension: {
+            extension_id: options.extensionId,
+          },
+        };
+
+  return {
+    ok: options.inspectCapability ?? false,
+    extension: {
+      connected: options.extensionConnected ?? true,
+    },
+    runtime,
+    checks: [
+      {
+        name: 'inspect.capability',
+        ok: options.inspectCapability ?? false,
+      },
+    ],
+  };
+};
 
 describe('dev command helpers', () => {
   it('resolves extension id precedence flag > env > metadata', () => {
@@ -111,92 +127,54 @@ describe('dev command helpers', () => {
     expect(resolveActivationExtensionId({})).toBeNull();
   });
 
-  it('builds options URL with activation params', () => {
+  it('builds options URL with inspect enablement params', () => {
     expect(
-      buildActivationOptionsUrl({
+      buildEnableInspectOptionsUrl({
         extensionId: 'abcdefghijklmnopabcdefghijklmnop',
-        corePort: 4567,
-        worktreeId: 'wt-abc',
       })
     ).toBe(
-      'chrome-extension://abcdefghijklmnopabcdefghijklmnop/options.html?bb_activate=1&corePort=4567&worktreeId=wt-abc'
-    );
-  });
-
-  it('builds options URL with inspect enablement when requested', () => {
-    expect(
-      buildActivationOptionsUrl({
-        extensionId: 'abcdefghijklmnopabcdefghijklmnop',
-        corePort: 4567,
-        worktreeId: null,
-        enableInspect: true,
-      })
-    ).toBe(
-      'chrome-extension://abcdefghijklmnopabcdefghijklmnop/options.html?bb_activate=1&corePort=4567&enableInspect=1'
+      'chrome-extension://abcdefghijklmnopabcdefghijklmnop/options.html?bb_enable_inspect=1'
     );
   });
 });
 
 describe('dev commands', () => {
-  const originalExtensionId = process.env.BROWSER_BRIDGE_EXTENSION_ID;
-  const originalActivationTimeout =
-    process.env.BROWSER_BRIDGE_ACTIVATE_TIMEOUT_MS;
-  const activationReadyReport = (
-    overrides: Partial<DiagnosticReport> = {}
-  ): DiagnosticReport => ({
-    ok: true,
-    extension: {
-      connected: true,
-    },
-    checks: [
-      {
-        name: 'runtime.extension.endpoint_match',
-        ok: true,
-      },
-    ],
-    ...overrides,
-  });
-
   beforeEach(() => {
-    vi.mocked(runLocal).mockReset();
-    vi.mocked(resolveCoreRuntime).mockReset();
-    vi.mocked(resolveLogDirectory).mockReset();
-    vi.mocked(openPath).mockReset();
-    vi.mocked(createCoreClient).mockReset();
-    vi.mocked(discoverActivationExtensionId).mockReset();
+    vi.clearAllMocks();
+    vi.mocked(resolveCoreRuntime).mockReturnValue(createRuntime());
+    vi.mocked(resolveLogDirectory).mockReturnValue('/tmp/repo/.context/logs');
     vi.mocked(discoverActivationExtensionId).mockResolvedValue({
       kind: 'none',
       searchedPaths: [],
     });
+    vi.mocked(runLocal).mockImplementation(async (_command, work) => {
+      await work({ json: false });
+    });
     vi.mocked(createCoreClient).mockReturnValue({
-      baseUrl: 'http://127.0.0.1:4321',
+      baseUrl: 'http://127.0.0.1:3210',
       ensureReady: vi.fn(async () => {}),
       post: vi.fn(async () => ({
         ok: true as const,
-        result: activationReadyReport(),
+        result: inspectReport({
+          inspectCapability: true,
+          extensionId: 'flag-ext',
+        }),
       })),
     } as ReturnType<typeof createCoreClient>);
-    delete process.env.BROWSER_BRIDGE_EXTENSION_ID;
-    delete process.env.BROWSER_BRIDGE_ACTIVATE_TIMEOUT_MS;
   });
 
   afterEach(() => {
-    if (originalExtensionId === undefined) {
-      delete process.env.BROWSER_BRIDGE_EXTENSION_ID;
-    } else {
-      process.env.BROWSER_BRIDGE_EXTENSION_ID = originalExtensionId;
-    }
-    if (originalActivationTimeout === undefined) {
-      delete process.env.BROWSER_BRIDGE_ACTIVATE_TIMEOUT_MS;
-      return;
-    }
-    process.env.BROWSER_BRIDGE_ACTIVATE_TIMEOUT_MS = originalActivationTimeout;
+    delete process.env.BROWSER_BRIDGE_EXTENSION_ID;
+    delete process.env.BROWSER_BRIDGE_ENABLE_INSPECT_TIMEOUT_MS;
   });
 
   it('dev info returns resolved runtime details', async () => {
-    const runtime = createRuntime();
+    const runtime = createRuntime({
+      metadata: {
+        extension_id: 'metadata-ext',
+      },
+    });
     vi.mocked(resolveCoreRuntime).mockReturnValue(runtime);
-    vi.mocked(resolveLogDirectory).mockReturnValue('/tmp/repo/.context/logs');
 
     let envelope: unknown;
     vi.mocked(runLocal).mockImplementation(async (_command, work) => {
@@ -232,10 +210,8 @@ describe('dev commands', () => {
       result: {
         host: '127.0.0.1',
         hostSource: 'default',
-        port: 4321,
+        port: 3210,
         portSource: 'default',
-        deterministicPort: 4321,
-        worktreeId: 'wt-abc',
         metadataPath: '/tmp/runtime/dev.json',
         logDir: '/tmp/repo/.context/logs',
         metadataSnapshot: runtime.metadata,
@@ -243,10 +219,7 @@ describe('dev commands', () => {
     });
   });
 
-  it('dev activate persists runtime metadata and opens extension options URL', async () => {
-    const runtime = createRuntime();
-    vi.mocked(resolveCoreRuntime).mockReturnValue(runtime);
-
+  it('enable-inspect opens extension options URL and waits for inspect capability', async () => {
     let envelope: unknown;
     vi.mocked(runLocal).mockImplementation(async (_command, work) => {
       envelope = await work({ json: false });
@@ -257,35 +230,17 @@ describe('dev commands', () => {
       'node',
       'cli',
       'dev',
-      'activate',
+      'enable-inspect',
       '--extension-id',
       'flag-ext',
     ]);
 
-    expect(resolveCoreRuntime).toHaveBeenCalledWith({
-      host: undefined,
-      port: undefined,
-      isolatedMode: true,
-      strictEnvPort: true,
-    });
-    expect(vi.mocked(writeRuntimeMetadata)).toHaveBeenCalledWith(
-      expect.objectContaining({
-        host: '127.0.0.1',
-        port: 4321,
-        git_root: '/tmp/repo',
-        worktree_id: 'wt-abc',
-        extension_id: 'flag-ext',
-        isolated_mode: true,
-        updated_at: expect.any(String),
-      }),
-      { metadataPath: '/tmp/runtime/dev.json' }
-    );
     expect(openPath).toHaveBeenCalledWith(
-      'chrome-extension://flag-ext/options.html?bb_activate=1&corePort=4321&worktreeId=wt-abc'
+      'chrome-extension://flag-ext/options.html?bb_enable_inspect=1'
     );
     expect(createCoreClient).toHaveBeenCalledWith({
       host: '127.0.0.1',
-      port: 4321,
+      port: 3210,
       ensureDaemon: true,
     });
     expect(envelope).toEqual({
@@ -294,295 +249,126 @@ describe('dev commands', () => {
         extensionId: 'flag-ext',
         extensionIdSource: 'flag',
         host: '127.0.0.1',
-        port: 4321,
-        isolatedMode: true,
-        metadataPath: '/tmp/runtime/dev.json',
-        activationUrl:
-          'chrome-extension://flag-ext/options.html?bb_activate=1&corePort=4321&worktreeId=wt-abc',
-        inspectEnabledRequested: false,
+        port: 3210,
+        optionsUrl:
+          'chrome-extension://flag-ext/options.html?bb_enable_inspect=1',
       },
     });
   });
 
-  it('dev activate uses env extension id when flag is absent', async () => {
+  it('enable-inspect uses env extension id when flag is absent', async () => {
     process.env.BROWSER_BRIDGE_EXTENSION_ID = 'env-ext';
-    const runtime = createRuntime({
-      metadata: {
-        extension_id: 'metadata-ext',
-      },
-    });
-    vi.mocked(resolveCoreRuntime).mockReturnValue(runtime);
-    vi.mocked(runLocal).mockImplementation(async (_command, work) => {
-      await work({ json: false });
-    });
+    vi.mocked(createCoreClient).mockReturnValue({
+      baseUrl: 'http://127.0.0.1:3210',
+      ensureReady: vi.fn(async () => {}),
+      post: vi.fn(async () => ({
+        ok: true as const,
+        result: inspectReport({
+          inspectCapability: true,
+          extensionId: 'env-ext',
+        }),
+      })),
+    } as ReturnType<typeof createCoreClient>);
 
     const program = buildProgram();
-    await program.parseAsync(['node', 'cli', 'dev', 'activate']);
+    await program.parseAsync(['node', 'cli', 'dev', 'enable-inspect']);
 
     expect(openPath).toHaveBeenCalledWith(
-      'chrome-extension://env-ext/options.html?bb_activate=1&corePort=4321&worktreeId=wt-abc'
+      'chrome-extension://env-ext/options.html?bb_enable_inspect=1'
     );
   });
 
-  it('dev activate fails with actionable error when extension id is missing', async () => {
-    const runtime = createRuntime({ metadata: null });
-    vi.mocked(resolveCoreRuntime).mockReturnValue(runtime);
+  it('enable-inspect uses discovered connected extension id when explicit sources are missing', async () => {
+    vi.mocked(resolveCoreRuntime).mockReturnValue(
+      createRuntime({ metadata: null })
+    );
+    vi.mocked(createCoreClient).mockReturnValue({
+      baseUrl: 'http://127.0.0.1:3210',
+      ensureReady: vi.fn(async () => {}),
+      post: vi.fn(async () => ({
+        ok: true as const,
+        result: inspectReport({
+          inspectCapability: true,
+          extensionId: 'connected-ext',
+        }),
+      })),
+    } as ReturnType<typeof createCoreClient>);
+    vi.mocked(discoverActivationExtensionId).mockResolvedValue({
+      kind: 'resolved',
+      extensionId: 'connected-ext',
+      source: 'connected',
+      searchedPaths: [],
+    });
+
+    let envelope: unknown;
     vi.mocked(runLocal).mockImplementation(async (_command, work) => {
-      await work({ json: false });
+      envelope = await work({ json: false });
     });
 
     const program = buildProgram();
+    await program.parseAsync(['node', 'cli', 'dev', 'enable-inspect']);
+
+    expect(discoverActivationExtensionId).toHaveBeenCalledWith([
+      createRuntime({ metadata: null }),
+    ]);
+    expect(openPath).toHaveBeenCalledWith(
+      'chrome-extension://connected-ext/options.html?bb_enable_inspect=1'
+    );
+    expect(envelope).toEqual({
+      ok: true,
+      result: {
+        extensionId: 'connected-ext',
+        extensionIdSource: 'connected',
+        host: '127.0.0.1',
+        port: 3210,
+        optionsUrl:
+          'chrome-extension://connected-ext/options.html?bb_enable_inspect=1',
+      },
+    });
+  });
+
+  it('enable-inspect fails with actionable error when extension id is missing', async () => {
+    delete process.env.BROWSER_BRIDGE_EXTENSION_ID;
+    vi.mocked(resolveCoreRuntime).mockReturnValue(
+      createRuntime({ metadata: null })
+    );
+
+    const program = buildProgram();
     await expect(
-      program.parseAsync(['node', 'cli', 'dev', 'activate'])
+      program.parseAsync(['node', 'cli', 'dev', 'enable-inspect'])
     ).rejects.toThrow('Missing extension id.');
   });
 
-  it('dev activate uses discovered connected extension id when explicit sources are missing', async () => {
-    const isolatedRuntime = createRuntime({
-      metadata: null,
-      port: 4321,
-      isolatedMode: true,
-    });
-    const sharedRuntime = createRuntime({
-      metadata: null,
-      port: 3210,
-      isolatedMode: false,
-    });
-    vi.mocked(resolveCoreRuntime)
-      .mockReturnValueOnce(isolatedRuntime)
-      .mockReturnValueOnce(sharedRuntime);
-    vi.mocked(discoverActivationExtensionId).mockResolvedValue({
-      kind: 'resolved',
-      extensionId: 'connected-ext',
-      source: 'connected',
-      searchedPaths: [],
-    });
-
-    let envelope: unknown;
-    vi.mocked(runLocal).mockImplementation(async (_command, work) => {
-      envelope = await work({ json: false });
-    });
-
-    const program = buildProgram();
-    await program.parseAsync(['node', 'cli', 'dev', 'activate']);
-
-    expect(discoverActivationExtensionId).toHaveBeenCalledWith([
-      isolatedRuntime,
-      sharedRuntime,
-    ]);
-    expect(openPath).toHaveBeenCalledWith(
-      'chrome-extension://connected-ext/options.html?bb_activate=1&corePort=4321&worktreeId=wt-abc'
+  it('enable-inspect errors deterministically when discovered ids are ambiguous', async () => {
+    vi.mocked(resolveCoreRuntime).mockReturnValue(
+      createRuntime({ metadata: null })
     );
-    expect(envelope).toEqual({
-      ok: true,
-      result: {
-        extensionId: 'connected-ext',
-        extensionIdSource: 'connected',
-        host: '127.0.0.1',
-        port: 4321,
-        isolatedMode: true,
-        metadataPath: '/tmp/runtime/dev.json',
-        activationUrl:
-          'chrome-extension://connected-ext/options.html?bb_activate=1&corePort=4321&worktreeId=wt-abc',
-        inspectEnabledRequested: false,
-      },
-    });
-  });
-
-  it('dev activate can enable inspect capability during activation', async () => {
-    const runtime = createRuntime();
-    vi.mocked(resolveCoreRuntime).mockReturnValue(runtime);
-    vi.mocked(createCoreClient).mockReturnValue({
-      baseUrl: 'http://127.0.0.1:4321',
-      ensureReady: vi.fn(async () => {}),
-      post: vi.fn(async () => ({
-        ok: true as const,
-        result: activationReadyReport({
-          checks: [
-            {
-              name: 'runtime.extension.endpoint_match',
-              ok: true,
-            },
-            {
-              name: 'inspect.capability',
-              ok: true,
-            },
-          ],
-        }),
-      })),
-    } as ReturnType<typeof createCoreClient>);
-
-    let envelope: unknown;
-    vi.mocked(runLocal).mockImplementation(async (_command, work) => {
-      envelope = await work({ json: false });
-    });
-
-    const program = buildProgram();
-    await program.parseAsync([
-      'node',
-      'cli',
-      'dev',
-      'activate',
-      '--extension-id',
-      'flag-ext',
-      '--enable-inspect',
-    ]);
-
-    expect(openPath).toHaveBeenCalledWith(
-      'chrome-extension://flag-ext/options.html?bb_activate=1&corePort=4321&worktreeId=wt-abc&enableInspect=1'
-    );
-    expect(envelope).toEqual({
-      ok: true,
-      result: {
-        extensionId: 'flag-ext',
-        extensionIdSource: 'flag',
-        host: '127.0.0.1',
-        port: 4321,
-        isolatedMode: true,
-        metadataPath: '/tmp/runtime/dev.json',
-        activationUrl:
-          'chrome-extension://flag-ext/options.html?bb_activate=1&corePort=4321&worktreeId=wt-abc&enableInspect=1',
-        inspectEnabledRequested: true,
-      },
-    });
-  });
-
-  it('dev activate can enable inspect capability with a discovered extension id', async () => {
-    const isolatedRuntime = createRuntime({
-      metadata: null,
-      port: 4321,
-      isolatedMode: true,
-    });
-    const sharedRuntime = createRuntime({
-      metadata: null,
-      port: 3210,
-      isolatedMode: false,
-    });
-    vi.mocked(resolveCoreRuntime)
-      .mockReturnValueOnce(isolatedRuntime)
-      .mockReturnValueOnce(sharedRuntime);
-    vi.mocked(discoverActivationExtensionId).mockResolvedValue({
-      kind: 'resolved',
-      extensionId: 'connected-ext',
-      source: 'connected',
-      searchedPaths: [],
-    });
-    vi.mocked(createCoreClient).mockReturnValue({
-      baseUrl: 'http://127.0.0.1:4321',
-      ensureReady: vi.fn(async () => {}),
-      post: vi.fn(async () => ({
-        ok: true as const,
-        result: activationReadyReport({
-          checks: [
-            {
-              name: 'runtime.extension.endpoint_match',
-              ok: true,
-            },
-            {
-              name: 'inspect.capability',
-              ok: true,
-            },
-          ],
-        }),
-      })),
-    } as ReturnType<typeof createCoreClient>);
-
-    let envelope: unknown;
-    vi.mocked(runLocal).mockImplementation(async (_command, work) => {
-      envelope = await work({ json: false });
-    });
-
-    const program = buildProgram();
-    await program.parseAsync([
-      'node',
-      'cli',
-      'dev',
-      'activate',
-      '--enable-inspect',
-    ]);
-
-    expect(discoverActivationExtensionId).toHaveBeenCalledWith([
-      isolatedRuntime,
-      sharedRuntime,
-    ]);
-    expect(openPath).toHaveBeenCalledWith(
-      'chrome-extension://connected-ext/options.html?bb_activate=1&corePort=4321&worktreeId=wt-abc&enableInspect=1'
-    );
-    expect(envelope).toEqual({
-      ok: true,
-      result: {
-        extensionId: 'connected-ext',
-        extensionIdSource: 'connected',
-        host: '127.0.0.1',
-        port: 4321,
-        isolatedMode: true,
-        metadataPath: '/tmp/runtime/dev.json',
-        activationUrl:
-          'chrome-extension://connected-ext/options.html?bb_activate=1&corePort=4321&worktreeId=wt-abc&enableInspect=1',
-        inspectEnabledRequested: true,
-      },
-    });
-  });
-
-  it('dev activate errors deterministically when discovered ids are ambiguous', async () => {
-    const isolatedRuntime = createRuntime({
-      metadata: null,
-      port: 4321,
-      isolatedMode: true,
-    });
-    const sharedRuntime = createRuntime({
-      metadata: null,
-      port: 3210,
-      isolatedMode: false,
-    });
-    vi.mocked(resolveCoreRuntime)
-      .mockReturnValueOnce(isolatedRuntime)
-      .mockReturnValueOnce(sharedRuntime);
     vi.mocked(discoverActivationExtensionId).mockResolvedValue({
       kind: 'ambiguous',
-      candidates: [
-        'aaaabbbbccccddddeeeeffffgggghhhh',
-        'hhhhggggffffeeeeddddccccbbbbaaaa',
-      ],
-      searchedPaths: ['/tmp/Profile 1/Secure Preferences'],
-    });
-    vi.mocked(runLocal).mockImplementation(async (_command, work) => {
-      await work({ json: false });
+      candidates: ['one-ext', 'two-ext'],
+      searchedPaths: ['/tmp/profile'],
     });
 
     const program = buildProgram();
     await expect(
-      program.parseAsync(['node', 'cli', 'dev', 'activate'])
-    ).rejects.toThrow('Multiple Browser Bridge extension ids discovered');
-    expect(discoverActivationExtensionId).toHaveBeenCalledWith([
-      isolatedRuntime,
-      sharedRuntime,
-    ]);
+      program.parseAsync(['node', 'cli', 'dev', 'enable-inspect'])
+    ).rejects.toThrow('Multiple Browser Bridge extension ids discovered.');
   });
 
-  it('dev activate fails with actionable timeout details when isolated bind never completes', async () => {
-    process.env.BROWSER_BRIDGE_ACTIVATE_TIMEOUT_MS = '1';
-    const runtime = createRuntime();
-    vi.mocked(resolveCoreRuntime).mockReturnValue(runtime);
+  it('enable-inspect fails with actionable timeout details when inspect never comes up', async () => {
     vi.mocked(createCoreClient).mockReturnValue({
-      baseUrl: 'http://127.0.0.1:4321',
+      baseUrl: 'http://127.0.0.1:3210',
       ensureReady: vi.fn(async () => {}),
       post: vi.fn(async () => ({
         ok: true as const,
-        result: activationReadyReport({
-          extension: { connected: false },
-          checks: [
-            {
-              name: 'runtime.extension.endpoint_match',
-              ok: false,
-            },
-          ],
+        result: inspectReport({
+          inspectCapability: false,
+          extensionConnected: true,
         }),
       })),
     } as ReturnType<typeof createCoreClient>);
-    vi.mocked(runLocal).mockImplementation(async (_command, work) => {
-      await work({ json: false });
-    });
+
+    process.env.BROWSER_BRIDGE_ENABLE_INSPECT_TIMEOUT_MS = '5';
 
     const program = buildProgram();
     await expect(
@@ -590,10 +376,12 @@ describe('dev commands', () => {
         'node',
         'cli',
         'dev',
-        'activate',
+        'enable-inspect',
         '--extension-id',
         'flag-ext',
       ])
-    ).rejects.toThrow('Isolated activation did not complete');
+    ).rejects.toThrow('Inspect enablement did not complete');
+
+    delete process.env.BROWSER_BRIDGE_ENABLE_INSPECT_TIMEOUT_MS;
   });
 });
