@@ -440,6 +440,7 @@ Input validation contract:
   - CLI flag
   - `BROWSER_BRIDGE_EXTENSION_ID`
   - stored metadata
+- when explicit sources are absent, `dev activate` probes connected shared/isolated runtimes and then scans common Chrome channel profile roots before failing
 - `dev activate` persists metadata and opens extension options URL with activation parameters.
 
 ## 9. Extension Contract

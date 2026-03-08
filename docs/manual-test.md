@@ -19,7 +19,8 @@ This checklist validates the Drive + Inspect planes and artifact handling end-to
 2. Resolve runtime details when needed:
    - `node packages/cli/dist/index.js dev info --json`
 3. Only for isolated multi-worktree testing, activate this worktree:
-   - `node packages/cli/dist/index.js dev activate --extension-id <id> --json`
+   - `node packages/cli/dist/index.js dev activate --json`
+   - If auto-discovery is ambiguous, rerun with `--extension-id <id>`.
 4. In isolated mode, do not assume `3210`:
    - Use the `port` returned by `dev info` for manual host/port wiring.
 5. Check logs before ad-hoc debugging:
@@ -30,7 +31,7 @@ This checklist validates the Drive + Inspect planes and artifact handling end-to
 
 ### Quick Troubleshooting
 
-- Missing extension id (isolated mode only): pass `--extension-id <id>`, set `BROWSER_BRIDGE_EXTENSION_ID`, or persist it once with `dev activate --extension-id`.
+- Missing extension id (isolated mode only): retry once first; activation probes live runtimes and common Chrome channel profiles before giving up. If discovery is still ambiguous/unavailable, pass `--extension-id <id>`, set `BROWSER_BRIDGE_EXTENSION_ID`, or persist it once with `dev activate --extension-id`.
 - Activation URL did not open in Chrome: rerun with `--json`, copy `result.activationUrl`, and paste it into Chrome.
 - Stream log files: per-stream JSONL files live in `.context/logs/browser-bridge/` with rotations like `core.1.jsonl`.
 

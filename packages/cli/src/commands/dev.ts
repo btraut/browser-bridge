@@ -280,7 +280,7 @@ export const registerDevCommands = (program: Command): void => {
               isolatedMode: false,
             });
             discoveryResult =
-              await discoverActivationExtensionId(sharedRuntime);
+              await discoverActivationExtensionId([runtime, sharedRuntime]);
             if (discoveryResult.kind === 'resolved') {
               resolvedExtension = {
                 extensionId: discoveryResult.extensionId,

@@ -366,7 +366,10 @@ describe('dev commands', () => {
     const program = buildProgram();
     await program.parseAsync(['node', 'cli', 'dev', 'activate']);
 
-    expect(discoverActivationExtensionId).toHaveBeenCalledWith(sharedRuntime);
+    expect(discoverActivationExtensionId).toHaveBeenCalledWith([
+      isolatedRuntime,
+      sharedRuntime,
+    ]);
     expect(openPath).toHaveBeenCalledWith(
       'chrome-extension://connected-ext/options.html?bb_activate=1&corePort=4321&worktreeId=wt-abc'
     );
@@ -474,7 +477,10 @@ describe('dev commands', () => {
     await expect(
       program.parseAsync(['node', 'cli', 'dev', 'activate'])
     ).rejects.toThrow('Multiple Browser Bridge extension ids discovered');
-    expect(discoverActivationExtensionId).toHaveBeenCalledWith(sharedRuntime);
+    expect(discoverActivationExtensionId).toHaveBeenCalledWith([
+      isolatedRuntime,
+      sharedRuntime,
+    ]);
   });
 
   it('dev activate fails with actionable timeout details when isolated bind never completes', async () => {
