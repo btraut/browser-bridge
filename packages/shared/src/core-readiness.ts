@@ -287,7 +287,7 @@ export const createCoreReadinessController = (
     }
     if (portOccupied) {
       throw new Error(
-        `Core daemon failed to start on ${runtime.host}:${runtime.port}. A process is already listening on this port but did not pass Browser Bridge health checks. Retry with --no-daemon to reuse it, or enable isolated mode (BROWSER_BRIDGE_ISOLATED_MODE=1) for per-worktree ports.`
+        `Core daemon failed to start on ${runtime.host}:${runtime.port}. A process is already listening on this port but did not pass Browser Bridge health checks. Retry with --no-daemon to reuse the existing process or stop whatever is already bound to that port.`
       );
     }
     throw new Error(

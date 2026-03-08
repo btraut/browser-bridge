@@ -14,8 +14,6 @@ type RuntimeEndpointContext = {
   baseUrl?: string;
   hostSource?: string;
   portSource?: string;
-  metadataPath?: string;
-  isolatedMode?: boolean;
 };
 
 type RuntimeProcessContext = {
@@ -88,8 +86,6 @@ export type DiagnosticReport = {
         base_url?: string;
         host_source?: string;
         port_source?: string;
-        metadata_path?: string;
-        isolated_mode?: boolean;
       };
       process?: {
         component?: 'cli' | 'mcp' | 'core';
@@ -107,8 +103,6 @@ export type DiagnosticReport = {
         base_url?: string;
         host_source?: string;
         port_source?: string;
-        metadata_path?: string;
-        isolated_mode?: boolean;
       };
       process?: {
         component?: 'cli' | 'mcp' | 'core';
@@ -131,8 +125,6 @@ export type DiagnosticReport = {
         base_url?: string;
         host_source?: string;
         port_source?: string;
-        metadata_path?: string;
-        isolated_mode?: boolean;
       };
       port_source?: 'default' | 'storage';
     };
@@ -284,8 +276,6 @@ const toRuntimeEndpoint = (
       base_url?: string;
       host_source?: string;
       port_source?: string;
-      metadata_path?: string;
-      isolated_mode?: boolean;
     }
   | undefined => {
   if (!endpoint) {
@@ -297,8 +287,6 @@ const toRuntimeEndpoint = (
     base_url: endpoint.baseUrl,
     host_source: endpoint.hostSource,
     port_source: endpoint.portSource,
-    metadata_path: endpoint.metadataPath,
-    isolated_mode: endpoint.isolatedMode,
   };
 };
 
@@ -392,26 +380,6 @@ export const buildDiagnosticReport = (
         core_port_source: coreEndpoint.portSource,
       },
     });
-  }
-
-  if (callerEndpoint?.metadataPath && coreEndpoint?.metadataPath) {
-    const matches = callerEndpoint.metadataPath === coreEndpoint.metadataPath;
-    checks.push({
-      name: 'runtime.caller.metadata_path_match',
-      ok: matches,
-      message: matches
-        ? 'Caller metadata path matches the active core runtime metadata path.'
-        : 'Caller metadata path differs from core runtime metadata path (shared core across worktrees).',
-      details: {
-        caller_metadata_path: callerEndpoint.metadataPath,
-        core_metadata_path: coreEndpoint.metadataPath,
-      },
-    });
-    if (!matches) {
-      warnings.push(
-        'CLI is talking to a core process started from a different worktree metadata path. If daemon auto-start fails, retry with --no-daemon or enable isolated mode.'
-      );
-    }
   }
 
   if (

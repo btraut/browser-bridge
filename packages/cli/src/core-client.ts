@@ -261,8 +261,6 @@ export const createCoreClient = (
                 base_url: readiness.baseUrl,
                 host_source: readiness.runtime.hostSource,
                 port_source: readiness.runtime.portSource,
-                metadata_path: readiness.runtime.metadataPath,
-                isolated_mode: readiness.runtime.isolatedMode,
               },
               process: {
                 component: 'cli' as const,

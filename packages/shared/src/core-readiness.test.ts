@@ -71,7 +71,7 @@ describe('createCoreReadinessController', () => {
     expect(controller.baseUrl).toBe('http://127.0.0.1:3210');
   });
 
-  it('resolves metadata host with default port outside isolated mode', () => {
+  it('ignores persisted runtime routing metadata and uses the default endpoint', () => {
     const root = createGitRoot('core-readiness-metadata-');
     const metadataDir = path.join(root, '.context', 'browser-bridge');
     mkdirSync(metadataDir, { recursive: true });
@@ -85,10 +85,10 @@ describe('createCoreReadinessController', () => {
       cwd: root,
       ensureDaemon: false,
     });
-    expect(controller.baseUrl).toBe('http://127.0.0.8:3210');
+    expect(controller.baseUrl).toBe('http://127.0.0.1:3210');
   });
 
-  it('applies option > env > metadata precedence', async () => {
+  it('applies option > env > default precedence', async () => {
     const root = createGitRoot('core-readiness-precedence-');
     const metadataDir = path.join(root, '.context', 'browser-bridge');
     mkdirSync(metadataDir, { recursive: true });
@@ -227,7 +227,7 @@ describe('createCoreReadinessController', () => {
     });
 
     await expect(controller.ensureReady()).rejects.toThrow(
-      /--no-daemon to reuse it, or enable isolated mode/i
+      /--no-daemon to reuse the existing process or stop whatever is already bound/i
     );
     expect(spawnDaemon).toHaveBeenCalledTimes(1);
   });

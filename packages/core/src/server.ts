@@ -4,12 +4,11 @@ import {
   HTTP_CONTRACT_VERSION,
   HTTP_CONTRACT_VERSION_HEADER,
   JsonlLogger,
+  createJsonlLogger,
   resolveContractVersionMismatch,
+  resolveCoreRuntime,
   type ResolvedCoreRuntime,
   type RuntimeMetadata,
-  createBoundedPortProbeSequence,
-  createJsonlLogger,
-  resolveCoreRuntime,
   writeRuntimeMetadata,
 } from '@btraut/browser-bridge-shared';
 import { createSessionRouter } from './routes/session';
@@ -164,37 +163,18 @@ export type CoreServerHandle = {
   port: number;
 };
 
-const CORE_PORT_PROBE_ATTEMPTS = 20;
-
 export const buildRuntimeMetadataForPersist = (
   runtime: ResolvedCoreRuntime,
-  resolvedPort: number
+  _resolvedPort: number
 ): RuntimeMetadata => ({
   ...(runtime.metadata ?? {}),
-  host: runtime.host,
-  port: resolvedPort,
-  git_root: runtime.gitRoot ?? runtime.metadata?.git_root,
-  worktree_id: runtime.worktreeId ?? runtime.metadata?.worktree_id,
+  extension_id: runtime.metadata?.extension_id,
   updated_at: new Date().toISOString(),
 });
 
 export const resolveProbePortsForRuntime = (
   runtime: ResolvedCoreRuntime
-): number[] => {
-  if (!runtime.isolatedMode) {
-    return [runtime.port];
-  }
-  if (
-    runtime.portSource === 'metadata' ||
-    runtime.portSource === 'deterministic'
-  ) {
-    return createBoundedPortProbeSequence(
-      runtime.port,
-      CORE_PORT_PROBE_ATTEMPTS
-    );
-  }
-  return [runtime.port];
-};
+): number[] => [runtime.port];
 
 const resolveSessionTtlMs = (): number => {
   const env =
@@ -310,10 +290,6 @@ export const startCoreServer = async (
     port: runtime.port,
     host_source: runtime.hostSource,
     port_source: runtime.portSource,
-    metadata_path: runtime.metadataPath,
-    git_root: runtime.gitRoot,
-    worktree_id: runtime.worktreeId,
-    deterministic_port: runtime.deterministicPort,
   });
 
   const { app, registry, extensionBridge } = createCoreServer({

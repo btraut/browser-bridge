@@ -81,8 +81,6 @@ const DiagnosticsRuntimeEndpointSchema = z.object({
   base_url: z.string().optional(),
   host_source: z.string().optional(),
   port_source: z.string().optional(),
-  metadata_path: z.string().optional(),
-  isolated_mode: z.boolean().optional(),
 });
 
 const DiagnosticsRuntimeProcessSchema = z.object({

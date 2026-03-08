@@ -1,21 +1,12 @@
-import {
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  statSync,
-  writeFileSync,
-} from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 
 const DEFAULT_HOST = '127.0.0.1';
-const LEGACY_DEFAULT_PORT = 3210;
-const DETERMINISTIC_PORT_WINDOW = 2000;
+const DEFAULT_PORT = 3210;
 const ENV_CORE_HOST = 'BROWSER_BRIDGE_CORE_HOST';
 const ENV_VISION_HOST = 'BROWSER_VISION_CORE_HOST';
 const ENV_CORE_PORT = 'BROWSER_BRIDGE_CORE_PORT';
 const ENV_VISION_PORT = 'BROWSER_VISION_CORE_PORT';
-const ENV_ISOLATED_MODE = 'BROWSER_BRIDGE_ISOLATED_MODE';
-const ENV_VISION_ISOLATED_MODE = 'BROWSER_VISION_ISOLATED_MODE';
 const ENV_BRIDGE_CWD = 'BROWSER_BRIDGE_CWD';
 const ENV_PROCESS_PWD = 'PWD';
 const ENV_PROCESS_INIT_CWD = 'INIT_CWD';
@@ -27,19 +18,13 @@ export const DEFAULT_LOG_DIRECTORY_RELATIVE_PATH =
   '.context/logs/browser-bridge';
 
 export type RuntimeMetadata = {
-  host?: string;
-  port?: number;
-  git_root?: string;
-  worktree_id?: string;
   extension_id?: string;
-  isolated_mode?: boolean;
   updated_at?: string;
 };
 
 export type ResolveCoreRuntimeOptions = {
   host?: string;
   port?: number | string;
-  isolatedMode?: boolean;
   cwd?: string;
   gitRoot?: string | null;
   metadataPath?: string;
@@ -51,15 +36,11 @@ export type ResolveCoreRuntimeOptions = {
 export type ResolvedCoreRuntime = {
   host: string;
   port: number;
-  hostSource: 'option' | 'env' | 'metadata' | 'default';
-  portSource: 'option' | 'env' | 'metadata' | 'deterministic' | 'default';
+  hostSource: 'option' | 'env' | 'default';
+  portSource: 'option' | 'env' | 'default';
   metadataPath: string;
   metadata: RuntimeMetadata | null;
   gitRoot: string | null;
-  worktreeId: string | null;
-  deterministicPort: number;
-  isolatedMode: boolean;
-  isolatedModeSource: 'option' | 'env' | 'metadata' | 'default';
 };
 
 const normalizeCandidatePath = (value: unknown): string | undefined => {
@@ -125,33 +106,6 @@ const normalizeHost = (value: unknown): string | undefined => {
   return trimmed.length > 0 ? trimmed : undefined;
 };
 
-const parseBoolean = (value: unknown): boolean | undefined => {
-  if (typeof value === 'boolean') {
-    return value;
-  }
-  if (typeof value !== 'string') {
-    return undefined;
-  }
-  const normalized = value.trim().toLowerCase();
-  if (
-    normalized === '1' ||
-    normalized === 'true' ||
-    normalized === 'yes' ||
-    normalized === 'on'
-  ) {
-    return true;
-  }
-  if (
-    normalized === '0' ||
-    normalized === 'false' ||
-    normalized === 'no' ||
-    normalized === 'off'
-  ) {
-    return false;
-  }
-  return undefined;
-};
-
 const parsePort = (
   value: unknown,
   label: string,
@@ -177,74 +131,6 @@ const parsePort = (
   return undefined;
 };
 
-const hashString = (value: string): number => {
-  let hash = 2166136261;
-  for (let index = 0; index < value.length; index += 1) {
-    hash ^= value.charCodeAt(index);
-    hash = Math.imul(hash, 16777619);
-  }
-  return hash >>> 0;
-};
-
-const normalizePathForHash = (value: string): string =>
-  value.replace(/\\/g, '/').toLowerCase();
-
-const sanitizeToken = (value: string): string =>
-  value
-    .trim()
-    .replace(/[^a-zA-Z0-9._-]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-
-const fallbackWorktreeId = (gitRoot: string): string => {
-  const hash = hashString(normalizePathForHash(gitRoot))
-    .toString(16)
-    .padStart(8, '0');
-  return `wt-${hash}`;
-};
-
-const extractWorktreeIdFromGitDir = (gitDir: string): string | null => {
-  const normalized = gitDir.replace(/\\/g, '/');
-  const marker = '/.git/worktrees/';
-  const markerIndex = normalized.lastIndexOf(marker);
-  if (markerIndex < 0) {
-    return null;
-  }
-  const remainder = normalized.slice(markerIndex + marker.length);
-  const rawId = remainder.split('/')[0];
-  if (!rawId) {
-    return null;
-  }
-  const sanitized = sanitizeToken(rawId);
-  return sanitized.length > 0 ? sanitized : null;
-};
-
-const readWorktreeGitDir = (gitRoot: string): string | null => {
-  const gitPath = join(gitRoot, '.git');
-  try {
-    const stats = statSync(gitPath);
-    if (stats.isDirectory()) {
-      return gitPath;
-    }
-    if (!stats.isFile()) {
-      return null;
-    }
-  } catch {
-    return null;
-  }
-
-  try {
-    const raw = readFileSync(gitPath, 'utf8');
-    const match = raw.match(/^gitdir:\s*(.+)$/m);
-    if (!match?.[1]) {
-      return null;
-    }
-    const candidate = match[1].trim();
-    return isAbsolute(candidate) ? candidate : resolve(gitRoot, candidate);
-  } catch {
-    return null;
-  }
-};
-
 const resolveEnvHost = (
   env: Record<string, string | undefined>
 ): string | undefined => {
@@ -264,48 +150,20 @@ const resolveEnvPortRaw = (
   return env[ENV_VISION_PORT];
 };
 
-const resolveEnvIsolatedMode = (
-  env: Record<string, string | undefined>
-): boolean | undefined => {
-  const bridge = parseBoolean(env[ENV_ISOLATED_MODE]);
-  if (bridge !== undefined) {
-    return bridge;
-  }
-  return parseBoolean(env[ENV_VISION_ISOLATED_MODE]);
-};
-
 const sanitizeMetadata = (raw: unknown): RuntimeMetadata | null => {
   if (!raw || typeof raw !== 'object') {
     return null;
   }
   const candidate = raw as Record<string, unknown>;
-  const host = normalizeHost(candidate.host);
-  const port = parsePort(candidate.port, 'port', 'ignore');
-  const gitRoot = normalizeHost(candidate.git_root);
-  const worktreeId = normalizeHost(candidate.worktree_id);
   const extensionId = normalizeHost(candidate.extension_id);
-  const isolatedMode = parseBoolean(candidate.isolated_mode);
   const updatedAt = normalizeHost(candidate.updated_at);
 
-  if (
-    !host &&
-    port === undefined &&
-    !gitRoot &&
-    !worktreeId &&
-    !extensionId &&
-    isolatedMode === undefined &&
-    !updatedAt
-  ) {
+  if (!extensionId && !updatedAt) {
     return null;
   }
 
   return {
-    host,
-    port,
-    git_root: gitRoot,
-    worktree_id: worktreeId,
     extension_id: extensionId,
-    isolated_mode: isolatedMode,
     updated_at: updatedAt,
   };
 };
@@ -322,40 +180,6 @@ export const findGitRoot = (cwd?: string): string | null => {
     }
     current = parent;
   }
-};
-
-export const resolveWorktreeId = ({
-  cwd,
-  gitRoot,
-}: {
-  cwd?: string;
-  gitRoot?: string | null;
-} = {}): string | null => {
-  const resolvedGitRoot = gitRoot ?? findGitRoot(resolveCwd(cwd));
-  if (!resolvedGitRoot) {
-    return null;
-  }
-  const gitDir = readWorktreeGitDir(resolvedGitRoot);
-  const parsedId = gitDir ? extractWorktreeIdFromGitDir(gitDir) : null;
-  if (parsedId) {
-    return parsedId;
-  }
-  return fallbackWorktreeId(resolvedGitRoot);
-};
-
-export const resolveDeterministicCorePort = ({
-  cwd,
-  gitRoot,
-}: {
-  cwd?: string;
-  gitRoot?: string | null;
-} = {}): number => {
-  const resolvedGitRoot = gitRoot ?? findGitRoot(resolveCwd(cwd));
-  if (!resolvedGitRoot) {
-    return LEGACY_DEFAULT_PORT;
-  }
-  const seed = normalizePathForHash(resolvedGitRoot);
-  return LEGACY_DEFAULT_PORT + (hashString(seed) % DETERMINISTIC_PORT_WINDOW);
 };
 
 export const resolveRuntimeMetadataPath = ({
@@ -444,33 +268,6 @@ export const writeRuntimeMetadata = (
   return path;
 };
 
-export const createBoundedPortProbeSequence = (
-  startPort: number,
-  maxAttempts = 20,
-  maxPort = 65535
-): number[] => {
-  const normalizedStart = parsePort(startPort, 'startPort', 'throw');
-  if (normalizedStart === undefined) {
-    throw new Error(`Invalid startPort: ${String(startPort)}`);
-  }
-  const attempts = Math.max(1, Math.floor(maxAttempts));
-  const ceiling = Math.min(65535, Math.max(1, Math.floor(maxPort)));
-
-  if (normalizedStart > ceiling) {
-    throw new Error(`startPort ${normalizedStart} exceeds maxPort ${ceiling}.`);
-  }
-
-  const sequence: number[] = [];
-  for (let offset = 0; offset < attempts; offset += 1) {
-    const port = normalizedStart + offset;
-    if (port > ceiling) {
-      break;
-    }
-    sequence.push(port);
-  }
-  return sequence;
-};
-
 export const resolveCoreRuntime = (
   options: ResolveCoreRuntimeOptions = {}
 ): ResolvedCoreRuntime => {
@@ -494,23 +291,14 @@ export const resolveCoreRuntime = (
       ? readRuntimeMetadata({ metadataPath })
       : sanitizeMetadata(options.metadata);
 
-  const deterministicPort = resolveDeterministicCorePort({
-    cwd: resolvedCwd,
-    gitRoot,
-  });
-
   const optionHost = normalizeHost(options.host);
   const envHost = resolveEnvHost(env);
-  const metadataHost = normalizeHost(metadata?.host);
-
-  const host = optionHost ?? envHost ?? metadataHost ?? DEFAULT_HOST;
+  const host = optionHost ?? envHost ?? DEFAULT_HOST;
   const hostSource: ResolvedCoreRuntime['hostSource'] = optionHost
     ? 'option'
     : envHost
       ? 'env'
-      : metadataHost
-        ? 'metadata'
-        : 'default';
+      : 'default';
 
   const optionPort = parsePort(options.port, 'port', 'throw');
   const envPort = parsePort(
@@ -518,41 +306,13 @@ export const resolveCoreRuntime = (
     'port',
     options.strictEnvPort ? 'throw' : 'ignore'
   );
-  const metadataPort = parsePort(metadata?.port, 'port', 'ignore');
-  const optionIsolatedMode = options.isolatedMode;
-  const envIsolatedMode = resolveEnvIsolatedMode(env);
-  const metadataIsolatedMode = metadata?.isolated_mode;
-
-  const isolatedMode =
-    optionIsolatedMode ?? envIsolatedMode ?? metadataIsolatedMode ?? false;
-  const isolatedModeSource: ResolvedCoreRuntime['isolatedModeSource'] =
-    optionIsolatedMode !== undefined
+  const port = optionPort ?? envPort ?? DEFAULT_PORT;
+  const portSource: ResolvedCoreRuntime['portSource'] =
+    optionPort !== undefined
       ? 'option'
-      : envIsolatedMode !== undefined
+      : envPort !== undefined
         ? 'env'
-        : metadataIsolatedMode !== undefined
-          ? 'metadata'
-          : 'default';
-
-  let port: number;
-  let portSource: ResolvedCoreRuntime['portSource'];
-
-  if (optionPort !== undefined) {
-    port = optionPort;
-    portSource = 'option';
-  } else if (envPort !== undefined) {
-    port = envPort;
-    portSource = 'env';
-  } else if (metadataPort !== undefined && isolatedMode) {
-    port = metadataPort;
-    portSource = 'metadata';
-  } else if (isolatedMode) {
-    port = deterministicPort;
-    portSource = 'deterministic';
-  } else {
-    port = LEGACY_DEFAULT_PORT;
-    portSource = 'default';
-  }
+        : 'default';
 
   return {
     host,
@@ -562,9 +322,5 @@ export const resolveCoreRuntime = (
     metadataPath,
     metadata,
     gitRoot,
-    worktreeId: resolveWorktreeId({ cwd: resolvedCwd, gitRoot }),
-    deterministicPort,
-    isolatedMode,
-    isolatedModeSource,
   };
 };

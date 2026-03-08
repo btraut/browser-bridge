@@ -76,7 +76,7 @@ afterEach(() => {
 });
 
 describe('mcp core client', () => {
-  it('uses metadata host with default port when no env/options are provided', async () => {
+  it('ignores persisted runtime routing metadata when no env/options are provided', async () => {
     const root = createGitRoot('mcp-core-client-metadata-root-');
     const metadataDir = path.join(root, '.context', 'browser-bridge');
     mkdirSync(metadataDir, { recursive: true });
@@ -98,7 +98,7 @@ describe('mcp core client', () => {
     await client.post('/session/create', {});
 
     expect(fetchImpl).toHaveBeenCalledWith(
-      'http://127.0.0.5:3210/session/create',
+      'http://127.0.0.1:3210/session/create',
       expect.objectContaining({
         headers: {
           'content-type': 'application/json',
@@ -241,5 +241,7 @@ describe('mcp core client', () => {
         }),
       })
     );
+    expect(capturedBody?.caller).not.toHaveProperty('endpoint.metadata_path');
+    expect(capturedBody?.caller).not.toHaveProperty('endpoint.isolated_mode');
   });
 });

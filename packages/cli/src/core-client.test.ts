@@ -118,7 +118,7 @@ describe('createCoreClient', () => {
     expect(result).toEqual({ ok: true, result: { ok: true } });
   });
 
-  it('uses metadata host with default port when options and env are absent', () => {
+  it('ignores persisted runtime routing metadata when options and env are absent', () => {
     const root = createGitRoot('cli-core-client-metadata-root-');
     const metadataDir = path.join(root, '.context', 'browser-bridge');
     mkdirSync(metadataDir, { recursive: true });
@@ -133,7 +133,7 @@ describe('createCoreClient', () => {
       ensureDaemon: false,
     });
 
-    expect(client.baseUrl).toBe('http://127.0.0.9:3210');
+    expect(client.baseUrl).toBe('http://127.0.0.1:3210');
   });
 
   it('uses env values over metadata and explicit options over env', async () => {
@@ -204,5 +204,7 @@ describe('createCoreClient', () => {
         }),
       })
     );
+    expect(capturedBody?.caller).not.toHaveProperty('endpoint.metadata_path');
+    expect(capturedBody?.caller).not.toHaveProperty('endpoint.isolated_mode');
   });
 });

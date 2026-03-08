@@ -16,7 +16,6 @@ import { discoverActivationExtensionId } from '../extension-id-discovery';
 const ENV_EXTENSION_ID = 'BROWSER_BRIDGE_EXTENSION_ID';
 const ACTIVATION_FLAG_PARAM = 'bb_activate';
 const ACTIVATION_PORT_PARAM = 'corePort';
-const ACTIVATION_WORKTREE_PARAM = 'worktreeId';
 const ACTIVATION_ENABLE_INSPECT_PARAM = 'enableInspect';
 const ACTIVATION_WAIT_TIMEOUT_MS = 30000;
 const ACTIVATION_WAIT_INTERVAL_MS = 500;
@@ -62,15 +61,11 @@ export const resolveActivationExtensionId = (options: {
 export const buildActivationOptionsUrl = (options: {
   extensionId: string;
   corePort: number;
-  worktreeId: string | null;
   enableInspect?: boolean;
 }): string => {
   const search = new URLSearchParams();
   search.set(ACTIVATION_FLAG_PARAM, '1');
   search.set(ACTIVATION_PORT_PARAM, String(options.corePort));
-  if (options.worktreeId) {
-    search.set(ACTIVATION_WORKTREE_PARAM, options.worktreeId);
-  }
   if (options.enableInspect) {
     search.set(ACTIVATION_ENABLE_INSPECT_PARAM, '1');
   }
@@ -83,13 +78,7 @@ const buildPersistedRuntimeMetadata = (
   runtime: ResolvedCoreRuntime,
   extensionId: string
 ): RuntimeMetadata => ({
-  ...(runtime.metadata ?? {}),
-  host: runtime.host,
-  port: runtime.port,
-  git_root: runtime.gitRoot ?? runtime.metadata?.git_root,
-  worktree_id: runtime.worktreeId ?? runtime.metadata?.worktree_id,
   extension_id: extensionId,
-  isolated_mode: true,
   updated_at: new Date().toISOString(),
 });
 
@@ -97,24 +86,17 @@ const resolveRuntimeForCommand = (
   options: {
     host?: string;
     port?: number | string;
-  },
-  overrides: {
-    isolatedMode?: boolean;
-  } = {}
+  }
 ): ResolvedCoreRuntime => {
   const runtimeOptions: {
     host?: string;
     port?: number | string;
-    isolatedMode?: boolean;
     strictEnvPort: boolean;
   } = {
     host: options.host,
     port: options.port,
     strictEnvPort: true,
   };
-  if (overrides.isolatedMode !== undefined) {
-    runtimeOptions.isolatedMode = overrides.isolatedMode;
-  }
   return resolveCoreRuntime(runtimeOptions);
 };
 
@@ -234,8 +216,6 @@ export const registerDevCommands = (program: Command): void => {
             hostSource: runtime.hostSource,
             port: runtime.port,
             portSource: runtime.portSource,
-            deterministicPort: runtime.deterministicPort,
-            worktreeId: runtime.worktreeId,
             metadataPath: runtime.metadataPath,
             logDir,
             metadataSnapshot: runtime.metadata,
@@ -263,9 +243,7 @@ export const registerDevCommands = (program: Command): void => {
         command: Command
       ) => {
         await runLocal(command, async (globalOptions) => {
-          const runtime = resolveRuntimeForCommand(globalOptions, {
-            isolatedMode: true,
-          });
+          const runtime = resolveRuntimeForCommand(globalOptions);
           const extension = resolveActivationExtensionId({
             optionExtensionId: options.extensionId,
             envExtensionId: process.env[ENV_EXTENSION_ID],
@@ -276,13 +254,7 @@ export const registerDevCommands = (program: Command): void => {
             | Awaited<ReturnType<typeof discoverActivationExtensionId>>
             | undefined;
           if (!resolvedExtension) {
-            const sharedRuntime = resolveRuntimeForCommand(globalOptions, {
-              isolatedMode: false,
-            });
-            discoveryResult = await discoverActivationExtensionId([
-              runtime,
-              sharedRuntime,
-            ]);
+            discoveryResult = await discoverActivationExtensionId([runtime]);
             if (discoveryResult.kind === 'resolved') {
               resolvedExtension = {
                 extensionId: discoveryResult.extensionId,
@@ -328,7 +300,6 @@ export const registerDevCommands = (program: Command): void => {
           const activationUrl = buildActivationOptionsUrl({
             extensionId: resolvedExtension.extensionId,
             corePort: runtime.port,
-            worktreeId: runtime.worktreeId,
             enableInspect: options.enableInspect,
           });
 

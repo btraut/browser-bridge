@@ -132,10 +132,6 @@ export const registerDiagnosticsRoutes = (
                       parsedDoctorInput.data.caller.endpoint.host_source,
                     portSource:
                       parsedDoctorInput.data.caller.endpoint.port_source,
-                    metadataPath:
-                      parsedDoctorInput.data.caller.endpoint.metadata_path,
-                    isolatedMode:
-                      parsedDoctorInput.data.caller.endpoint.isolated_mode,
                   }
                 : undefined,
               process: parsedDoctorInput.data.caller.process
@@ -160,8 +156,6 @@ export const registerDiagnosticsRoutes = (
                 baseUrl: `http://${options.coreRuntime.host}:${options.coreRuntime.port}`,
                 hostSource: options.coreRuntime.hostSource,
                 portSource: options.coreRuntime.portSource,
-                metadataPath: options.coreRuntime.metadataPath,
-                isolatedMode: options.coreRuntime.isolatedMode,
               }
             : undefined,
           process: {
