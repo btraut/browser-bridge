@@ -200,6 +200,9 @@ export type DiagnosticsContext = {
 };
 
 const STALE_ERROR_THRESHOLD_MS = 2 * 60 * 1000;
+const ACTIVATION_FLAG_PARAM = 'bb_activate';
+const ACTIVATION_PORT_PARAM = 'corePort';
+const ACTIVATION_ENABLE_INSPECT_PARAM = 'enableInspect';
 
 const getErrorAgeMs = (timestamp: string): number | undefined => {
   const parsed = Date.parse(timestamp);
@@ -231,6 +234,27 @@ const readCapability = (
   }
   const candidate = capabilities[name];
   return typeof candidate === 'boolean' ? candidate : undefined;
+};
+
+const buildInspectEnableCommand = (extensionId?: string): string => {
+  if (extensionId) {
+    return `browser-bridge dev activate --extension-id ${extensionId} --enable-inspect`;
+  }
+  return 'browser-bridge dev activate --extension-id <id> --enable-inspect';
+};
+
+const buildInspectActivationUrl = (
+  extensionId: string | undefined,
+  corePort: number | undefined
+): string | undefined => {
+  if (!extensionId || corePort === undefined) {
+    return undefined;
+  }
+  const search = new URLSearchParams();
+  search.set(ACTIVATION_FLAG_PARAM, '1');
+  search.set(ACTIVATION_PORT_PARAM, String(corePort));
+  search.set(ACTIVATION_ENABLE_INSPECT_PARAM, '1');
+  return `chrome-extension://${extensionId}/options.html?${search.toString()}`;
 };
 
 const hasEndpoint = (
@@ -428,6 +452,13 @@ export const buildDiagnosticReport = (
       capabilities,
       'debugger.command'
     );
+    const extensionId =
+      context.runtime?.extension?.extensionId ?? context.extension?.extensionId;
+    const inspectEnableCommand = buildInspectEnableCommand(extensionId);
+    const inspectActivationUrl = buildInspectActivationUrl(
+      extensionId,
+      coreEndpoint?.port
+    );
 
     checks.push({
       name: 'runtime.extension.capability_negotiated',
@@ -465,12 +496,20 @@ export const buildDiagnosticReport = (
         required_capabilities: ['debugger.attach', 'debugger.command'],
         debugger_attach: inspectAttachCapability,
         debugger_command: inspectCommandCapability,
+        remediation:
+          capabilityNegotiated && !inspectEnabled
+            ? {
+                enable_command: inspectEnableCommand,
+                activation_url: inspectActivationUrl,
+                verify_check: 'inspect.capability',
+              }
+            : undefined,
       },
     });
 
     if (capabilityNegotiated && !inspectEnabled) {
       warnings.push(
-        'Inspect commands require debugger capability. Enable debugger-based inspect in extension options to use inspect.* routes.'
+        `Inspect commands require debugger capability. Run "${inspectEnableCommand}" to enable debugger-based inspect and verify inspect.capability before using inspect.* routes.`
       );
     }
   }

@@ -342,8 +342,15 @@ describe('buildDiagnosticReport', () => {
     const report = buildDiagnosticReport(undefined, {
       extension: {
         connected: true,
+        extensionId: 'abcdefghijklmnopabcdefghijklmnop',
       },
       runtime: {
+        core: {
+          endpoint: {
+            host: '127.0.0.1',
+            port: 3210,
+          },
+        },
         extension: {
           capabilityNegotiated: true,
           capabilities: {
@@ -360,6 +367,15 @@ describe('buildDiagnosticReport', () => {
     );
     expect(inspectCapability?.ok).toBe(false);
     expect(inspectCapability?.message).toContain('disabled');
+    expect(inspectCapability?.details).toMatchObject({
+      remediation: {
+        enable_command:
+          'browser-bridge dev activate --extension-id abcdefghijklmnopabcdefghijklmnop --enable-inspect',
+        activation_url:
+          'chrome-extension://abcdefghijklmnopabcdefghijklmnop/options.html?bb_activate=1&corePort=3210&enableInspect=1',
+        verify_check: 'inspect.capability',
+      },
+    });
     expect(
       report.warnings?.some((warning) => warning.includes('Inspect'))
     ).toBe(true);

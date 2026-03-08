@@ -17,6 +17,7 @@ const ENV_EXTENSION_ID = 'BROWSER_BRIDGE_EXTENSION_ID';
 const ACTIVATION_FLAG_PARAM = 'bb_activate';
 const ACTIVATION_PORT_PARAM = 'corePort';
 const ACTIVATION_WORKTREE_PARAM = 'worktreeId';
+const ACTIVATION_ENABLE_INSPECT_PARAM = 'enableInspect';
 const ACTIVATION_WAIT_TIMEOUT_MS = 30000;
 const ACTIVATION_WAIT_INTERVAL_MS = 500;
 
@@ -62,12 +63,16 @@ export const buildActivationOptionsUrl = (options: {
   extensionId: string;
   corePort: number;
   worktreeId: string | null;
+  enableInspect?: boolean;
 }): string => {
   const search = new URLSearchParams();
   search.set(ACTIVATION_FLAG_PARAM, '1');
   search.set(ACTIVATION_PORT_PARAM, String(options.corePort));
   if (options.worktreeId) {
     search.set(ACTIVATION_WORKTREE_PARAM, options.worktreeId);
+  }
+  if (options.enableInspect) {
+    search.set(ACTIVATION_ENABLE_INSPECT_PARAM, '1');
   }
   return `chrome-extension://${
     options.extensionId
@@ -139,8 +144,12 @@ const hasPassingCheck = (
 const waitForIsolatedActivation = async (
   runtime: ResolvedCoreRuntime,
   expectedExtensionId: string,
-  activationUrl: string
+  activationUrl: string,
+  options: {
+    requireInspectCapability?: boolean;
+  } = {}
 ): Promise<void> => {
+  const requireInspectCapability = options.requireInspectCapability ?? false;
   const timeoutMs = resolveActivationWaitTimeoutMs();
   const client = createCoreClient({
     host: runtime.host,
@@ -171,8 +180,14 @@ const waitForIsolatedActivation = async (
     const runtimeExtensionId = lastReport?.runtime?.extension?.extension_id;
     const extensionIdMatch =
       !runtimeExtensionId || runtimeExtensionId === expectedExtensionId;
+    const inspectCapability = hasPassingCheck(lastReport, 'inspect.capability');
 
-    if (extensionConnected && endpointMatch && extensionIdMatch) {
+    if (
+      extensionConnected &&
+      endpointMatch &&
+      extensionIdMatch &&
+      (!requireInspectCapability || inspectCapability)
+    ) {
       return;
     }
 
@@ -192,6 +207,11 @@ const waitForIsolatedActivation = async (
       observedConnected: lastReport?.extension?.connected ?? false,
       observedExtensionId: lastReport?.runtime?.extension?.extension_id,
       observedEndpoint: lastReport?.runtime?.extension?.endpoint?.base_url,
+      requiredInspectCapability: requireInspectCapability,
+      observedInspectCapability: hasPassingCheck(
+        lastReport,
+        'inspect.capability'
+      ),
       activationUrl,
     },
   });
@@ -233,89 +253,105 @@ export const registerDevCommands = (program: Command): void => {
       '--extension-id <id>',
       'Chrome extension id to activate for isolated worktree routing'
     )
-    .action(async (options: { extensionId?: string }, command: Command) => {
-      await runLocal(command, async (globalOptions) => {
-        const runtime = resolveRuntimeForCommand(globalOptions, {
-          isolatedMode: true,
-        });
-        const extension = resolveActivationExtensionId({
-          optionExtensionId: options.extensionId,
-          envExtensionId: process.env[ENV_EXTENSION_ID],
-          metadataExtensionId: runtime.metadata?.extension_id,
-        });
-        let resolvedExtension = extension;
-        let discoveryResult:
-          | Awaited<ReturnType<typeof discoverActivationExtensionId>>
-          | undefined;
-        if (!resolvedExtension) {
-          const sharedRuntime = resolveRuntimeForCommand(globalOptions, {
-            isolatedMode: false,
+    .option(
+      '--enable-inspect',
+      'Enable debugger-based inspect capability in extension options during activation'
+    )
+    .action(
+      async (
+        options: { extensionId?: string; enableInspect?: boolean },
+        command: Command
+      ) => {
+        await runLocal(command, async (globalOptions) => {
+          const runtime = resolveRuntimeForCommand(globalOptions, {
+            isolatedMode: true,
           });
-          discoveryResult = await discoverActivationExtensionId(sharedRuntime);
-          if (discoveryResult.kind === 'resolved') {
-            resolvedExtension = {
-              extensionId: discoveryResult.extensionId,
-              source: discoveryResult.source,
-            };
-          } else if (discoveryResult.kind === 'ambiguous') {
+          const extension = resolveActivationExtensionId({
+            optionExtensionId: options.extensionId,
+            envExtensionId: process.env[ENV_EXTENSION_ID],
+            metadataExtensionId: runtime.metadata?.extension_id,
+          });
+          let resolvedExtension = extension;
+          let discoveryResult:
+            | Awaited<ReturnType<typeof discoverActivationExtensionId>>
+            | undefined;
+          if (!resolvedExtension) {
+            const sharedRuntime = resolveRuntimeForCommand(globalOptions, {
+              isolatedMode: false,
+            });
+            discoveryResult =
+              await discoverActivationExtensionId(sharedRuntime);
+            if (discoveryResult.kind === 'resolved') {
+              resolvedExtension = {
+                extensionId: discoveryResult.extensionId,
+                source: discoveryResult.source,
+              };
+            } else if (discoveryResult.kind === 'ambiguous') {
+              throw new CliError({
+                code: 'INVALID_ARGUMENT',
+                message:
+                  'Multiple Browser Bridge extension ids discovered. Provide --extension-id <id> to select one.',
+                retryable: false,
+                details: {
+                  candidates: discoveryResult.candidates,
+                  searchedPaths: discoveryResult.searchedPaths,
+                },
+              });
+            }
+          }
+
+          if (!resolvedExtension) {
             throw new CliError({
               code: 'INVALID_ARGUMENT',
               message:
-                'Multiple Browser Bridge extension ids discovered. Provide --extension-id <id> to select one.',
+                'Missing extension id. Provide --extension-id <id>, set BROWSER_BRIDGE_EXTENSION_ID, or persist extension_id in metadata by running dev activate with --extension-id once (only needed for isolated worktree routing).',
               retryable: false,
               details: {
-                candidates: discoveryResult.candidates,
-                searchedPaths: discoveryResult.searchedPaths,
+                metadataPath: runtime.metadataPath,
+                searchedPaths:
+                  discoveryResult && discoveryResult.kind !== 'resolved'
+                    ? discoveryResult.searchedPaths
+                    : undefined,
               },
             });
           }
-        }
 
-        if (!resolvedExtension) {
-          throw new CliError({
-            code: 'INVALID_ARGUMENT',
-            message:
-              'Missing extension id. Provide --extension-id <id>, set BROWSER_BRIDGE_EXTENSION_ID, or persist extension_id in metadata by running dev activate with --extension-id once (only needed for isolated worktree routing).',
-            retryable: false,
-            details: {
-              metadataPath: runtime.metadataPath,
-              searchedPaths:
-                discoveryResult && discoveryResult.kind !== 'resolved'
-                  ? discoveryResult.searchedPaths
-                  : undefined,
-            },
-          });
-        }
-
-        const metadataPath = writeRuntimeMetadata(
-          buildPersistedRuntimeMetadata(runtime, resolvedExtension.extensionId),
-          { metadataPath: runtime.metadataPath }
-        );
-        const activationUrl = buildActivationOptionsUrl({
-          extensionId: resolvedExtension.extensionId,
-          corePort: runtime.port,
-          worktreeId: runtime.worktreeId,
-        });
-
-        await openPath(activationUrl);
-        await waitForIsolatedActivation(
-          runtime,
-          resolvedExtension.extensionId,
-          activationUrl
-        );
-
-        return {
-          ok: true,
-          result: {
+          const metadataPath = writeRuntimeMetadata(
+            buildPersistedRuntimeMetadata(
+              runtime,
+              resolvedExtension.extensionId
+            ),
+            { metadataPath: runtime.metadataPath }
+          );
+          const activationUrl = buildActivationOptionsUrl({
             extensionId: resolvedExtension.extensionId,
-            extensionIdSource: resolvedExtension.source,
-            host: runtime.host,
-            port: runtime.port,
-            isolatedMode: true,
-            metadataPath,
+            corePort: runtime.port,
+            worktreeId: runtime.worktreeId,
+            enableInspect: options.enableInspect,
+          });
+
+          await openPath(activationUrl);
+          await waitForIsolatedActivation(
+            runtime,
+            resolvedExtension.extensionId,
             activationUrl,
-          },
-        };
-      });
-    });
+            { requireInspectCapability: options.enableInspect === true }
+          );
+
+          return {
+            ok: true,
+            result: {
+              extensionId: resolvedExtension.extensionId,
+              extensionIdSource: resolvedExtension.source,
+              host: runtime.host,
+              port: runtime.port,
+              isolatedMode: true,
+              metadataPath,
+              activationUrl,
+              inspectEnabledRequested: options.enableInspect === true,
+            },
+          };
+        });
+      }
+    );
 };

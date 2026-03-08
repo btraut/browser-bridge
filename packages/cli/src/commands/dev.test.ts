@@ -122,6 +122,19 @@ describe('dev command helpers', () => {
       'chrome-extension://abcdefghijklmnopabcdefghijklmnop/options.html?bb_activate=1&corePort=4567&worktreeId=wt-abc'
     );
   });
+
+  it('builds options URL with inspect enablement when requested', () => {
+    expect(
+      buildActivationOptionsUrl({
+        extensionId: 'abcdefghijklmnopabcdefghijklmnop',
+        corePort: 4567,
+        worktreeId: null,
+        enableInspect: true,
+      })
+    ).toBe(
+      'chrome-extension://abcdefghijklmnopabcdefghijklmnop/options.html?bb_activate=1&corePort=4567&enableInspect=1'
+    );
+  });
 });
 
 describe('dev commands', () => {
@@ -286,6 +299,7 @@ describe('dev commands', () => {
         metadataPath: '/tmp/runtime/dev.json',
         activationUrl:
           'chrome-extension://flag-ext/options.html?bb_activate=1&corePort=4321&worktreeId=wt-abc',
+        inspectEnabledRequested: false,
       },
     });
   });
@@ -367,6 +381,65 @@ describe('dev commands', () => {
         metadataPath: '/tmp/runtime/dev.json',
         activationUrl:
           'chrome-extension://connected-ext/options.html?bb_activate=1&corePort=4321&worktreeId=wt-abc',
+        inspectEnabledRequested: false,
+      },
+    });
+  });
+
+  it('dev activate can enable inspect capability during activation', async () => {
+    const runtime = createRuntime();
+    vi.mocked(resolveCoreRuntime).mockReturnValue(runtime);
+    vi.mocked(createCoreClient).mockReturnValue({
+      baseUrl: 'http://127.0.0.1:4321',
+      ensureReady: vi.fn(async () => {}),
+      post: vi.fn(async () => ({
+        ok: true as const,
+        result: activationReadyReport({
+          checks: [
+            {
+              name: 'runtime.extension.endpoint_match',
+              ok: true,
+            },
+            {
+              name: 'inspect.capability',
+              ok: true,
+            },
+          ],
+        }),
+      })),
+    } as ReturnType<typeof createCoreClient>);
+
+    let envelope: unknown;
+    vi.mocked(runLocal).mockImplementation(async (_command, work) => {
+      envelope = await work({ json: false });
+    });
+
+    const program = buildProgram();
+    await program.parseAsync([
+      'node',
+      'cli',
+      'dev',
+      'activate',
+      '--extension-id',
+      'flag-ext',
+      '--enable-inspect',
+    ]);
+
+    expect(openPath).toHaveBeenCalledWith(
+      'chrome-extension://flag-ext/options.html?bb_activate=1&corePort=4321&worktreeId=wt-abc&enableInspect=1'
+    );
+    expect(envelope).toEqual({
+      ok: true,
+      result: {
+        extensionId: 'flag-ext',
+        extensionIdSource: 'flag',
+        host: '127.0.0.1',
+        port: 4321,
+        isolatedMode: true,
+        metadataPath: '/tmp/runtime/dev.json',
+        activationUrl:
+          'chrome-extension://flag-ext/options.html?bb_activate=1&corePort=4321&worktreeId=wt-abc&enableInspect=1',
+        inspectEnabledRequested: true,
       },
     });
   });
