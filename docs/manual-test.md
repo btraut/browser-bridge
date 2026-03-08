@@ -47,6 +47,7 @@ This checklist validates the Drive + Inspect planes and artifact handling end-to
 8. Inspect the DOM (requires the debugger-based inspect bridge): `node packages/cli/dist/index.js inspect dom-snapshot --session-id <id> --format html --consistency best_effort --json > /tmp/browser-bridge-dom.json`
 9. Inspect console logs: `node packages/cli/dist/index.js inspect console-list --session-id <id>`
 10. Capture a screenshot artifact: `node packages/cli/dist/index.js artifacts screenshot --session-id <id> --target viewport`
+    - Viewport/full-page screenshots should work through the extension capture path even when debugger-based inspect is disabled; CDP is fallback, not the primary path.
 11. Run diagnostics to confirm reliability status: `node packages/cli/dist/index.js diagnostics doctor --session-id <id>`
 12. Open the artifact folder: `node packages/cli/dist/index.js open-artifacts --session-id <id>`
 

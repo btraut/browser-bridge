@@ -690,6 +690,16 @@ export class InspectService {
     const selection = await this.resolveTab(input.targetHint);
 
     const format = input.format ?? 'png';
+    const createScreenshotError = (
+      code: InspectErrorCode,
+      message: string,
+      retryable = false,
+      details?: Record<string, unknown>
+    ): InspectError =>
+      new InspectError(code, message, {
+        retryable,
+        ...(details ? { details } : {}),
+      });
     const writeArtifact = async (data: string): Promise<ArtifactInfo> => {
       try {
         const rootDir = await ensureArtifactRootDir(input.sessionId);
@@ -717,42 +727,37 @@ export class InspectService {
         throw error;
       }
     };
-
-    if (input.selector) {
+    const captureViaExtension = async (
+      mode: 'viewport' | 'full_page' | 'element',
+      failureMessage: string
+    ): Promise<ArtifactInfo> => {
       if (!this.extensionBridge?.request) {
-        const error = new InspectError(
+        throw createScreenshotError(
           'NOT_SUPPORTED',
-          'Element screenshots require an extension that supports drive.screenshot.'
+          'Screenshots require an extension that supports drive.screenshot.'
         );
-        this.recordError(error);
-        throw error;
       }
 
-      const response =
-        await this.extensionBridge.request<DriveScreenshotResult>(
-          'drive.screenshot',
-          {
-            tab_id: selection.tabId,
-            mode: 'element',
-            selector: input.selector,
-            format,
-            ...(typeof input.quality === 'number'
-              ? { quality: input.quality }
-              : {}),
-          },
-          120000
-        );
+      const response = await this.extensionBridge.request<DriveScreenshotResult>(
+        'drive.screenshot',
+        {
+          tab_id: selection.tabId,
+          mode,
+          ...(input.selector ? { selector: input.selector } : {}),
+          format,
+          ...(typeof input.quality === 'number'
+            ? { quality: input.quality }
+            : {}),
+        },
+        120000
+      );
 
       if (response.status === 'error') {
-        const error = new InspectError(
+        const error = createScreenshotError(
           (response.error?.code as InspectErrorCode) ?? 'INSPECT_UNAVAILABLE',
-          response.error?.message ?? 'Failed to capture element screenshot.',
-          {
-            retryable: response.error?.retryable ?? false,
-            ...(response.error?.details
-              ? { details: response.error.details }
-              : {}),
-          }
+          response.error?.message ?? failureMessage,
+          response.error?.retryable ?? false,
+          response.error?.details
         );
         this.recordError(error);
         throw error;
@@ -760,133 +765,120 @@ export class InspectService {
 
       const result = response.result;
       if (!result?.data_base64 || typeof result.data_base64 !== 'string') {
-        const error = new InspectError(
+        const error = createScreenshotError(
           'INSPECT_UNAVAILABLE',
-          'Failed to capture element screenshot.'
+          failureMessage
         );
         this.recordError(error);
         throw error;
       }
 
       return await writeArtifact(result.data_base64);
-    }
-
-    if (input.target === 'full' && this.extensionBridge?.request) {
-      try {
-        const response =
-          await this.extensionBridge.request<DriveScreenshotResult>(
-            'drive.screenshot',
-            {
-              tab_id: selection.tabId,
-              mode: 'full_page',
-              format,
-              ...(typeof input.quality === 'number'
-                ? { quality: input.quality }
-                : {}),
-            },
-            120000
-          );
-
-        if (response.status === 'error') {
-          const error = new InspectError(
-            (response.error?.code as InspectErrorCode) ?? 'INSPECT_UNAVAILABLE',
-            response.error?.message ??
-              'Failed to capture full page screenshot.',
-            {
-              retryable: response.error?.retryable ?? false,
-              ...(response.error?.details
-                ? { details: response.error.details }
-                : {}),
-            }
-          );
-          this.recordError(error);
-          throw error;
-        }
-
-        const result = response.result;
-        if (!result?.data_base64 || typeof result.data_base64 !== 'string') {
-          const error = new InspectError(
-            'INSPECT_UNAVAILABLE',
-            'Failed to capture full page screenshot.'
-          );
-          this.recordError(error);
-          throw error;
-        }
-
-        return await writeArtifact(result.data_base64);
-      } catch (error) {
-        // Fall back to CDP screenshots for environments that don't yet support
-        // extension-driven full page capture.
-        if (error instanceof InspectError) {
-          const code = String(error.code);
-          if (
-            !error.retryable &&
-            ![
-              'NOT_SUPPORTED',
-              'NOT_IMPLEMENTED',
-              'INSPECT_UNAVAILABLE',
-              'PERMISSION_REQUIRED',
-              'RATE_LIMITED',
-            ].includes(code)
-          ) {
-            throw error;
-          }
-        }
-      }
-    }
-
-    await this.debuggerCommand(selection.tabId, 'Page.enable', {});
-
-    let captureParams: Record<string, unknown> = {
-      format,
-      fromSurface: true,
     };
-    if (format !== 'png' && typeof input.quality === 'number') {
-      captureParams = { ...captureParams, quality: input.quality };
+    const shouldFallbackFromExtensionScreenshot = (
+      error: InspectError
+    ): boolean =>
+      ['NOT_SUPPORTED', 'NOT_IMPLEMENTED', 'INSPECT_UNAVAILABLE', 'PERMISSION_REQUIRED', 'RATE_LIMITED'].includes(
+        error.code
+      );
+    const shouldPreserveExtensionScreenshotError = (
+      fallbackError: InspectError
+    ): boolean =>
+      ['INSPECT_UNAVAILABLE', 'ATTACH_DENIED', 'NOT_SUPPORTED', 'NOT_IMPLEMENTED'].includes(
+        fallbackError.code
+      );
+    const captureViaDebugger = async (): Promise<ArtifactInfo> => {
+      await this.debuggerCommand(selection.tabId, 'Page.enable', {});
+
+      let captureParams: Record<string, unknown> = {
+        format,
+        fromSurface: true,
+      };
+      if (format !== 'png' && typeof input.quality === 'number') {
+        captureParams = { ...captureParams, quality: input.quality };
+      }
+
+      if (input.target === 'full') {
+        const layout = await this.debuggerCommand(
+          selection.tabId,
+          'Page.getLayoutMetrics',
+          {}
+        );
+        const contentSize = (
+          layout as { contentSize?: { width: number; height: number } }
+        )?.contentSize;
+        if (contentSize) {
+          captureParams = {
+            ...captureParams,
+            clip: {
+              x: 0,
+              y: 0,
+              width: contentSize.width,
+              height: contentSize.height,
+              scale: 1,
+            },
+          };
+        } else {
+          captureParams = { ...captureParams, captureBeyondViewport: true };
+        }
+      }
+
+      const result = await this.debuggerCommand(
+        selection.tabId,
+        'Page.captureScreenshot',
+        captureParams
+      );
+      const data = (result as { data?: string }).data;
+      if (!data) {
+        const error = new InspectError(
+          'INSPECT_UNAVAILABLE',
+          'Failed to capture screenshot.',
+          { retryable: false }
+        );
+        this.recordError(error);
+        throw error;
+      }
+
+      return await writeArtifact(data);
+    };
+
+    if (input.selector) {
+      return await captureViaExtension('element', 'Failed to capture element screenshot.');
     }
 
-    if (input.target === 'full') {
-      const layout = await this.debuggerCommand(
-        selection.tabId,
-        'Page.getLayoutMetrics',
-        {}
-      );
-      const contentSize = (
-        layout as { contentSize?: { width: number; height: number } }
-      )?.contentSize;
-      if (contentSize) {
-        captureParams = {
-          ...captureParams,
-          clip: {
-            x: 0,
-            y: 0,
-            width: contentSize.width,
-            height: contentSize.height,
-            scale: 1,
-          },
-        };
-      } else {
-        captureParams = { ...captureParams, captureBeyondViewport: true };
+    let extensionScreenshotError: InspectError | undefined;
+    if (this.extensionBridge?.request) {
+      try {
+        return await captureViaExtension(
+          input.target === 'full' ? 'full_page' : 'viewport',
+          input.target === 'full'
+            ? 'Failed to capture full page screenshot.'
+            : 'Failed to capture viewport screenshot.'
+        );
+      } catch (error) {
+        if (!(error instanceof InspectError)) {
+          throw error;
+        }
+        if (!shouldFallbackFromExtensionScreenshot(error)) {
+          throw error;
+        }
+        extensionScreenshotError = error;
       }
     }
 
-    const result = await this.debuggerCommand(
-      selection.tabId,
-      'Page.captureScreenshot',
-      captureParams
-    );
-    const data = (result as { data?: string }).data;
-    if (!data) {
-      const error = new InspectError(
-        'INSPECT_UNAVAILABLE',
-        'Failed to capture screenshot.',
-        { retryable: false }
-      );
-      this.recordError(error);
+    try {
+      return await captureViaDebugger();
+    } catch (error) {
+      if (
+        extensionScreenshotError &&
+        error instanceof InspectError &&
+        shouldPreserveExtensionScreenshotError(error)
+      ) {
+        this.recordError(extensionScreenshotError);
+        throw extensionScreenshotError;
+      }
       throw error;
     }
-
-    return await writeArtifact(data);
   }
 
   private ensureDebugger(): DebuggerBridge {

@@ -128,7 +128,7 @@ Retry policy ownership is centralized in `packages/shared/src/retry-policy.ts`.
 
 - Core drive execution uses shared retry policy hints instead of boolean-only decisions.
 - Extension bridge timeout/disconnect errors are marked retryable.
-- Inspect screenshot path can fallback to alternate capture path when failures are retryable.
+- Inspect screenshot path prefers extension-driven capture for viewport/full/element targets and only falls back to alternate capture paths when the extension path is unavailable or rate-limited.
 - MCP adapter readiness failures are emitted as retryable `UNAVAILABLE` envelopes.
 - CLI timeout failures are surfaced as retryable `TIMEOUT` errors.
 - Core drive returns retryable `EXTENSION_DISCONNECTED` immediately when extension bridge is disconnected.

@@ -484,6 +484,48 @@ describe('InspectService', () => {
     });
   });
 
+  it('captures a viewport screenshot through extension capture without debugger', async () => {
+    await withTempArtifactsRoot(async () => {
+      const registry = new SessionRegistry();
+      const session = registry.create();
+
+      const pngPayload = Buffer.from('viewport-image-bytes').toString('base64');
+      const extensionRequestSpy = vi.fn();
+      const extensionRequest = async <T = unknown>(
+        action: DriveAction
+      ): Promise<DriveResponse<T>> => {
+        extensionRequestSpy(action);
+        return {
+          id: 'test-extension-request',
+          action,
+          status: 'ok',
+          result: {
+            data_base64: pngPayload,
+          },
+        } as DriveResponse<T>;
+      };
+
+      const service = new InspectService({
+        registry,
+        extensionBridge: {
+          isConnected: () => true,
+          getStatus: () => ({ tabs: [DEFAULT_TAB] }),
+          request: extensionRequest,
+        },
+      });
+
+      const result = await service.screenshot({
+        sessionId: session.id,
+        target: 'viewport',
+        targetHint: { url: DEFAULT_TAB.url },
+      });
+
+      expect(extensionRequestSpy).toHaveBeenCalledTimes(1);
+      expect(result.mime).toBe('image/png');
+      expect((await readFile(result.path)).byteLength).toBeGreaterThan(0);
+    });
+  });
+
   it('falls back to CDP when extension full-page capture is rate-limited', async () => {
     await withTempArtifactsRoot(async () => {
       const registry = new SessionRegistry();
@@ -630,6 +672,59 @@ describe('InspectService', () => {
       expect(result.mime).toBe('image/png');
       expect((await readFile(result.path)).byteLength).toBeGreaterThan(0);
     });
+  });
+
+  it('preserves the extension screenshot error when debugger fallback is unavailable', async () => {
+    const registry = new SessionRegistry();
+    const session = registry.create();
+
+    const extensionRequest = async <T = unknown>(
+      action: DriveAction
+    ): Promise<DriveResponse<T>> => ({
+      id: 'test-extension-request',
+      action,
+      status: 'error',
+      error: {
+        code: 'PERMISSION_REQUIRED',
+        message:
+          'Either the <all_urls> or activeTab permission is required.',
+        retryable: false,
+        details: {
+          reason: 'capture_visible_tab_permission_required',
+        },
+      },
+    });
+
+    const debuggerBridge = {
+      hasAttachments: () => false,
+      getLastError: () => undefined,
+      command: async () => ({
+        ok: false as const,
+        error: {
+          code: 'ATTACH_DENIED',
+          message: 'Debugger capability is disabled.',
+          retryable: false,
+        },
+      }),
+    } as unknown as DebuggerBridge;
+
+    const service = new InspectService({
+      registry,
+      extensionBridge: {
+        isConnected: () => true,
+        getStatus: () => ({ tabs: [DEFAULT_TAB] }),
+        request: extensionRequest,
+      },
+      debuggerBridge,
+    });
+
+    await expect(
+      service.screenshot({
+        sessionId: session.id,
+        target: 'viewport',
+        targetHint: { url: DEFAULT_TAB.url },
+      })
+    ).rejects.toMatchObject({ code: 'PERMISSION_REQUIRED' });
   });
 
   it('throws INSPECT_UNAVAILABLE when screenshot data is missing', async () => {
