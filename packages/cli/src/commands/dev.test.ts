@@ -8,6 +8,7 @@ import {
 } from '@btraut/browser-bridge-shared';
 import { runLocal } from '../cli-runtime';
 import { openPath } from '../open-path';
+import { discoverActivationExtensionId } from '../extension-id-discovery';
 import {
   buildActivationOptionsUrl,
   registerDevCommands,
@@ -20,6 +21,13 @@ vi.mock('../cli-runtime', () => ({
 
 vi.mock('../open-path', () => ({
   openPath: vi.fn(),
+}));
+
+vi.mock('../extension-id-discovery', () => ({
+  discoverActivationExtensionId: vi.fn(async () => ({
+    kind: 'none',
+    searchedPaths: [],
+  })),
 }));
 
 vi.mock('@btraut/browser-bridge-shared', async () => {
@@ -116,6 +124,11 @@ describe('dev commands', () => {
     vi.mocked(resolveCoreRuntime).mockReset();
     vi.mocked(resolveLogDirectory).mockReset();
     vi.mocked(openPath).mockReset();
+    vi.mocked(discoverActivationExtensionId).mockReset();
+    vi.mocked(discoverActivationExtensionId).mockResolvedValue({
+      kind: 'none',
+      searchedPaths: [],
+    });
     delete process.env.BROWSER_BRIDGE_EXTENSION_ID;
   });
 
@@ -263,5 +276,86 @@ describe('dev commands', () => {
     await expect(
       program.parseAsync(['node', 'cli', 'dev', 'activate'])
     ).rejects.toThrow('Missing extension id.');
+  });
+
+  it('dev activate uses discovered connected extension id when explicit sources are missing', async () => {
+    const isolatedRuntime = createRuntime({
+      metadata: null,
+      port: 4321,
+      isolatedMode: true,
+    });
+    const sharedRuntime = createRuntime({
+      metadata: null,
+      port: 3210,
+      isolatedMode: false,
+    });
+    vi.mocked(resolveCoreRuntime)
+      .mockReturnValueOnce(isolatedRuntime)
+      .mockReturnValueOnce(sharedRuntime);
+    vi.mocked(discoverActivationExtensionId).mockResolvedValue({
+      kind: 'resolved',
+      extensionId: 'connected-ext',
+      source: 'connected',
+      searchedPaths: [],
+    });
+
+    let envelope: unknown;
+    vi.mocked(runLocal).mockImplementation(async (_command, work) => {
+      envelope = await work({ json: false });
+    });
+
+    const program = buildProgram();
+    await program.parseAsync(['node', 'cli', 'dev', 'activate']);
+
+    expect(discoverActivationExtensionId).toHaveBeenCalledWith(sharedRuntime);
+    expect(openPath).toHaveBeenCalledWith(
+      'chrome-extension://connected-ext/options.html?bb_activate=1&corePort=4321&worktreeId=wt-abc'
+    );
+    expect(envelope).toEqual({
+      ok: true,
+      result: {
+        extensionId: 'connected-ext',
+        extensionIdSource: 'connected',
+        host: '127.0.0.1',
+        port: 4321,
+        isolatedMode: true,
+        metadataPath: '/tmp/runtime/dev.json',
+        activationUrl:
+          'chrome-extension://connected-ext/options.html?bb_activate=1&corePort=4321&worktreeId=wt-abc',
+      },
+    });
+  });
+
+  it('dev activate errors deterministically when discovered ids are ambiguous', async () => {
+    const isolatedRuntime = createRuntime({
+      metadata: null,
+      port: 4321,
+      isolatedMode: true,
+    });
+    const sharedRuntime = createRuntime({
+      metadata: null,
+      port: 3210,
+      isolatedMode: false,
+    });
+    vi.mocked(resolveCoreRuntime)
+      .mockReturnValueOnce(isolatedRuntime)
+      .mockReturnValueOnce(sharedRuntime);
+    vi.mocked(discoverActivationExtensionId).mockResolvedValue({
+      kind: 'ambiguous',
+      candidates: [
+        'aaaabbbbccccddddeeeeffffgggghhhh',
+        'hhhhggggffffeeeeddddccccbbbbaaaa',
+      ],
+      searchedPaths: ['/tmp/Profile 1/Secure Preferences'],
+    });
+    vi.mocked(runLocal).mockImplementation(async (_command, work) => {
+      await work({ json: false });
+    });
+
+    const program = buildProgram();
+    await expect(
+      program.parseAsync(['node', 'cli', 'dev', 'activate'])
+    ).rejects.toThrow('Multiple Browser Bridge extension ids discovered');
+    expect(discoverActivationExtensionId).toHaveBeenCalledWith(sharedRuntime);
   });
 });

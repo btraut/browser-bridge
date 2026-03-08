@@ -164,6 +164,7 @@ export type DriveTabCloseParams = {
 export type ExtensionCapabilityMap = Record<string, boolean>;
 
 export type DriveHelloParams = {
+  extension_id?: string;
   version?: string;
   protocol_version?: string;
   capabilities?: ExtensionCapabilityMap;

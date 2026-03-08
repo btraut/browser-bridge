@@ -70,6 +70,7 @@ describe('ExtensionBridge debugger routing', () => {
       action: 'drive.hello',
       status: 'event',
       params: {
+        extension_id: 'abcdefghijklmnopabcdefghijklmnop',
         version: '1.2.3',
         protocol_version: DRIVE_WS_PROTOCOL_VERSION,
         capabilities: {
@@ -86,6 +87,7 @@ describe('ExtensionBridge debugger routing', () => {
     expect(bridge.getStatus()).toEqual(
       expect.objectContaining({
         version: '1.2.3',
+        extensionId: 'abcdefghijklmnopabcdefghijklmnop',
         protocolVersion: DRIVE_WS_PROTOCOL_VERSION,
         protocolMismatch: undefined,
         capabilityNegotiated: true,
@@ -109,6 +111,7 @@ describe('ExtensionBridge debugger routing', () => {
     expect(bridge.getStatus()).toEqual(
       expect.objectContaining({
         connected: false,
+        extensionId: undefined,
         version: undefined,
         protocolVersion: undefined,
         protocolMismatch: undefined,

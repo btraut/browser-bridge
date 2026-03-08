@@ -24,6 +24,7 @@ import { DRIVE_WS_PROTOCOL_VERSION } from '@btraut/browser-bridge-shared';
 export type ExtensionBridgeStatus = {
   connected: boolean;
   lastSeenAt?: string;
+  extensionId?: string;
   version?: string;
   protocolVersion?: string;
   protocolMismatch?: {
@@ -83,6 +84,7 @@ export class ExtensionBridge {
   private pending = new Map<string, PendingRequest>();
   private connected = false;
   private lastSeenAt?: string;
+  private extensionId?: string;
   private version?: string;
   private protocolVersion?: string;
   private protocolMismatch?: {
@@ -139,6 +141,7 @@ export class ExtensionBridge {
     return {
       connected: this.connected,
       lastSeenAt: this.lastSeenAt,
+      extensionId: this.extensionId,
       version: this.version,
       protocolVersion: this.protocolVersion,
       protocolMismatch: this.protocolMismatch,
@@ -359,6 +362,7 @@ export class ExtensionBridge {
     this.stopHeartbeat();
     this.connected = false;
     this.socket = null;
+    this.extensionId = undefined;
     this.version = undefined;
     this.protocolVersion = undefined;
     this.protocolMismatch = undefined;
@@ -436,6 +440,11 @@ export class ExtensionBridge {
         this.tabs = tabs;
       }
       if (message.action === 'drive.hello') {
+        if (typeof params?.extension_id === 'string') {
+          this.extensionId = params.extension_id;
+        } else {
+          this.extensionId = undefined;
+        }
         if (typeof params?.version === 'string') {
           this.version = params.version;
         }

@@ -38,6 +38,7 @@ export type DiagnosticReport = {
   };
   extension?: {
     connected?: boolean;
+    extension_id?: string;
     version?: string;
     last_seen_at?: string;
   };
@@ -119,6 +120,7 @@ export type DiagnosticReport = {
       };
     };
     extension?: {
+      extension_id?: string;
       version?: string;
       protocol_version?: string;
       capability_negotiated?: boolean;
@@ -146,6 +148,7 @@ export type DiagnosticsContext = {
   };
   extension?: {
     connected: boolean;
+    extensionId?: string;
     lastSeenAt?: string;
     version?: string;
   };
@@ -185,6 +188,7 @@ export type DiagnosticsContext = {
       process?: RuntimeProcessContext;
     };
     extension?: {
+      extensionId?: string;
       version?: string;
       protocolVersion?: string;
       capabilityNegotiated?: boolean;
@@ -574,6 +578,7 @@ export const buildDiagnosticReport = (
       : undefined,
     extension: {
       connected: extensionConnected,
+      extension_id: context.extension?.extensionId,
       version: context.extension?.version,
       last_seen_at: context.extension?.lastSeenAt,
     },
@@ -630,6 +635,7 @@ export const buildDiagnosticReport = (
             : undefined,
           extension: context.runtime.extension
             ? {
+                extension_id: context.runtime.extension.extensionId,
                 version: context.runtime.extension.version,
                 protocol_version: context.runtime.extension.protocolVersion,
                 capability_negotiated:

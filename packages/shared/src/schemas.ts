@@ -109,6 +109,7 @@ const DiagnosticsRuntimeContextSchema = z.object({
     .optional(),
   extension: z
     .object({
+      extension_id: z.string().optional(),
       version: z.string().optional(),
       protocol_version: z.string().optional(),
       capability_negotiated: z.boolean().optional(),
@@ -672,6 +673,7 @@ export const HealthCheckOutputSchema = z
     extension: z
       .object({
         connected: z.boolean(),
+        extension_id: z.string().optional(),
         last_seen_at: z.string().min(1).optional(),
       })
       .passthrough(),

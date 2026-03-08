@@ -1223,6 +1223,7 @@ class DriveSocket {
       tabs = [];
     }
     const params: DriveHelloParams = {
+      extension_id: chrome.runtime.id,
       version: manifest.version,
       protocol_version: DRIVE_WS_PROTOCOL_VERSION,
       capabilities: buildNegotiatedCapabilities(debuggerCapabilityEnabled),

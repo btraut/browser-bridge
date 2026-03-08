@@ -9,13 +9,14 @@ import {
 import { CliError } from '../cli-output';
 import { runLocal } from '../cli-runtime';
 import { openPath } from '../open-path';
+import { discoverActivationExtensionId } from '../extension-id-discovery';
 
 const ENV_EXTENSION_ID = 'BROWSER_BRIDGE_EXTENSION_ID';
 const ACTIVATION_FLAG_PARAM = 'bb_activate';
 const ACTIVATION_PORT_PARAM = 'corePort';
 const ACTIVATION_WORKTREE_PARAM = 'worktreeId';
 
-type ExtensionIdSource = 'flag' | 'env' | 'metadata';
+type ExtensionIdSource = 'flag' | 'env' | 'metadata' | 'connected' | 'profile';
 
 type ResolvedExtensionId = {
   extensionId: string;
@@ -154,8 +155,35 @@ export const registerDevCommands = (program: Command): void => {
           envExtensionId: process.env[ENV_EXTENSION_ID],
           metadataExtensionId: runtime.metadata?.extension_id,
         });
+        let resolvedExtension = extension;
+        let discoveryResult:
+          | Awaited<ReturnType<typeof discoverActivationExtensionId>>
+          | undefined;
+        if (!resolvedExtension) {
+          const sharedRuntime = resolveRuntimeForCommand(globalOptions, {
+            isolatedMode: false,
+          });
+          discoveryResult = await discoverActivationExtensionId(sharedRuntime);
+          if (discoveryResult.kind === 'resolved') {
+            resolvedExtension = {
+              extensionId: discoveryResult.extensionId,
+              source: discoveryResult.source,
+            };
+          } else if (discoveryResult.kind === 'ambiguous') {
+            throw new CliError({
+              code: 'INVALID_ARGUMENT',
+              message:
+                'Multiple Browser Bridge extension ids discovered. Provide --extension-id <id> to select one.',
+              retryable: false,
+              details: {
+                candidates: discoveryResult.candidates,
+                searchedPaths: discoveryResult.searchedPaths,
+              },
+            });
+          }
+        }
 
-        if (!extension) {
+        if (!resolvedExtension) {
           throw new CliError({
             code: 'INVALID_ARGUMENT',
             message:
@@ -163,16 +191,20 @@ export const registerDevCommands = (program: Command): void => {
             retryable: false,
             details: {
               metadataPath: runtime.metadataPath,
+              searchedPaths:
+                discoveryResult && discoveryResult.kind !== 'resolved'
+                  ? discoveryResult.searchedPaths
+                  : undefined,
             },
           });
         }
 
         const metadataPath = writeRuntimeMetadata(
-          buildPersistedRuntimeMetadata(runtime, extension.extensionId),
+          buildPersistedRuntimeMetadata(runtime, resolvedExtension.extensionId),
           { metadataPath: runtime.metadataPath }
         );
         const activationUrl = buildActivationOptionsUrl({
-          extensionId: extension.extensionId,
+          extensionId: resolvedExtension.extensionId,
           corePort: runtime.port,
           worktreeId: runtime.worktreeId,
         });
@@ -182,8 +214,8 @@ export const registerDevCommands = (program: Command): void => {
         return {
           ok: true,
           result: {
-            extensionId: extension.extensionId,
-            extensionIdSource: extension.source,
+            extensionId: resolvedExtension.extensionId,
+            extensionIdSource: resolvedExtension.source,
             host: runtime.host,
             port: runtime.port,
             isolatedMode: true,

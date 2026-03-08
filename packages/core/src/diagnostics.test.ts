@@ -216,6 +216,7 @@ describe('buildDiagnosticReport', () => {
     const report = buildDiagnosticReport(undefined, {
       extension: {
         connected: true,
+        extensionId: 'abcdefghijklmnopabcdefghijklmnop',
         version: '2.0.0',
       },
       runtime: {
@@ -245,6 +246,7 @@ describe('buildDiagnosticReport', () => {
           },
         },
         extension: {
+          extensionId: 'abcdefghijklmnopabcdefghijklmnop',
           version: '2.0.0',
           capabilityNegotiated: true,
           capabilities: {
@@ -278,6 +280,12 @@ describe('buildDiagnosticReport', () => {
     );
     expect(capabilityNegotiated?.ok).toBe(true);
     expect(inspectCapability?.ok).toBe(true);
+    expect(report.extension?.extension_id).toBe(
+      'abcdefghijklmnopabcdefghijklmnop'
+    );
+    expect(report.runtime?.extension?.extension_id).toBe(
+      'abcdefghijklmnopabcdefghijklmnop'
+    );
   });
 
   it('ignores extension runtime mismatch checks when extension is disconnected', () => {
