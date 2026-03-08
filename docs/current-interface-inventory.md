@@ -512,6 +512,8 @@ Content script return shape:
 
 - success: `{ ok: true, result? }`
 - failure: `{ ok: false, error: DriveErrorInfo }`
+- `locator.text` resolution uses normalized visible text and prefers exact, clickable, shorter matches over non-clickable containers or hidden duplicates.
+- `drive.wait_for` with `text_present` matches normalized visible rendered text rather than raw `body.innerText` substring checks.
 
 ### 9.5 Permissions and Prompting Model
 

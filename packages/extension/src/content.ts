@@ -68,6 +68,25 @@ export const runDriveAction = async (
     return value.replace(/[\\"']/g, '\\$&');
   };
 
+  const normalizeText = (value: string): string =>
+    value.replace(/\s+/g, ' ').trim();
+
+  const isClickable = (element: Element): boolean =>
+    element instanceof HTMLElement &&
+    element.matches(
+      'a,button,input,textarea,select,summary,label,[role="button"],[tabindex]'
+    );
+
+  const getNodeDepth = (element: Element): number => {
+    let depth = 0;
+    let current: Element | null = element;
+    while (current) {
+      depth += 1;
+      current = current.parentElement;
+    }
+    return depth;
+  };
+
   const isVisible = (element: Element): boolean => {
     if (!(element instanceof HTMLElement)) {
       return false;
@@ -104,6 +123,30 @@ export const runDriveAction = async (
     }
     return true;
   };
+
+  const collectVisibleText = (node: Node): string => {
+    if (node.nodeType === Node.TEXT_NODE) {
+      return node.textContent || '';
+    }
+    if (!(node instanceof Element)) {
+      return '';
+    }
+    if (!isVisible(node)) {
+      return '';
+    }
+    if (node instanceof HTMLElement) {
+      const { innerText } = node;
+      if (typeof innerText === 'string' && innerText.length > 0) {
+        return innerText;
+      }
+    }
+    return Array.from(node.childNodes)
+      .map((child) => collectVisibleText(child))
+      .join('');
+  };
+
+  const getRenderedText = (element: Element): string =>
+    normalizeText(collectVisibleText(element));
 
   // Heuristic guard against unsafe regex patterns to avoid ReDoS in url_matches.
   const buildUrlMatcher = (
@@ -142,6 +185,20 @@ export const runDriveAction = async (
   };
 
   const findByText = (text: string): Element | null => {
+    const query = normalizeText(text);
+    if (query.length === 0) {
+      return null;
+    }
+
+    const candidateMap = new Map<
+      Element,
+      {
+        exact: boolean;
+        clickable: boolean;
+        textLength: number;
+        depth: number;
+      }
+    >();
     const tree = document.createTreeWalker(
       document.body,
       NodeFilter.SHOW_ELEMENT
@@ -149,12 +206,75 @@ export const runDriveAction = async (
     let node = tree.nextNode();
     while (node) {
       const element = node as Element;
-      if (element.textContent && element.textContent.includes(text)) {
-        return element;
+      if (!isVisible(element)) {
+        node = tree.nextNode();
+        continue;
       }
+      const elementText = getRenderedText(element);
+      if (!elementText.includes(query)) {
+        node = tree.nextNode();
+        continue;
+      }
+
+      let preferredTarget: Element = element;
+      let current: Element | null = element;
+      while (current) {
+        if (
+          current !== element &&
+          isVisible(current) &&
+          isClickable(current) &&
+          getRenderedText(current).includes(query)
+        ) {
+          preferredTarget = current;
+          break;
+        }
+        current = current.parentElement;
+      }
+
+      const preferredText = getRenderedText(preferredTarget);
+      const currentBest = candidateMap.get(preferredTarget);
+      const nextScore = {
+        exact: preferredText === query || elementText === query,
+        clickable: isClickable(preferredTarget),
+        textLength: preferredText.length || elementText.length,
+        depth: getNodeDepth(preferredTarget),
+      };
+
+      if (
+        !currentBest ||
+        Number(nextScore.exact) > Number(currentBest.exact) ||
+        (nextScore.exact === currentBest.exact &&
+          Number(nextScore.clickable) > Number(currentBest.clickable)) ||
+        (nextScore.exact === currentBest.exact &&
+          nextScore.clickable === currentBest.clickable &&
+          nextScore.textLength < currentBest.textLength) ||
+        (nextScore.exact === currentBest.exact &&
+          nextScore.clickable === currentBest.clickable &&
+          nextScore.textLength === currentBest.textLength &&
+          nextScore.depth > currentBest.depth)
+      ) {
+        candidateMap.set(preferredTarget, nextScore);
+      }
+
       node = tree.nextNode();
     }
-    return null;
+
+    const candidates = Array.from(candidateMap.entries()).sort((a, b) => {
+      const [, left] = a;
+      const [, right] = b;
+      if (left.exact !== right.exact) {
+        return left.exact ? -1 : 1;
+      }
+      if (left.clickable !== right.clickable) {
+        return left.clickable ? -1 : 1;
+      }
+      if (left.textLength !== right.textLength) {
+        return left.textLength - right.textLength;
+      }
+      return right.depth - left.depth;
+    });
+
+    return candidates[0]?.[0] ?? null;
   };
 
   const findByRole = (locator: Record<string, unknown>): Element | null => {
@@ -1053,7 +1173,7 @@ export const runDriveAction = async (
 
         const checkCondition = (): boolean => {
           if (kind === 'text_present') {
-            return (document.body?.innerText ?? '').includes(value);
+            return getRenderedText(document.body).includes(normalizeText(value));
           }
           if (kind === 'url_matches') {
             return urlMatcher
