@@ -44,6 +44,13 @@ For Browser Bridge tasks, run this flow in the active worktree:
 - Update beads if scope, decisions, or acceptance criteria change.
 - Beads sync branch is managed via a git worktree (e.g., `beads-sync`); do not commit `.beads` changes on feature branches or delete the sync worktree.
 
+## Bug Fix Registry
+
+- Maintain a local TOC at `docs/bug-fix-registry.md` for bug-fix history. Keep entries short: bug label, one-line fix summary, and PR link.
+- Put detailed root cause + fix notes in the PR description, not in the registry.
+- When fixing a bug, update the registry in the same session.
+- If a previous entry matches the same symptom, read that PR first and avoid repeating the same failed fix path.
+
 ## Committing
 
 - If I say "commit your changes" or "commit", commit only your session's changes and ignore everything else.
