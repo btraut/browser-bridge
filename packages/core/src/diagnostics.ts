@@ -188,7 +188,7 @@ export type DiagnosticsContext = {
       capabilityNegotiated?: boolean;
       capabilities?: Record<string, boolean>;
       endpoint?: RuntimeEndpointContext;
-      portSource?: 'default' | 'storage';
+      portSource?: 'default';
     };
   };
 };

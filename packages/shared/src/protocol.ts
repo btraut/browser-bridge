@@ -170,7 +170,7 @@ export type DriveHelloParams = {
   capabilities?: ExtensionCapabilityMap;
   core_host?: string;
   core_port?: number;
-  core_port_source?: 'default' | 'storage';
+  core_port_source?: 'default';
   tabs: DriveTabInfo[];
 };
 

@@ -79,7 +79,7 @@ describe('ExtensionBridge debugger routing', () => {
         },
         core_host: '127.0.0.1',
         core_port: 3210,
-        core_port_source: 'storage',
+        core_port_source: 'default',
       },
     };
 
@@ -97,7 +97,7 @@ describe('ExtensionBridge debugger routing', () => {
         },
         coreHost: '127.0.0.1',
         corePort: 3210,
-        corePortSource: 'storage',
+        corePortSource: 'default',
       })
     );
 

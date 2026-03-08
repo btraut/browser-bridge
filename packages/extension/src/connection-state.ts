@@ -7,7 +7,7 @@ export type DriveConnectionState =
 export type DriveConnectionEndpoint = {
   host: string;
   port: number;
-  portSource: 'default' | 'storage';
+  portSource: 'default';
 };
 
 export type DriveConnectionStatus = {

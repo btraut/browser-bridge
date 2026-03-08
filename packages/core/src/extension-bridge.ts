@@ -33,7 +33,7 @@ export type ExtensionBridgeStatus = {
   };
   coreHost?: string;
   corePort?: number;
-  corePortSource?: 'default' | 'storage';
+  corePortSource?: 'default';
   capabilityNegotiated: boolean;
   capabilities: Record<string, boolean>;
   tabs: DriveTabInfo[];
@@ -93,7 +93,7 @@ export class ExtensionBridge {
   };
   private coreHost?: string;
   private corePort?: number;
-  private corePortSource?: 'default' | 'storage';
+  private corePortSource?: 'default';
   private capabilityNegotiated = false;
   private capabilityNegotiationFailure?: CapabilityNegotiationFailure;
   private capabilities: Record<string, boolean> = {};
@@ -473,10 +473,7 @@ export class ExtensionBridge {
         ) {
           this.corePort = params.core_port;
         }
-        if (
-          params?.core_port_source === 'default' ||
-          params?.core_port_source === 'storage'
-        ) {
+        if (params?.core_port_source === 'default') {
           this.corePortSource = params.core_port_source;
         }
         const capabilities = params?.capabilities;
