@@ -20,8 +20,25 @@ const setRect = (el: HTMLElement, rect: DOMRect): void => {
   el.getBoundingClientRect = () => rect;
 };
 
+const makeVisible = (
+  el: HTMLElement,
+  rect = new DOMRect(0, 0, 120, 24)
+): void => {
+  setRect(el, rect);
+  Object.defineProperty(el, 'offsetWidth', {
+    configurable: true,
+    get: () => rect.width,
+  });
+  Object.defineProperty(el, 'offsetHeight', {
+    configurable: true,
+    get: () => rect.height,
+  });
+  el.getClientRects = () => [rect] as unknown as DOMRectList;
+};
+
 beforeEach(() => {
   document.body.innerHTML = '';
+  makeVisible(document.body, new DOMRect(0, 0, 1280, 720));
   (
     document as unknown as {
       elementFromPoint?: (x: number, y: number) => Element | null;
@@ -167,6 +184,7 @@ describe('content drive actions', () => {
     const target = document.createElement('div');
     target.id = 'card';
     document.body.appendChild(target);
+    makeVisible(target);
 
     const result = await runDriveAction('drive.hover', {
       locator: { css: '#card' },
@@ -310,8 +328,8 @@ describe('content drive actions', () => {
     to.id = 'to';
     document.body.append(from, to);
 
-    setRect(from, new DOMRect(0, 0, 10, 10));
-    setRect(to, new DOMRect(50, 50, 10, 10));
+    makeVisible(from, new DOMRect(0, 0, 10, 10));
+    makeVisible(to, new DOMRect(50, 50, 10, 10));
 
     (
       document as unknown as {
@@ -326,5 +344,229 @@ describe('content drive actions', () => {
     });
 
     expect(result.ok).toBe(true);
+  });
+
+  it('clicks a text locator when nested text normalizes to the requested label', async () => {
+    vi.useFakeTimers();
+    try {
+      const button = document.createElement('button');
+      button.id = 'view-deck';
+      button.append(
+        Object.assign(document.createElement('span'), { textContent: 'View' }),
+        Object.assign(document.createElement('span'), { textContent: ' deck' })
+      );
+      document.body.appendChild(button);
+      makeVisible(button, new DOMRect(10, 10, 120, 24));
+      makeVisible(
+        button.children[0] as HTMLElement,
+        new DOMRect(10, 10, 40, 24)
+      );
+      makeVisible(
+        button.children[1] as HTMLElement,
+        new DOMRect(50, 10, 60, 24)
+      );
+
+      let clicks = 0;
+      button.addEventListener('click', () => {
+        clicks += 1;
+      });
+
+      const result = await runDriveAction('drive.click', {
+        locator: { text: 'View deck' },
+      });
+
+      expect(result.ok).toBe(true);
+      await vi.runAllTimersAsync();
+      expect(clicks).toBe(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('prefers an exact text match over a longer substring match for locator.text', async () => {
+    vi.useFakeTimers();
+    try {
+      const saved = document.createElement('button');
+      saved.id = 'saved';
+      saved.textContent = 'Saved';
+      const savedCopy = document.createElement('button');
+      savedCopy.id = 'saved-copy';
+      savedCopy.textContent = 'Saved as copy';
+      document.body.append(savedCopy, saved);
+      makeVisible(savedCopy, new DOMRect(10, 10, 160, 24));
+      makeVisible(saved, new DOMRect(10, 50, 80, 24));
+
+      let savedClicks = 0;
+      let savedCopyClicks = 0;
+      saved.addEventListener('click', () => {
+        savedClicks += 1;
+      });
+      savedCopy.addEventListener('click', () => {
+        savedCopyClicks += 1;
+      });
+
+      const result = await runDriveAction('drive.click', {
+        locator: { text: 'Saved' },
+      });
+
+      expect(result.ok).toBe(true);
+      await vi.runAllTimersAsync();
+      expect(savedClicks).toBe(1);
+      expect(savedCopyClicks).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('prefers a clickable text match over a non-clickable container match', async () => {
+    vi.useFakeTimers();
+    try {
+      const container = document.createElement('div');
+      container.id = 'container';
+      container.textContent = 'View deck';
+      const link = document.createElement('a');
+      link.id = 'view-deck-link';
+      link.href = '#deck';
+      link.textContent = 'View deck';
+      document.body.append(container, link);
+      makeVisible(container, new DOMRect(10, 10, 200, 30));
+      makeVisible(link, new DOMRect(10, 60, 90, 24));
+
+      let containerClicks = 0;
+      let linkClicks = 0;
+      container.addEventListener('click', () => {
+        containerClicks += 1;
+      });
+      link.addEventListener('click', () => {
+        linkClicks += 1;
+      });
+
+      const result = await runDriveAction('drive.click', {
+        locator: { text: 'View deck' },
+      });
+
+      expect(result.ok).toBe(true);
+      await vi.runAllTimersAsync();
+      expect(linkClicks).toBe(1);
+      expect(containerClicks).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('ignores hidden text matches when resolving locator.text', async () => {
+    vi.useFakeTimers();
+    try {
+      const hidden = document.createElement('button');
+      hidden.id = 'hidden-view-deck';
+      hidden.textContent = 'View deck';
+      hidden.style.display = 'none';
+      const visible = document.createElement('button');
+      visible.id = 'visible-view-deck';
+      visible.textContent = 'View deck';
+      document.body.append(hidden, visible);
+      makeVisible(visible, new DOMRect(10, 10, 120, 24));
+
+      let hiddenClicks = 0;
+      let visibleClicks = 0;
+      hidden.addEventListener('click', () => {
+        hiddenClicks += 1;
+      });
+      visible.addEventListener('click', () => {
+        visibleClicks += 1;
+      });
+
+      const result = await runDriveAction('drive.click', {
+        locator: { text: 'View deck' },
+      });
+
+      expect(result.ok).toBe(true);
+      await vi.runAllTimersAsync();
+      expect(visibleClicks).toBe(1);
+      expect(hiddenClicks).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('wait_for text_present matches normalized text across nested elements', async () => {
+    const status = document.createElement('div');
+    const first = document.createElement('span');
+    first.textContent = 'Sa';
+    const second = document.createElement('span');
+    second.textContent = 'ved';
+    status.append(first, second);
+    document.body.appendChild(status);
+    makeVisible(status, new DOMRect(10, 10, 120, 24));
+    makeVisible(first, new DOMRect(10, 10, 30, 24));
+    makeVisible(second, new DOMRect(40, 10, 40, 24));
+
+    const result = await runDriveAction('drive.wait_for', {
+      condition: { kind: 'text_present', value: 'Saved' },
+      timeout_ms: 10,
+    });
+
+    expect(result.ok).toBe(true);
+  });
+
+  it('wait_for text_present succeeds when normalized text appears asynchronously', async () => {
+    vi.useFakeTimers();
+    try {
+      const status = document.createElement('div');
+      status.textContent = 'Saving';
+      document.body.appendChild(status);
+      makeVisible(status, new DOMRect(10, 10, 120, 24));
+
+      const resultPromise = runDriveAction('drive.wait_for', {
+        condition: { kind: 'text_present', value: 'Saved' },
+        timeout_ms: 500,
+      });
+
+      window.setTimeout(() => {
+        status.replaceChildren(
+          Object.assign(document.createElement('span'), { textContent: 'Sa' }),
+          Object.assign(document.createElement('span'), { textContent: 'ved' })
+        );
+        makeVisible(status, new DOMRect(10, 10, 120, 24));
+        makeVisible(
+          status.children[0] as HTMLElement,
+          new DOMRect(10, 10, 30, 24)
+        );
+        makeVisible(
+          status.children[1] as HTMLElement,
+          new DOMRect(40, 10, 40, 24)
+        );
+      }, 100);
+
+      await vi.advanceTimersByTimeAsync(250);
+      const result = await resultPromise;
+      expect(result.ok).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('wait_for text_present times out when only hidden matching text exists', async () => {
+    vi.useFakeTimers();
+    try {
+      const hidden = document.createElement('div');
+      hidden.textContent = 'Saved';
+      hidden.style.display = 'none';
+      document.body.appendChild(hidden);
+
+      const resultPromise = runDriveAction('drive.wait_for', {
+        condition: { kind: 'text_present', value: 'Saved' },
+        timeout_ms: 150,
+      });
+
+      await vi.advanceTimersByTimeAsync(250);
+      const result = await resultPromise;
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.code).toBe('TIMEOUT');
+      }
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

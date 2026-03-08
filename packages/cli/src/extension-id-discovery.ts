@@ -10,6 +10,8 @@ type RuntimeEnv = Record<string, string | undefined>;
 
 const EXTENSION_ID_PATTERN = /^[a-p]{32}$/;
 const BROWSER_BRIDGE_NAME = 'browser bridge';
+const CONNECTED_DISCOVERY_ATTEMPTS = 4;
+const CONNECTED_DISCOVERY_RETRY_DELAY_MS = 150;
 
 export type DiscoverySource = 'connected' | 'profile';
 
@@ -59,6 +61,7 @@ type DiscoveryDependencies = {
   readFileSync?: typeof readFileSync;
   readdirSync?: typeof readdirSync;
   createCoreClient?: CreateCoreClientLike;
+  sleepMs?: (ms: number) => Promise<void>;
 };
 
 type HealthCheckResult = {
@@ -78,6 +81,11 @@ const normalizeToken = (value: unknown): string | undefined => {
 
 const isExtensionId = (value: string): boolean =>
   EXTENSION_ID_PATTERN.test(value);
+
+const sleep = async (ms: number): Promise<void> =>
+  new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
 
 const collectRootDirectories = (
   platform: RuntimePlatform,
@@ -99,10 +107,31 @@ const collectRootDirectories = (
     roots.add(
       join(homeDir, 'Library', 'Application Support', 'Google', 'Chrome')
     );
+    roots.add(
+      join(homeDir, 'Library', 'Application Support', 'Google', 'Chrome Beta')
+    );
+    roots.add(
+      join(homeDir, 'Library', 'Application Support', 'Google', 'Chrome Dev')
+    );
+    roots.add(
+      join(homeDir, 'Library', 'Application Support', 'Google', 'Chrome Canary')
+    );
+    roots.add(
+      join(
+        homeDir,
+        'Library',
+        'Application Support',
+        'Google',
+        'Chrome for Testing'
+      )
+    );
   }
 
   if (platform === 'linux') {
     roots.add(join(homeDir, '.config', 'google-chrome'));
+    roots.add(join(homeDir, '.config', 'google-chrome-beta'));
+    roots.add(join(homeDir, '.config', 'google-chrome-unstable'));
+    roots.add(join(homeDir, '.config', 'google-chrome-for-testing'));
     roots.add(join(homeDir, '.config', 'chromium'));
   }
 
@@ -110,6 +139,12 @@ const collectRootDirectories = (
     const localAppData = normalizeToken(env.LOCALAPPDATA);
     if (localAppData) {
       roots.add(join(localAppData, 'Google', 'Chrome', 'User Data'));
+      roots.add(join(localAppData, 'Google', 'Chrome Beta', 'User Data'));
+      roots.add(join(localAppData, 'Google', 'Chrome Dev', 'User Data'));
+      roots.add(join(localAppData, 'Google', 'Chrome SxS', 'User Data'));
+      roots.add(
+        join(localAppData, 'Google', 'Chrome for Testing', 'User Data')
+      );
       roots.add(join(localAppData, 'Chromium', 'User Data'));
     }
   }
@@ -245,37 +280,61 @@ const discoverProfileExtensionIds = (deps: {
 };
 
 const discoverConnectedExtensionId = async (
-  sharedRuntime: ResolvedCoreRuntime,
-  createClient: CreateCoreClientLike
-): Promise<string | undefined> => {
-  let client: CoreClientLike;
-  try {
-    client = createClient({
-      host: sharedRuntime.host,
-      port: sharedRuntime.port,
-      ensureDaemon: true,
-    }) as CoreClientLike;
-  } catch {
-    return undefined;
+  runtimeCandidates: readonly ResolvedCoreRuntime[],
+  createClient: CreateCoreClientLike,
+  sleepMs: (ms: number) => Promise<void>
+): Promise<string[]> => {
+  const extensionIds = new Set<string>();
+
+  for (const runtime of runtimeCandidates) {
+    let client: CoreClientLike;
+    try {
+      client = createClient({
+        host: runtime.host,
+        port: runtime.port,
+        ensureDaemon: true,
+      }) as CoreClientLike;
+    } catch {
+      continue;
+    }
+
+    for (
+      let attempt = 0;
+      attempt < CONNECTED_DISCOVERY_ATTEMPTS;
+      attempt += 1
+    ) {
+      let response: Awaited<ReturnType<CoreClientLike['post']>>;
+      try {
+        response = await client.post('/health/check', {});
+      } catch {
+        break;
+      }
+
+      const extension = (response.result as HealthCheckResult | undefined)
+        ?.extension;
+      const extensionId = normalizeToken(extension?.extension_id);
+      if (extensionId && isExtensionId(extensionId)) {
+        extensionIds.add(extensionId);
+        break;
+      }
+
+      if (extension?.connected !== true) {
+        break;
+      }
+
+      if (attempt === CONNECTED_DISCOVERY_ATTEMPTS - 1) {
+        break;
+      }
+
+      await sleepMs(CONNECTED_DISCOVERY_RETRY_DELAY_MS);
+    }
   }
 
-  try {
-    const response = await client.post('/health/check', {});
-    const extensionId = normalizeToken(
-      (response.result as HealthCheckResult | undefined)?.extension
-        ?.extension_id
-    );
-    if (!extensionId || !isExtensionId(extensionId)) {
-      return undefined;
-    }
-    return extensionId;
-  } catch {
-    return undefined;
-  }
+  return Array.from(extensionIds).sort();
 };
 
 export const discoverActivationExtensionId = async (
-  sharedRuntime: ResolvedCoreRuntime,
+  sharedRuntime: ResolvedCoreRuntime | readonly ResolvedCoreRuntime[],
   dependencies: DiscoveryDependencies = {}
 ): Promise<ExtensionIdDiscoveryResult> => {
   const platform = dependencies.platform ?? process.platform;
@@ -286,16 +345,34 @@ export const discoverActivationExtensionId = async (
   const readDir = dependencies.readdirSync ?? readdirSync;
   const createClient =
     dependencies.createCoreClient ?? (createCoreClient as CreateCoreClientLike);
-
-  const connectedExtensionId = await discoverConnectedExtensionId(
-    sharedRuntime,
-    createClient
+  const sleepMs = dependencies.sleepMs ?? sleep;
+  const runtimeCandidates = (
+    Array.isArray(sharedRuntime) ? sharedRuntime : [sharedRuntime]
+  ).filter(
+    (runtime, index, all) =>
+      all.findIndex(
+        (candidate) =>
+          candidate.host === runtime.host && candidate.port === runtime.port
+      ) === index
   );
-  if (connectedExtensionId) {
+
+  const connectedExtensionIds = await discoverConnectedExtensionId(
+    runtimeCandidates,
+    createClient,
+    sleepMs
+  );
+  if (connectedExtensionIds.length === 1) {
     return {
       kind: 'resolved',
-      extensionId: connectedExtensionId,
+      extensionId: connectedExtensionIds[0],
       source: 'connected',
+      searchedPaths: [],
+    };
+  }
+  if (connectedExtensionIds.length > 1) {
+    return {
+      kind: 'ambiguous',
+      candidates: connectedExtensionIds,
       searchedPaths: [],
     };
   }

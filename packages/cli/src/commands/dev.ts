@@ -279,8 +279,10 @@ export const registerDevCommands = (program: Command): void => {
             const sharedRuntime = resolveRuntimeForCommand(globalOptions, {
               isolatedMode: false,
             });
-            discoveryResult =
-              await discoverActivationExtensionId(sharedRuntime);
+            discoveryResult = await discoverActivationExtensionId([
+              runtime,
+              sharedRuntime,
+            ]);
             if (discoveryResult.kind === 'resolved') {
               resolvedExtension = {
                 extensionId: discoveryResult.extensionId,

@@ -9,4 +9,3 @@ npm-debug.log*
 # bd worktree
 .worktrees/beads/
 .beads/
-docs/bug-fix-registry.md

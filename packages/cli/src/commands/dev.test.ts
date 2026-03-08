@@ -366,7 +366,10 @@ describe('dev commands', () => {
     const program = buildProgram();
     await program.parseAsync(['node', 'cli', 'dev', 'activate']);
 
-    expect(discoverActivationExtensionId).toHaveBeenCalledWith(sharedRuntime);
+    expect(discoverActivationExtensionId).toHaveBeenCalledWith([
+      isolatedRuntime,
+      sharedRuntime,
+    ]);
     expect(openPath).toHaveBeenCalledWith(
       'chrome-extension://connected-ext/options.html?bb_activate=1&corePort=4321&worktreeId=wt-abc'
     );
@@ -444,6 +447,83 @@ describe('dev commands', () => {
     });
   });
 
+  it('dev activate can enable inspect capability with a discovered extension id', async () => {
+    const isolatedRuntime = createRuntime({
+      metadata: null,
+      port: 4321,
+      isolatedMode: true,
+    });
+    const sharedRuntime = createRuntime({
+      metadata: null,
+      port: 3210,
+      isolatedMode: false,
+    });
+    vi.mocked(resolveCoreRuntime)
+      .mockReturnValueOnce(isolatedRuntime)
+      .mockReturnValueOnce(sharedRuntime);
+    vi.mocked(discoverActivationExtensionId).mockResolvedValue({
+      kind: 'resolved',
+      extensionId: 'connected-ext',
+      source: 'connected',
+      searchedPaths: [],
+    });
+    vi.mocked(createCoreClient).mockReturnValue({
+      baseUrl: 'http://127.0.0.1:4321',
+      ensureReady: vi.fn(async () => {}),
+      post: vi.fn(async () => ({
+        ok: true as const,
+        result: activationReadyReport({
+          checks: [
+            {
+              name: 'runtime.extension.endpoint_match',
+              ok: true,
+            },
+            {
+              name: 'inspect.capability',
+              ok: true,
+            },
+          ],
+        }),
+      })),
+    } as ReturnType<typeof createCoreClient>);
+
+    let envelope: unknown;
+    vi.mocked(runLocal).mockImplementation(async (_command, work) => {
+      envelope = await work({ json: false });
+    });
+
+    const program = buildProgram();
+    await program.parseAsync([
+      'node',
+      'cli',
+      'dev',
+      'activate',
+      '--enable-inspect',
+    ]);
+
+    expect(discoverActivationExtensionId).toHaveBeenCalledWith([
+      isolatedRuntime,
+      sharedRuntime,
+    ]);
+    expect(openPath).toHaveBeenCalledWith(
+      'chrome-extension://connected-ext/options.html?bb_activate=1&corePort=4321&worktreeId=wt-abc&enableInspect=1'
+    );
+    expect(envelope).toEqual({
+      ok: true,
+      result: {
+        extensionId: 'connected-ext',
+        extensionIdSource: 'connected',
+        host: '127.0.0.1',
+        port: 4321,
+        isolatedMode: true,
+        metadataPath: '/tmp/runtime/dev.json',
+        activationUrl:
+          'chrome-extension://connected-ext/options.html?bb_activate=1&corePort=4321&worktreeId=wt-abc&enableInspect=1',
+        inspectEnabledRequested: true,
+      },
+    });
+  });
+
   it('dev activate errors deterministically when discovered ids are ambiguous', async () => {
     const isolatedRuntime = createRuntime({
       metadata: null,
@@ -474,7 +554,10 @@ describe('dev commands', () => {
     await expect(
       program.parseAsync(['node', 'cli', 'dev', 'activate'])
     ).rejects.toThrow('Multiple Browser Bridge extension ids discovered');
-    expect(discoverActivationExtensionId).toHaveBeenCalledWith(sharedRuntime);
+    expect(discoverActivationExtensionId).toHaveBeenCalledWith([
+      isolatedRuntime,
+      sharedRuntime,
+    ]);
   });
 
   it('dev activate fails with actionable timeout details when isolated bind never completes', async () => {

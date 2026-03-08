@@ -10,7 +10,7 @@ This checklist validates the Drive + Inspect planes and artifact handling end-to
 3. Load the extension from `packages/extension` (repo) or `node_modules/@btraut/browser-bridge/extension` (npm install) in `chrome://extensions`.
 4. Open a dedicated Chrome tab you do not mind navigating (example: `about:blank` or `https://example.com`).
 5. Ensure DevTools is closed on the target tab (the debugger cannot attach while DevTools is open).
-6. In extension options, enable **Debugger-based inspect** before running `inspect.*` checks.
+6. In extension options, enable **Debugger-based inspect** before running `inspect.*` checks, or use `node packages/cli/dist/index.js dev activate --enable-inspect --json` during isolated-worktree setup.
 
 ## Runtime Setup
 
@@ -19,7 +19,8 @@ This checklist validates the Drive + Inspect planes and artifact handling end-to
 2. Resolve runtime details when needed:
    - `node packages/cli/dist/index.js dev info --json`
 3. Only for isolated multi-worktree testing, activate this worktree:
-   - `node packages/cli/dist/index.js dev activate --extension-id <id> --json`
+   - `node packages/cli/dist/index.js dev activate --json`
+   - If auto-discovery is ambiguous, rerun with `--extension-id <id>`.
 4. In isolated mode, do not assume `3210`:
    - Use the `port` returned by `dev info` for manual host/port wiring.
 5. Check logs before ad-hoc debugging:
@@ -30,7 +31,7 @@ This checklist validates the Drive + Inspect planes and artifact handling end-to
 
 ### Quick Troubleshooting
 
-- Missing extension id (isolated mode only): pass `--extension-id <id>`, set `BROWSER_BRIDGE_EXTENSION_ID`, or persist it once with `dev activate --extension-id`.
+- Missing extension id (isolated mode only): retry once first; activation probes live runtimes and common Chrome channel profiles before giving up. If discovery is still ambiguous/unavailable, pass `--extension-id <id>`, set `BROWSER_BRIDGE_EXTENSION_ID`, or persist it once with `dev activate --extension-id`.
 - Activation URL did not open in Chrome: rerun with `--json`, copy `result.activationUrl`, and paste it into Chrome.
 - Stream log files: per-stream JSONL files live in `.context/logs/browser-bridge/` with rotations like `core.1.jsonl`.
 
@@ -46,6 +47,7 @@ This checklist validates the Drive + Inspect planes and artifact handling end-to
 8. Inspect the DOM (requires the debugger-based inspect bridge): `node packages/cli/dist/index.js inspect dom-snapshot --session-id <id> --format html --consistency best_effort --json > /tmp/browser-bridge-dom.json`
 9. Inspect console logs: `node packages/cli/dist/index.js inspect console-list --session-id <id>`
 10. Capture a screenshot artifact: `node packages/cli/dist/index.js artifacts screenshot --session-id <id> --target viewport`
+    - Viewport/full-page screenshots should work through the extension capture path even when debugger-based inspect is disabled; CDP is fallback, not the primary path.
 11. Run diagnostics to confirm reliability status: `node packages/cli/dist/index.js diagnostics doctor --session-id <id>`
 12. Open the artifact folder: `node packages/cli/dist/index.js open-artifacts --session-id <id>`
 

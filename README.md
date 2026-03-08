@@ -124,7 +124,7 @@ Manage approvals (and bypass mode):
 - Switch **Permission mode** to **Bypass (dangerous)** to skip the allowlist and prompts entirely.
 - In bypass mode, the agent can take actions on any website without asking.
 - Restricted URLs (for example `chrome://` and `file://`) are still blocked.
-- `inspect.*` requires enabling **Debugger-based inspect** in extension options. If disabled, inspect calls fail with `ATTACH_DENIED` and a clear next step.
+- `inspect.*` requires enabling **Debugger-based inspect** in extension options. If disabled, inspect calls fail with `ATTACH_DENIED` and a clear next step; the supported setup path is `browser-bridge dev activate --enable-inspect` (or the same command with `--extension-id` when discovery is ambiguous).
 
 </details>
 
@@ -294,13 +294,13 @@ Use the `port`, `worktreeId`, `metadataPath`, and `logDir` from output.
 browser-bridge dev activate --extension-id <id>
 ```
 
-After the first run, you can usually omit `--extension-id` because it is saved in `.context/browser-bridge/dev.json`.
+`dev activate` first tries to auto-discover a connected Browser Bridge extension id from live runtimes and Chrome profile data. Pass `--extension-id` only when discovery is ambiguous or you want to force a specific unpacked install. After the first successful run, you can usually omit `--extension-id` because it is saved in `.context/browser-bridge/dev.json`.
 
 3. Run your CLI/MCP workflow in this worktree.
 
 ## 🧯 Worktree Troubleshooting
 
-- Missing extension id: Run `browser-bridge dev activate --extension-id <id>`. Or set `BROWSER_BRIDGE_EXTENSION_ID=<id>`. You can copy the id from `chrome://extensions` (enable Developer mode to see ids).
+- Missing extension id: Retry once first; `dev activate` now probes both shared and isolated runtimes and scans common Chrome channel profiles. If discovery is still ambiguous or unavailable, run `browser-bridge dev activate --extension-id <id>` or set `BROWSER_BRIDGE_EXTENSION_ID=<id>`. You can copy the id from `chrome://extensions` (enable Developer mode to see ids).
 - Activation URL did not open in Chrome: Run `browser-bridge dev activate --json`, copy `result.activationUrl`, and open it directly in Chrome. `dev activate` uses the OS URL opener, so your default browser setting matters.
 - Logs and per-stream JSONL inspection: Logs are under `.context/logs/browser-bridge/`. Common streams: `cli.jsonl`, `core.jsonl`, `mcp-adapter.jsonl` (plus rotated files like `core.1.jsonl`).
 

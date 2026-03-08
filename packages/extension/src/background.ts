@@ -1135,6 +1135,28 @@ class DriveSocket {
     });
   }
 
+  async reconnectForEndpointChange(): Promise<void> {
+    if (this.reconnectTimer !== null) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+
+    const socket = this.socket;
+    this.socket = null;
+    this.stopKeepAlive();
+    this.connection.markConnecting();
+
+    if (socket) {
+      try {
+        socket.close();
+      } catch {
+        // Best-effort: closing an already-closed socket is harmless.
+      }
+    }
+
+    await this.connect();
+  }
+
   private handleSocketUnavailable(socket: WebSocket, reason: string): void {
     if (this.socket !== socket) {
       return;
@@ -3759,26 +3781,31 @@ chrome.storage.onChanged.addListener(
     if (areaName !== 'local') {
       return;
     }
+    const corePortChange = changes[CORE_PORT_KEY];
     const debuggerChange = changes[DEBUGGER_CAPABILITY_ENABLED_KEY];
-    if (!debuggerChange) {
+    if (!corePortChange && !debuggerChange) {
       return;
     }
-    if (typeof debuggerChange.newValue === 'boolean') {
-      void socket
-        .handleDebuggerCapabilityChange(debuggerChange.newValue)
-        .catch((error) => {
-          console.error(
-            'DriveSocket handleDebuggerCapabilityChange failed:',
-            error
-          );
-        });
-      return;
+
+    let work = Promise.resolve();
+    if (corePortChange && corePortChange.newValue !== corePortChange.oldValue) {
+      work = work.then(() => socket.reconnectForEndpointChange());
     }
-    void socket.refreshDebuggerCapabilityState().catch((error) => {
-      console.error(
-        'DriveSocket refreshDebuggerCapabilityState failed:',
-        error
-      );
+
+    if (debuggerChange) {
+      if (typeof debuggerChange.newValue === 'boolean') {
+        work = work.then(() =>
+          socket.handleDebuggerCapabilityChange(
+            debuggerChange.newValue as boolean
+          )
+        );
+      } else {
+        work = work.then(() => socket.refreshDebuggerCapabilityState());
+      }
+    }
+
+    void work.catch((error) => {
+      console.error('DriveSocket storage change handling failed:', error);
     });
   }
 );

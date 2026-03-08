@@ -128,7 +128,7 @@ Retry policy ownership is centralized in `packages/shared/src/retry-policy.ts`.
 
 - Core drive execution uses shared retry policy hints instead of boolean-only decisions.
 - Extension bridge timeout/disconnect errors are marked retryable.
-- Inspect screenshot path can fallback to alternate capture path when failures are retryable.
+- Inspect screenshot path prefers extension-driven capture for viewport/full/element targets and only falls back to alternate capture paths when the extension path is unavailable or rate-limited.
 - MCP adapter readiness failures are emitted as retryable `UNAVAILABLE` envelopes.
 - CLI timeout failures are surfaced as retryable `TIMEOUT` errors.
 - Core drive returns retryable `EXTENSION_DISCONNECTED` immediately when extension bridge is disconnected.
@@ -440,6 +440,7 @@ Input validation contract:
   - CLI flag
   - `BROWSER_BRIDGE_EXTENSION_ID`
   - stored metadata
+- when explicit sources are absent, `dev activate` probes connected shared/isolated runtimes and then scans common Chrome channel profile roots before failing
 - `dev activate` persists metadata and opens extension options URL with activation parameters.
 
 ## 9. Extension Contract
@@ -511,6 +512,8 @@ Content script return shape:
 
 - success: `{ ok: true, result? }`
 - failure: `{ ok: false, error: DriveErrorInfo }`
+- `locator.text` resolution uses normalized visible text and prefers exact, clickable, shorter matches over non-clickable containers or hidden duplicates.
+- `drive.wait_for` with `text_present` matches normalized visible rendered text rather than raw `body.innerText` substring checks.
 
 ### 9.5 Permissions and Prompting Model
 
