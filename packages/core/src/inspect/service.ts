@@ -825,6 +825,7 @@ export class InspectService {
               'NOT_SUPPORTED',
               'NOT_IMPLEMENTED',
               'INSPECT_UNAVAILABLE',
+              'PERMISSION_REQUIRED',
               'RATE_LIMITED',
             ].includes(code)
           ) {

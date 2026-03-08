@@ -30,6 +30,10 @@ import {
   touchSiteLastUsed,
 } from './site-permissions.js';
 import { ConnectionStateTracker } from './connection-state.js';
+import {
+  isCaptureVisibleTabRateLimitedError,
+  mapScreenshotCaptureError,
+} from './screenshot-errors.js';
 
 type ContentResult =
   | { ok: true; result?: unknown }
@@ -231,25 +235,6 @@ const CAPTURE_VISIBLE_TAB_RETRY_BASE_DELAY_MS = 500;
 let captureVisibleTabQueue: Promise<void> = Promise.resolve();
 let captureVisibleTabLastCallAt = 0;
 
-const isCaptureVisibleTabRateLimitedMessage = (message: string): boolean => {
-  const normalized = message.toLowerCase();
-  const hasCaptureSignal =
-    normalized.includes('capturevisibletab') ||
-    normalized.includes('max_capture_visible_tab_calls_per_second');
-  const hasRateSignal =
-    normalized.includes('too often') ||
-    normalized.includes('rate limit') ||
-    normalized.includes('rate-limit');
-  return hasCaptureSignal && hasRateSignal;
-};
-
-const isCaptureVisibleTabRateLimitedError = (error: unknown): boolean => {
-  return (
-    error instanceof Error &&
-    isCaptureVisibleTabRateLimitedMessage(error.message)
-  );
-};
-
 const randomJitterMs = (maxMs: number): number => {
   return Math.floor(Math.random() * Math.max(1, maxMs));
 };
@@ -311,33 +296,6 @@ const captureVisibleTabWithThrottle = async (
     }
     throw new Error('captureVisibleTab failed unexpectedly.');
   });
-};
-
-const mapScreenshotCaptureError = (
-  error: unknown,
-  fallbackMessage: string
-): DriveErrorInfo => {
-  const message =
-    error instanceof Error && error.message ? error.message : fallbackMessage;
-
-  if (isCaptureVisibleTabRateLimitedError(error)) {
-    return {
-      code: 'RATE_LIMITED',
-      message:
-        'Screenshot capture hit Chrome capture rate limits. Please retry shortly.',
-      retryable: true,
-      details: {
-        reason: 'capture_visible_tab_rate_limited',
-        original_message: message,
-      },
-    };
-  }
-
-  return {
-    code: 'ARTIFACT_IO_ERROR',
-    message,
-    retryable: false,
-  };
 };
 
 const parseDataUrl = (

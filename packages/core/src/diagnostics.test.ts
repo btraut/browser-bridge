@@ -149,6 +149,52 @@ describe('buildDiagnosticReport', () => {
     expect(driveCheck?.ok).toBe(false);
   });
 
+  it('surfaces screenshot permission remediation from last error details', () => {
+    const now = new Date().toISOString();
+    const report = buildDiagnosticReport('session-123', {
+      sessionState: SessionState.DRIVE_READY,
+      extension: { connected: true },
+      driveLastError: {
+        code: 'PERMISSION_REQUIRED',
+        message: 'Screenshot capture requires permission.',
+        retryable: false,
+        at: now,
+        details: {
+          reason: 'capture_visible_tab_permission_required',
+          required_any_of: ['<all_urls>', 'activeTab'],
+        },
+      },
+      inspectLastError: {
+        code: 'PERMISSION_REQUIRED',
+        message: 'Screenshot capture requires permission.',
+        retryable: false,
+        at: now,
+        details: {
+          reason: 'capture_visible_tab_permission_required',
+        },
+      },
+    });
+
+    const driveCheck = report.checks?.find(
+      (check) => check.name === 'drive.last_error'
+    );
+    const inspectCheck = report.checks?.find(
+      (check) => check.name === 'inspect.last_error'
+    );
+    expect(driveCheck?.details).toMatchObject({
+      reason: 'capture_visible_tab_permission_required',
+      required_any_of: ['<all_urls>', 'activeTab'],
+    });
+    expect(inspectCheck?.details).toMatchObject({
+      reason: 'capture_visible_tab_permission_required',
+    });
+    expect(
+      report.warnings?.some((warning) =>
+        warning.includes('Screenshot capture permission is missing')
+      )
+    ).toBe(true);
+  });
+
   it('reports caller/extension runtime endpoint mismatches explicitly', () => {
     const report = buildDiagnosticReport(undefined, {
       extension: {

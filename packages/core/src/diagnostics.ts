@@ -169,12 +169,14 @@ export type DiagnosticsContext = {
     message: string;
     retryable: boolean;
     at: string;
+    details?: Record<string, unknown>;
   };
   inspectLastError?: {
     code: string;
     message: string;
     retryable: boolean;
     at: string;
+    details?: Record<string, unknown>;
   };
   recoveryAttempt?: RecoveryAttempt;
   recoveryMetrics?: RecoveryMetrics;
@@ -256,6 +258,12 @@ const buildInspectActivationUrl = (
   search.set(ACTIVATION_ENABLE_INSPECT_PARAM, '1');
   return `chrome-extension://${extensionId}/options.html?${search.toString()}`;
 };
+
+const hasCapturePermissionErrorReason = (
+  details: Record<string, unknown> | undefined
+): boolean =>
+  typeof details?.reason === 'string' &&
+  details.reason === 'capture_visible_tab_permission_required';
 
 const hasEndpoint = (
   endpoint?: RuntimeEndpointContext
@@ -551,9 +559,15 @@ export const buildDiagnosticReport = (
         code: context.driveLastError.code,
         retryable: context.driveLastError.retryable,
         at: context.driveLastError.at,
+        ...(context.driveLastError.details ?? {}),
         ...(ageMs !== undefined ? { age_ms: ageMs } : {}),
       },
     });
+    if (hasCapturePermissionErrorReason(context.driveLastError.details)) {
+      warnings.push(
+        'Screenshot capture permission is missing. Reload the Browser Bridge extension in chrome://extensions and retry screenshot capture.'
+      );
+    }
   }
 
   if (context.inspectLastError) {
@@ -574,9 +588,15 @@ export const buildDiagnosticReport = (
         code: context.inspectLastError.code,
         retryable: context.inspectLastError.retryable,
         at: context.inspectLastError.at,
+        ...(context.inspectLastError.details ?? {}),
         ...(ageMs !== undefined ? { age_ms: ageMs } : {}),
       },
     });
+    if (hasCapturePermissionErrorReason(context.inspectLastError.details)) {
+      warnings.push(
+        'Screenshot capture permission is missing. Reload the Browser Bridge extension in chrome://extensions and retry screenshot capture.'
+      );
+    }
   }
 
   if (context.recoveryAttempt) {

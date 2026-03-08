@@ -259,6 +259,7 @@ export const registerDiagnosticsRoutes = (
             message: lastError.error.message,
             retryable: lastError.error.retryable,
             at: lastError.at,
+            details: lastError.error.details,
           };
         }
       }
@@ -271,6 +272,7 @@ export const registerDiagnosticsRoutes = (
             message: lastError.error.message,
             retryable: lastError.error.retryable,
             at: lastError.at,
+            details: lastError.error.details,
           };
         }
       }
