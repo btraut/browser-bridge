@@ -10,20 +10,18 @@ This checklist validates the Drive + Inspect planes and artifact handling end-to
 3. Load the extension from `packages/extension` (repo) or `node_modules/@btraut/browser-bridge/extension` (npm install) in `chrome://extensions`.
 4. Open a dedicated Chrome tab you do not mind navigating (example: `about:blank` or `https://example.com`).
 5. Ensure DevTools is closed on the target tab (the debugger cannot attach while DevTools is open).
-6. In extension options, enable **Debugger-based inspect** before running `inspect.*` checks, or use `node packages/cli/dist/index.js dev activate --enable-inspect --json` during isolated-worktree setup.
+6. In extension options, enable **Debugger-based inspect** before running `inspect.*` checks, or use `node packages/cli/dist/index.js dev enable-inspect --json`.
 
 ## Runtime Setup
 
-1. Default mode is zero-setup:
+1. Runtime is zero-setup:
    - Core/CLI/extension use `127.0.0.1:3210` by default.
 2. Resolve runtime details when needed:
    - `node packages/cli/dist/index.js dev info --json`
-3. Only for isolated multi-worktree testing, activate this worktree:
-   - `node packages/cli/dist/index.js dev activate --json`
+3. Enable debugger-based inspect only when a test needs `inspect.*`:
+   - `node packages/cli/dist/index.js dev enable-inspect --json`
    - If auto-discovery is ambiguous, rerun with `--extension-id <id>`.
-4. In isolated mode, do not assume `3210`:
-   - Use the `port` returned by `dev info` for manual host/port wiring.
-5. Check logs before ad-hoc debugging:
+4. Check logs before ad-hoc debugging:
    - `ls -1 .context/logs/browser-bridge`
    - `tail -n 80 .context/logs/browser-bridge/cli.jsonl`
    - `tail -n 80 .context/logs/browser-bridge/core.jsonl`
@@ -31,9 +29,10 @@ This checklist validates the Drive + Inspect planes and artifact handling end-to
 
 ### Quick Troubleshooting
 
-- Missing extension id (isolated mode only): retry once first; activation probes live runtimes and common Chrome channel profiles before giving up. If discovery is still ambiguous/unavailable, pass `--extension-id <id>`, set `BROWSER_BRIDGE_EXTENSION_ID`, or persist it once with `dev activate --extension-id`.
-- Activation URL did not open in Chrome: rerun with `--json`, copy `result.activationUrl`, and paste it into Chrome.
+- Missing extension id while enabling inspect: retry once first; `dev enable-inspect` probes the connected runtime and common Chrome channel profiles before giving up. If discovery is still ambiguous/unavailable, pass `--extension-id <id>` or set `BROWSER_BRIDGE_EXTENSION_ID`.
+- Options page did not open in Chrome: rerun `dev enable-inspect --json`, copy `result.optionsUrl`, and paste it into Chrome.
 - Stream log files: per-stream JSONL files live in `.context/logs/browser-bridge/` with rotations like `core.1.jsonl`.
+- Routing assumptions: default runtime is always `127.0.0.1:3210` unless you explicitly pass host/port overrides.
 
 ## Checklist (Core + CLI)
 

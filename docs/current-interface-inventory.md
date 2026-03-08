@@ -50,7 +50,7 @@ Important defaults and artifacts:
 - Default core port: `3210`
 - Worktree metadata file: `.context/browser-bridge/dev.json`
 - Default log directory: `.context/logs/browser-bridge`
-- Deterministic isolated-mode port support exists (per worktree)
+- Runtime defaults to `127.0.0.1:3210`; explicit env/options overrides are the only routing changes
 - Runtime `cwd` resolution fallback order is:
   - explicit `cwd` option
   - `BROWSER_BRIDGE_CWD`
@@ -402,7 +402,7 @@ Global flags available at root and inherited by command groups:
 `dev`:
 
 - `info`
-- `activate`
+- `enable-inspect`
 
 `mcp`:
 
@@ -436,12 +436,12 @@ Input validation contract:
 - Runtime config resolution uses shared precedence rules.
 - `drive navigate` no longer performs CLI-owned `session.create`; missing-session behavior is core-owned and shared with MCP.
 - CLI core-client auto-injects `caller` runtime/process metadata for `diagnostics.doctor` (parity with MCP adapter core-client behavior).
-- `dev activate` uses extension-id resolution priority:
+- `dev enable-inspect` uses extension-id resolution priority:
   - CLI flag
   - `BROWSER_BRIDGE_EXTENSION_ID`
   - stored metadata
-- when explicit sources are absent, `dev activate` probes connected shared/isolated runtimes and then scans common Chrome channel profile roots before failing
-- `dev activate` persists metadata and opens extension options URL with activation parameters.
+- when explicit sources are absent, `dev enable-inspect` probes the connected runtime and then scans common Chrome channel profile roots before failing
+- `dev enable-inspect` opens the extension options URL, waits for debugger capability, and may persist discovered extension-id metadata for later reuse.
 
 ## 9. Extension Contract
 

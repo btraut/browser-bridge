@@ -10,9 +10,9 @@ This smoke flow validates the MCP adapter against a running Core + Chrome extens
 4. Ensure Chrome is running (Browser Bridge will create a dedicated agent window/tab when `tab_id` is omitted).
 5. Ensure DevTools is closed on the agent tab (the debugger cannot attach while DevTools is open).
 6. Default mode is zero-setup (`127.0.0.1:3210`); no activation is required.
-7. Resolve this worktree runtime when needed: `browser-bridge dev info --json`.
-8. Only for isolated multi-worktree testing, activate this worktree before smoke:
-   - `browser-bridge dev activate --extension-id <id> --json`
+7. Resolve runtime details when needed: `browser-bridge dev info --json`.
+8. Enable debugger-based inspect only if this smoke uses `inspect.*`:
+   - `browser-bridge dev enable-inspect --extension-id <id> --json`
 9. After reboot/cold start, first MCP calls auto-start Core; popup `disconnected`/`backoff` is expected until reconnect succeeds.
 
 ## Run
@@ -43,6 +43,6 @@ This smoke flow validates the MCP adapter against a running Core + Chrome extens
 
 ## Notes
 
-- Default Core port is `3210`. In isolated mode, use the `port` from `browser-bridge dev info`.
+- Default Core port is `3210`. If you intentionally override host/port, use those explicit values instead.
 - If Core runs on a custom host/port, set `BROWSER_BRIDGE_CORE_HOST` and `BROWSER_BRIDGE_CORE_PORT` before starting the adapter.
 - If endpoint mismatch is suspected, run `browser-bridge diagnostics doctor --json` and compare caller/core/extension runtime endpoints.

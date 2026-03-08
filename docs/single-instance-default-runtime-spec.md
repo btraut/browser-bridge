@@ -2,43 +2,40 @@
 
 ## Problem
 
-Browser Bridge currently requires `dev activate` in many normal workflows because the CLI/Core default to worktree-deterministic ports while the extension defaults to `3210` unless activation writes a matching `corePort` into extension storage. That makes the extension appear disconnected for users who expect one global Browser Bridge instance.
+Browser Bridge docs and helper flows were still carrying isolated-routing baggage after the runtime had already converged on one sane default: `127.0.0.1:3210`. That mismatch kept teaching users to reach for activation when the real product model is simpler.
 
 ## Goal
 
 Make normal usage zero-setup:
 
 - One global default runtime (`127.0.0.1:3210`)
-- One extension instance that connects without `dev activate`
-- `dev activate` kept only for explicit multi-worktree/multi-instance testing
+- One extension instance that connects without activation
+- `dev enable-inspect` as the only narrow helper for debugger-based inspect setup
 
 ## Non-Goals
 
-- Removing isolated worktree testing support
+- Reintroducing isolated routing guidance in user-facing docs
 - Supporting multiple extension instances in one Chrome profile
 
 ## Design
 
-1. Runtime resolver defaults to global mode:
-   - Default port becomes `3210` when no explicit port override is present.
-   - Deterministic worktree ports remain available only in explicit isolated mode.
-2. Isolated mode is explicit and persisted:
-   - Add metadata signal (or equivalent) that indicates worktree-isolated mode.
-   - Only honor metadata deterministic port when isolated mode is enabled.
-3. Core startup preserves metadata and avoids implicit drift:
-   - Merge existing metadata when persisting runtime so `extension_id` is not lost.
-   - Port probe sequence runs only in isolated mode; global mode stays pinned to `3210`.
-4. `dev activate` becomes advanced workflow:
-   - Keep command for local multi-worktree testing.
-   - Update help/docs so normal users are not instructed to run it.
-5. Migration guard:
-   - Legacy metadata with deterministic port but no isolated-mode signal should not force non-default routing.
+1. Runtime resolver stays fixed on the default runtime:
+   - Default host/port are `127.0.0.1:3210` when no explicit override is present.
+   - Docs should not imply there is a supported per-worktree routing mode.
+2. Metadata remains lightweight:
+   - `.context/browser-bridge/dev.json` can persist extension discovery state.
+   - Metadata should not be described as a routing switchboard.
+3. Inspect setup is decoupled from runtime routing:
+   - `browser-bridge dev enable-inspect` is the supported CLI helper.
+   - It opens extension options and waits for debugger capability without rewriting runtime state.
+4. Migration guard:
+   - Stale docs or examples must not teach users to run `dev activate` for normal operation.
+   - Historical worktree-routing docs should be treated as superseded, not active setup guidance.
 
 ## Acceptance Criteria
 
-1. Fresh checkout with extension installed can run CLI commands without `dev activate`.
+1. Fresh checkout with extension installed can run CLI commands without any activation step.
 2. Default CLI/Core runtime resolves to `127.0.0.1:3210` unless env/flag overrides.
 3. Extension connects successfully in default mode (`diagnostics doctor` reports connected after startup).
-4. Explicit isolated mode still supports parallel worktrees without port conflicts.
-5. `dev activate` docs are positioned as optional/advanced.
-6. Existing metadata does not silently break default mode.
+4. Inspect remediation points to `browser-bridge dev enable-inspect`, not `dev activate`.
+5. Existing metadata does not silently break default mode.

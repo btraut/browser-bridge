@@ -8,7 +8,7 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 
 ### Fixed
 
-- `browser-bridge dev activate` now discovers connected/stored extensions more reliably across isolated and shared runtimes, and `--enable-inspect` now rebinds the extension to the activated runtime so debugger-based inspect actually comes up.
+- Active docs now describe one Browser Bridge runtime at `127.0.0.1:3210`, mark the old worktree-routing story as superseded, and point debugger-based inspect setup at `browser-bridge dev enable-inspect`.
 - `artifacts screenshot` now prefers extension-driven capture for viewport, full-page, and element targets instead of failing just because debugger-based inspect is disabled.
 - `locator.text` now favors visible, clickable, exact matches over ancestor containers or hidden duplicates, and `drive.wait_for` `text_present` now matches normalized visible text instead of raw substring checks.
 - `diagnostics.doctor` no longer carries an unused inspect-enable helper argument, and the live runtime follow-up files now satisfy the validate workflow's formatting checks.

@@ -124,7 +124,7 @@ Manage approvals (and bypass mode):
 - Switch **Permission mode** to **Bypass (dangerous)** to skip the allowlist and prompts entirely.
 - In bypass mode, the agent can take actions on any website without asking.
 - Restricted URLs (for example `chrome://` and `file://`) are still blocked.
-- `inspect.*` requires enabling **Debugger-based inspect** in extension options. If disabled, inspect calls fail with `ATTACH_DENIED` and a clear next step; the supported setup path is `browser-bridge dev activate --enable-inspect` (or the same command with `--extension-id` when discovery is ambiguous).
+- `inspect.*` requires enabling **Debugger-based inspect** in extension options. If disabled, inspect calls fail with `ATTACH_DENIED` and a clear next step; the supported setup path is `browser-bridge dev enable-inspect` (or `browser-bridge dev enable-inspect --extension-id <id>` when discovery is ambiguous).
 
 </details>
 
@@ -234,12 +234,12 @@ Codex:
 codex mcp add browser-bridge -- browser-bridge mcp
 ```
 
-Optional custom host/port (use `browser-bridge dev info` to get the current worktree port):
+Optional custom host/port override (only if you intentionally run Core somewhere else):
 
 ```bash
 codex mcp add browser-bridge \
   --env BROWSER_BRIDGE_CORE_HOST=127.0.0.1 \
-  --env BROWSER_BRIDGE_CORE_PORT=<port-from-dev-info> \
+  --env BROWSER_BRIDGE_CORE_PORT=<custom-port> \
   -- browser-bridge mcp
 ```
 
@@ -249,12 +249,12 @@ Claude Code:
 claude mcp add --transport stdio browser-bridge -- browser-bridge mcp
 ```
 
-Optional custom host/port (use `browser-bridge dev info` to get the current worktree port):
+Optional custom host/port override (only if you intentionally run Core somewhere else):
 
 ```bash
 claude mcp add --transport stdio browser-bridge \
   --env BROWSER_BRIDGE_CORE_HOST=127.0.0.1 \
-  --env BROWSER_BRIDGE_CORE_PORT=<port-from-dev-info> \
+  --env BROWSER_BRIDGE_CORE_PORT=<custom-port> \
   -- browser-bridge mcp
 ```
 
@@ -262,13 +262,12 @@ claude mcp add --transport stdio browser-bridge \
 
 ## ✅ Default Runtime (Normal Usage)
 
-For normal usage, Browser Bridge is zero-setup:
+Browser Bridge is now a single-runtime setup by default:
 
-- Core and CLI default to `127.0.0.1:3210`.
-- The extension also defaults to `3210`.
-- You do not need `dev activate` unless you intentionally opt into isolated worktree routing.
+- Core, CLI, and extension target `127.0.0.1:3210`.
+- You do not need any activation or routing step for normal use.
 - After reboot/cold start, the first CLI or MCP request auto-starts Core (no manual daemon wake-up required).
-- If Core is idle/offline, the extension popup may show `disconnected` or `backoff`; this is expected until Core is reachable again.
+- If Core is idle/offline, the extension popup may show `disconnected` or `backoff`; that just means Core is not reachable yet.
 
 Optional status check:
 
@@ -276,32 +275,18 @@ Optional status check:
 browser-bridge dev info --json
 ```
 
-## 🔁 Isolated Multi-Worktree Dev Loop (Advanced)
-
-Use this loop when you intentionally run multiple worktree instances in parallel.
-
-1. Resolve runtime for the current worktree:
+Use `browser-bridge dev enable-inspect` only when you need debugger-based inspect:
 
 ```bash
-browser-bridge dev info --json
+browser-bridge dev enable-inspect
 ```
 
-Use the `port`, `worktreeId`, `metadataPath`, and `logDir` from output.
+Pass `--extension-id <id>` only when auto-discovery is ambiguous or you want to force a specific unpacked install. The extension id may be cached in `.context/browser-bridge/dev.json` after a successful run, but that metadata is no longer a routing switch.
 
-2. Activate isolated extension routing for this worktree:
+## 🧯 Runtime Troubleshooting
 
-```bash
-browser-bridge dev activate --extension-id <id>
-```
-
-`dev activate` first tries to auto-discover a connected Browser Bridge extension id from live runtimes and Chrome profile data. Pass `--extension-id` only when discovery is ambiguous or you want to force a specific unpacked install. After the first successful run, you can usually omit `--extension-id` because it is saved in `.context/browser-bridge/dev.json`.
-
-3. Run your CLI/MCP workflow in this worktree.
-
-## 🧯 Worktree Troubleshooting
-
-- Missing extension id: Retry once first; `dev activate` now probes both shared and isolated runtimes and scans common Chrome channel profiles. If discovery is still ambiguous or unavailable, run `browser-bridge dev activate --extension-id <id>` or set `BROWSER_BRIDGE_EXTENSION_ID=<id>`. You can copy the id from `chrome://extensions` (enable Developer mode to see ids).
-- Activation URL did not open in Chrome: Run `browser-bridge dev activate --json`, copy `result.activationUrl`, and open it directly in Chrome. `dev activate` uses the OS URL opener, so your default browser setting matters.
+- Missing extension id while enabling inspect: Retry once first; `browser-bridge dev enable-inspect` probes the connected runtime first and then scans common Chrome channel profiles. If discovery is still ambiguous or unavailable, run `browser-bridge dev enable-inspect --extension-id <id>` or set `BROWSER_BRIDGE_EXTENSION_ID=<id>`. You can copy the id from `chrome://extensions` (enable Developer mode to see ids).
+- Options page did not open in Chrome: Run `browser-bridge dev enable-inspect --json`, copy `result.optionsUrl`, and open it directly in Chrome. The command uses the OS URL opener, so your default browser setting matters.
 - Logs and per-stream JSONL inspection: Logs are under `.context/logs/browser-bridge/`. Common streams: `cli.jsonl`, `core.jsonl`, `mcp-adapter.jsonl` (plus rotated files like `core.1.jsonl`).
 
 ```bash
@@ -311,7 +296,7 @@ tail -n 80 .context/logs/browser-bridge/core.jsonl
 tail -n 80 .context/logs/browser-bridge/mcp-adapter.jsonl
 ```
 
-- Default mode port is `3210`. In isolated mode, port is worktree-specific. Use `browser-bridge dev info` if you are unsure (or pass explicit `--port` / `BROWSER_BRIDGE_CORE_PORT`).
+- Default runtime is `127.0.0.1:3210`. If you are unsure, run `browser-bridge dev info` or pass explicit `--host` / `--port` overrides.
 
 ## 🩺 Diagnostics
 
@@ -322,7 +307,7 @@ tail -n 80 .context/logs/browser-bridge/mcp-adapter.jsonl
 
 ### End-to-End Connection Troubleshooting Flow
 
-Use this exact flow when commands fail after reboot, runtime changes, or worktree switching:
+Use this exact flow when commands fail after reboot or runtime changes:
 
 1. Check runtime resolution:
 
@@ -341,8 +326,8 @@ browser-bridge diagnostics doctor --json
    - Red dot: extension is disconnected or reconnecting.
 
 4. If caller/core/extension endpoints differ in the diagnostics report:
-   - Default mode: remove custom host/port env overrides and retry (`BROWSER_BRIDGE_CORE_HOST`, `BROWSER_BRIDGE_CORE_PORT`).
-   - Isolated mode: re-run `browser-bridge dev activate --extension-id <id>` for the intended worktree.
+   - Remove custom host/port env overrides and retry (`BROWSER_BRIDGE_CORE_HOST`, `BROWSER_BRIDGE_CORE_PORT`).
+   - If inspect capability is the missing piece, run `browser-bridge dev enable-inspect --extension-id <id>`.
 
 5. If the popup stays red and failures continue:
    - Inspect logs:
