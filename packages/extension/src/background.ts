@@ -34,6 +34,7 @@ import {
   isCaptureVisibleTabRateLimitedError,
   mapScreenshotCaptureError,
 } from './screenshot-errors.js';
+import { buildRestrictedUrlError, isRestrictedUrl } from './restricted-url.js';
 
 type ContentResult =
   | { ok: true; result?: unknown }
@@ -427,38 +428,6 @@ const readDebuggerIdleTimeoutMs = async (): Promise<number> => {
       }
     );
   });
-};
-
-const RESTRICTED_URL_PREFIXES = [
-  'chrome://',
-  'chrome-extension://',
-  'chrome-devtools://',
-  'devtools://',
-  'edge://',
-  'brave://',
-  'view-source:',
-];
-
-const isRestrictedUrl = (url?: string): boolean => {
-  if (!url || typeof url !== 'string') {
-    return false;
-  }
-  const lowered = url.toLowerCase();
-  if (RESTRICTED_URL_PREFIXES.some((prefix) => lowered.startsWith(prefix))) {
-    return true;
-  }
-  try {
-    const parsed = new URL(url);
-    if (parsed.hostname === 'chromewebstore.google.com') {
-      return true;
-    }
-    if (parsed.hostname === 'chrome.google.com') {
-      return parsed.pathname.startsWith('/webstore');
-    }
-  } catch (error) {
-    console.debug('Ignoring invalid URL in restriction check.', error);
-  }
-  return false;
 };
 
 const mapDebuggerErrorMessage = (
@@ -1418,12 +1387,11 @@ class DriveSocket {
           if (isRestrictedUrl(url)) {
             return {
               ok: false,
-              error: {
-                code: 'NOT_SUPPORTED',
-                message: 'Navigation is not supported for this URL.',
-                retryable: false,
-                details: { url },
-              },
+              error: buildRestrictedUrlError({
+                url,
+                operation: 'navigate',
+                action,
+              }),
             };
           }
           siteKey = siteKeyFromUrl(url);
@@ -1464,18 +1432,14 @@ class DriveSocket {
             };
           }
           if (isRestrictedUrl(url)) {
-            const message =
-              action === 'drive.screenshot'
-                ? 'Screenshots are not supported for this URL.'
-                : 'This action is not supported for this URL.';
             return {
               ok: false,
-              error: {
-                code: 'NOT_SUPPORTED',
-                message,
-                retryable: false,
-                details: { url },
-              },
+              error: buildRestrictedUrlError({
+                url,
+                operation:
+                  action === 'drive.screenshot' ? 'screenshot' : 'action',
+                action,
+              }),
             };
           }
           siteKey = siteKeyFromUrl(url);
@@ -2434,12 +2398,13 @@ class DriveSocket {
           const tab = await getTab(tabId as number);
           const url = tab.url;
           if (typeof url === 'string' && isRestrictedUrl(url)) {
-            respondError({
-              code: 'NOT_SUPPORTED',
-              message: 'Screenshots are not supported for this URL.',
-              retryable: false,
-              details: { url },
-            });
+            respondError(
+              buildRestrictedUrlError({
+                url,
+                operation: 'screenshot',
+                action: 'drive.screenshot',
+              })
+            );
             return;
           }
           const windowId = tab.windowId;
@@ -3526,12 +3491,11 @@ class DriveSocket {
       const tab = await getTab(tabId);
       const url = typeof tab.url === 'string' ? tab.url : undefined;
       if (isRestrictedUrl(url)) {
-        return {
-          code: 'NOT_SUPPORTED',
-          message: 'Debugger cannot attach to restricted pages.',
-          retryable: false,
-          details: { url },
-        };
+        return buildRestrictedUrlError({
+          url: url ?? 'about:blank',
+          operation: 'debugger',
+          action: 'debugger.attach',
+        });
       }
     } catch (error) {
       return mapDebuggerErrorMessage(
