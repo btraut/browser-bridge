@@ -35,6 +35,12 @@ import {
   mapScreenshotCaptureError,
 } from './screenshot-errors.js';
 import { buildRestrictedUrlError, isRestrictedUrl } from './restricted-url.js';
+import {
+  clearLegacyCorePort,
+  LEGACY_CORE_PORT_KEY,
+  readCoreEndpointConfig,
+  type CoreEndpointConfig,
+} from './core-endpoint-config.js';
 
 type ContentResult =
   | { ok: true; result?: unknown }
@@ -62,19 +68,11 @@ type ScreenPoint = {
   y: number;
 };
 
-type CoreEndpointConfig = {
-  host: string;
-  port: number;
-  portSource: 'default' | 'storage';
-};
-
 type StorageChange = {
   newValue?: unknown;
   oldValue?: unknown;
 };
 
-const DEFAULT_CORE_PORT = 3210;
-const CORE_PORT_KEY = 'corePort';
 const CORE_WS_PATH = '/drive';
 const CORE_HEALTH_PATH = '/health';
 const CORE_HEALTH_TIMEOUT_MS = 1200;
@@ -370,41 +368,6 @@ const renderDataUrlToFormat = async (
   } finally {
     bitmap.close();
   }
-};
-
-const readCoreEndpointConfig = async (): Promise<CoreEndpointConfig> => {
-  return await new Promise<CoreEndpointConfig>((resolve) => {
-    chrome.storage.local.get(
-      [CORE_PORT_KEY],
-      (result: Record<string, unknown>) => {
-        const raw = result?.[CORE_PORT_KEY];
-        if (typeof raw === 'number' && Number.isFinite(raw)) {
-          resolve({
-            host: '127.0.0.1',
-            port: raw,
-            portSource: 'storage',
-          });
-          return;
-        }
-        if (typeof raw === 'string') {
-          const parsed = Number(raw);
-          if (Number.isFinite(parsed)) {
-            resolve({
-              host: '127.0.0.1',
-              port: parsed,
-              portSource: 'storage',
-            });
-            return;
-          }
-        }
-        resolve({
-          host: '127.0.0.1',
-          port: DEFAULT_CORE_PORT,
-          portSource: 'default',
-        });
-      }
-    );
-  });
 };
 
 const readDebuggerIdleTimeoutMs = async (): Promise<number> => {
@@ -1133,28 +1096,6 @@ class DriveSocket {
     void this.sendHello().catch((error) => {
       console.error('DriveSocket refreshCapabilities failed:', error);
     });
-  }
-
-  async reconnectForEndpointChange(): Promise<void> {
-    if (this.reconnectTimer !== null) {
-      clearTimeout(this.reconnectTimer);
-      this.reconnectTimer = null;
-    }
-
-    const socket = this.socket;
-    this.socket = null;
-    this.stopKeepAlive();
-    this.connection.markConnecting();
-
-    if (socket) {
-      try {
-        socket.close();
-      } catch {
-        // Best-effort: closing an already-closed socket is harmless.
-      }
-    }
-
-    await this.connect();
   }
 
   private handleSocketUnavailable(socket: WebSocket, reason: string): void {
@@ -3781,15 +3722,17 @@ chrome.storage.onChanged.addListener(
     if (areaName !== 'local') {
       return;
     }
-    const corePortChange = changes[CORE_PORT_KEY];
+    const corePortChange = changes[LEGACY_CORE_PORT_KEY];
     const debuggerChange = changes[DEBUGGER_CAPABILITY_ENABLED_KEY];
     if (!corePortChange && !debuggerChange) {
       return;
     }
 
     let work = Promise.resolve();
-    if (corePortChange && corePortChange.newValue !== corePortChange.oldValue) {
-      work = work.then(() => socket.reconnectForEndpointChange());
+    if (corePortChange) {
+      work = work.then(async () => {
+        await clearLegacyCorePort(chrome.storage.local);
+      });
     }
 
     if (debuggerChange) {
@@ -3809,5 +3752,9 @@ chrome.storage.onChanged.addListener(
     });
   }
 );
+
+void clearLegacyCorePort(chrome.storage.local).catch((error) => {
+  console.warn('Failed to clear legacy corePort storage.', error);
+});
 
 socket.start();
