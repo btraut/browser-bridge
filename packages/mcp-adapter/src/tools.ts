@@ -131,6 +131,102 @@ const envelope = (schema: EnvelopeInput) => successEnvelopeSchema(schema);
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
+const readSessionId = (args: unknown): string | undefined => {
+  if (!isRecord(args)) {
+    return undefined;
+  }
+  const sessionId = args.session_id;
+  return typeof sessionId === 'string' && sessionId.length > 0
+    ? sessionId
+    : undefined;
+};
+
+const supportsSessionMigration = (corePath: string): boolean =>
+  corePath.startsWith('/drive/') ||
+  corePath.startsWith('/inspect/') ||
+  corePath.startsWith('/artifacts/') ||
+  corePath === '/diagnostics/doctor';
+
+const isSessionNotFoundEnvelope = (
+  envelopeResult: ApiEnvelope<unknown>
+): boolean => {
+  if (envelopeResult.ok) {
+    return false;
+  }
+  const details = envelopeResult.error.details;
+  return (
+    envelopeResult.error.code === 'NOT_FOUND' &&
+    isRecord(details) &&
+    details.reason === 'session_not_found'
+  );
+};
+
+const addSessionRecoveryHint = (
+  envelopeResult: ApiEnvelope<unknown>
+): ApiEnvelope<unknown> => {
+  if (envelopeResult.ok) {
+    return envelopeResult;
+  }
+  return {
+    ok: false,
+    error: {
+      ...envelopeResult.error,
+      details: {
+        ...(isRecord(envelopeResult.error.details)
+          ? envelopeResult.error.details
+          : {}),
+        recover_action: 'session.create',
+      },
+    },
+  };
+};
+
+const addSessionMigrationNotice = (
+  envelopeResult: ApiEnvelope<unknown>,
+  staleSessionId: string,
+  replacementSessionId: string
+): ApiEnvelope<unknown> => {
+  if (envelopeResult.ok) {
+    if (!isRecord(envelopeResult.result)) {
+      return envelopeResult;
+    }
+    const warning = `Session ${staleSessionId} became stale after runtime switch; retried with ${replacementSessionId}.`;
+    const existingWarnings = Array.isArray(envelopeResult.result.warnings)
+      ? envelopeResult.result.warnings.filter(
+          (item): item is string => typeof item === 'string'
+        )
+      : [];
+    return {
+      ok: true,
+      result: {
+        ...envelopeResult.result,
+        warnings: existingWarnings.includes(warning)
+          ? existingWarnings
+          : [...existingWarnings, warning],
+        session_migration: {
+          stale_session_id: staleSessionId,
+          replacement_session_id: replacementSessionId,
+        },
+      },
+    };
+  }
+
+  return {
+    ok: false,
+    error: {
+      ...envelopeResult.error,
+      details: {
+        ...(isRecord(envelopeResult.error.details)
+          ? envelopeResult.error.details
+          : {}),
+        stale_session_id: staleSessionId,
+        replacement_session_id: replacementSessionId,
+        recover_action: 'session.recover',
+      },
+    },
+  };
+};
+
 const addDeprecatedAliasWarning = (
   envelopeResult: ApiEnvelope<unknown>,
   deprecationAlias?: {
@@ -575,10 +671,37 @@ export const createToolHandler = (
         typeof clientProvider === 'function'
           ? await clientProvider()
           : clientProvider;
-      const envelopeResult = await client.post(
-        corePath,
-        transformInput ? transformInput(args) : args
-      );
+      const transformedArgs = transformInput ? transformInput(args) : args;
+      const staleSessionId = readSessionId(transformedArgs);
+      let envelopeResult = await client.post(corePath, transformedArgs);
+
+      if (
+        staleSessionId &&
+        supportsSessionMigration(corePath) &&
+        isSessionNotFoundEnvelope(envelopeResult) &&
+        isRecord(transformedArgs)
+      ) {
+        const createdSession = await client.post('/session/create', {});
+        if (
+          createdSession.ok &&
+          isRecord(createdSession.result) &&
+          typeof createdSession.result.session_id === 'string' &&
+          createdSession.result.session_id.length > 0
+        ) {
+          const replacementSessionId = createdSession.result.session_id;
+          const retryArgs = {
+            ...transformedArgs,
+            session_id: replacementSessionId,
+          };
+          envelopeResult = addSessionMigrationNotice(
+            await client.post(corePath, retryArgs),
+            staleSessionId,
+            replacementSessionId
+          );
+        } else {
+          envelopeResult = addSessionRecoveryHint(envelopeResult);
+        }
+      }
       return toToolResult(
         addDeprecatedAliasWarning(envelopeResult, deprecationAlias)
       );
