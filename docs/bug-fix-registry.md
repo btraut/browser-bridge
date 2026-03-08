@@ -12,3 +12,4 @@ Short index of notable bug fixes. Keep entries symptom-first: bug label, one-lin
 - `wait-for-visible-text` - `drive.wait_for` `text_present` now matches normalized visible text, including split labels and delayed status updates. Ref: `c81d5a5`
 - `single-runtime-doc-alignment` - Active docs now describe one runtime at `127.0.0.1:3210`, treat old worktree-routing guidance as superseded, and point inspect setup at `dev enable-inspect` instead of `dev activate`. Ref: `browser-vision-t1l.4`
 - `stale-bd-hook-shim` - Checked-in `.githooks/pre-commit` now calls `bd hooks run pre-commit`, matching modern beads installs instead of the removed `bd hook` command. Ref: pending commit
+- `validate-gate-cleanup` - Validate now passes again after removing an unused runtime metadata arg, fixing the typed fetch mock in readiness tests, and formatting the affected files. Ref: pending commit

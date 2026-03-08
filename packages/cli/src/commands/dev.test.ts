@@ -4,7 +4,10 @@ import type {
   DiagnosticReport,
   ResolvedCoreRuntime,
 } from '@btraut/browser-bridge-shared';
-import { resolveCoreRuntime, resolveLogDirectory } from '@btraut/browser-bridge-shared';
+import {
+  resolveCoreRuntime,
+  resolveLogDirectory,
+} from '@btraut/browser-bridge-shared';
 import { runLocal } from '../cli-runtime';
 import { createCoreClient } from '../core-client';
 import { openPath } from '../open-path';
@@ -70,11 +73,13 @@ const createRuntime = (
   ...overrides,
 });
 
-const inspectReport = (options: {
-  inspectCapability?: boolean;
-  extensionConnected?: boolean;
-  extensionId?: string;
-} = {}): DiagnosticReport => {
+const inspectReport = (
+  options: {
+    inspectCapability?: boolean;
+    extensionConnected?: boolean;
+    extensionId?: string;
+  } = {}
+): DiagnosticReport => {
   const runtime =
     options.extensionId === undefined
       ? {}

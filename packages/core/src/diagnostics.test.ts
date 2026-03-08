@@ -425,5 +425,4 @@ describe('buildDiagnosticReport', () => {
       report.warnings?.some((warning) => warning.includes('Inspect'))
     ).toBe(true);
   });
-
 });

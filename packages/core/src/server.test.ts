@@ -43,7 +43,7 @@ describe('buildRuntimeMetadataForPersist', () => {
       },
     });
 
-    const metadata = buildRuntimeMetadataForPersist(runtime, 3210);
+    const metadata = buildRuntimeMetadataForPersist(runtime);
 
     expect(metadata.extension_id).toBe('abcdefghijklmnopabcdefghijklmnop');
     expect(metadata.updated_at).toBeTypeOf('string');

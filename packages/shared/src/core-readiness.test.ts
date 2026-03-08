@@ -238,7 +238,7 @@ describe('createCoreReadinessController', () => {
     const readyCheck = new Promise<void>((resolve) => {
       releaseReadyCheck = () => resolve();
     });
-    const fetchImpl = vi.fn(
+    const fetchSpy = vi.fn(
       async (_url: string, init?: Parameters<typeof fetch>[1]) => {
         if (init?.method === 'GET') {
           return makeResponse({ ok: false });
@@ -250,7 +250,8 @@ describe('createCoreReadinessController', () => {
         await readyCheck;
         return makeResponse({ ok: true });
       }
-    ) as unknown as typeof fetch;
+    );
+    const fetchImpl = fetchSpy as unknown as typeof fetch;
     const spawnDaemon = vi.fn();
     const controller = createCoreReadinessController({
       host: '127.0.0.1',
@@ -267,11 +268,11 @@ describe('createCoreReadinessController', () => {
     const second = controller.ensureReady();
     await delay(5);
     expect(spawnDaemon).toHaveBeenCalledTimes(1);
-    expect(fetchImpl.mock.calls.length).toBeGreaterThanOrEqual(2);
+    expect(fetchSpy.mock.calls.length).toBeGreaterThanOrEqual(2);
 
     releaseReadyCheck?.();
     await Promise.all([first, second]);
     expect(spawnDaemon).toHaveBeenCalledTimes(1);
-    expect(fetchImpl).toHaveBeenCalledTimes(3);
+    expect(fetchSpy).toHaveBeenCalledTimes(3);
   });
 });

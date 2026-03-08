@@ -64,12 +64,10 @@ export const buildEnableInspectOptionsUrl = (options: {
   }/options.html?${search.toString()}`;
 };
 
-const resolveRuntimeForCommand = (
-  options: {
-    host?: string;
-    port?: number | string;
-  }
-): ResolvedCoreRuntime => {
+const resolveRuntimeForCommand = (options: {
+  host?: string;
+  port?: number | string;
+}): ResolvedCoreRuntime => {
   const runtimeOptions: {
     host?: string;
     port?: number | string;
@@ -202,77 +200,75 @@ export const registerDevCommands = (program: Command): void => {
       '--extension-id <id>',
       'Chrome extension id to configure for debugger-based inspect'
     )
-    .action(
-      async (options: { extensionId?: string }, command: Command) => {
-        await runLocal(command, async (globalOptions) => {
-          const runtime = resolveRuntimeForCommand(globalOptions);
-          const extension = resolveActivationExtensionId({
-            optionExtensionId: options.extensionId,
-            envExtensionId: process.env[ENV_EXTENSION_ID],
-            metadataExtensionId: runtime.metadata?.extension_id,
-          });
-          let resolvedExtension = extension;
-          let discoveryResult:
-            | Awaited<ReturnType<typeof discoverActivationExtensionId>>
-            | undefined;
-          if (!resolvedExtension) {
-            discoveryResult = await discoverActivationExtensionId([runtime]);
-            if (discoveryResult.kind === 'resolved') {
-              resolvedExtension = {
-                extensionId: discoveryResult.extensionId,
-                source: discoveryResult.source,
-              };
-            } else if (discoveryResult.kind === 'ambiguous') {
-              throw new CliError({
-                code: 'INVALID_ARGUMENT',
-                message:
-                  'Multiple Browser Bridge extension ids discovered. Provide --extension-id <id> to select one.',
-                retryable: false,
-                details: {
-                  candidates: discoveryResult.candidates,
-                  searchedPaths: discoveryResult.searchedPaths,
-                },
-              });
-            }
-          }
-
-          if (!resolvedExtension) {
+    .action(async (options: { extensionId?: string }, command: Command) => {
+      await runLocal(command, async (globalOptions) => {
+        const runtime = resolveRuntimeForCommand(globalOptions);
+        const extension = resolveActivationExtensionId({
+          optionExtensionId: options.extensionId,
+          envExtensionId: process.env[ENV_EXTENSION_ID],
+          metadataExtensionId: runtime.metadata?.extension_id,
+        });
+        let resolvedExtension = extension;
+        let discoveryResult:
+          | Awaited<ReturnType<typeof discoverActivationExtensionId>>
+          | undefined;
+        if (!resolvedExtension) {
+          discoveryResult = await discoverActivationExtensionId([runtime]);
+          if (discoveryResult.kind === 'resolved') {
+            resolvedExtension = {
+              extensionId: discoveryResult.extensionId,
+              source: discoveryResult.source,
+            };
+          } else if (discoveryResult.kind === 'ambiguous') {
             throw new CliError({
               code: 'INVALID_ARGUMENT',
               message:
-                'Missing extension id. Provide --extension-id <id> or set BROWSER_BRIDGE_EXTENSION_ID.',
+                'Multiple Browser Bridge extension ids discovered. Provide --extension-id <id> to select one.',
               retryable: false,
               details: {
-                searchedPaths:
-                  discoveryResult && discoveryResult.kind !== 'resolved'
-                    ? discoveryResult.searchedPaths
-                    : undefined,
+                candidates: discoveryResult.candidates,
+                searchedPaths: discoveryResult.searchedPaths,
               },
             });
           }
+        }
 
-          const optionsUrl = buildEnableInspectOptionsUrl({
-            extensionId: resolvedExtension.extensionId,
-          });
-
-          await openPath(optionsUrl);
-          await waitForInspectEnablement(
-            runtime,
-            resolvedExtension.extensionId,
-            optionsUrl
-          );
-
-          return {
-            ok: true,
-            result: {
-              extensionId: resolvedExtension.extensionId,
-              extensionIdSource: resolvedExtension.source,
-              host: runtime.host,
-              port: runtime.port,
-              optionsUrl,
+        if (!resolvedExtension) {
+          throw new CliError({
+            code: 'INVALID_ARGUMENT',
+            message:
+              'Missing extension id. Provide --extension-id <id> or set BROWSER_BRIDGE_EXTENSION_ID.',
+            retryable: false,
+            details: {
+              searchedPaths:
+                discoveryResult && discoveryResult.kind !== 'resolved'
+                  ? discoveryResult.searchedPaths
+                  : undefined,
             },
-          };
+          });
+        }
+
+        const optionsUrl = buildEnableInspectOptionsUrl({
+          extensionId: resolvedExtension.extensionId,
         });
-      }
-    );
+
+        await openPath(optionsUrl);
+        await waitForInspectEnablement(
+          runtime,
+          resolvedExtension.extensionId,
+          optionsUrl
+        );
+
+        return {
+          ok: true,
+          result: {
+            extensionId: resolvedExtension.extensionId,
+            extensionIdSource: resolvedExtension.source,
+            host: runtime.host,
+            port: runtime.port,
+            optionsUrl,
+          },
+        };
+      });
+    });
 };

@@ -59,21 +59,25 @@ The live ManaVault test on 2026-03-08 confirmed the problem shape: the extension
 ### 1. Remove isolated runtime resolution and metadata plumbing
 
 Scope:
+
 - Delete isolated-mode behavior from shared runtime resolution and metadata persistence.
 - Remove worktree-routing metadata fields from code paths that no longer need them.
 - Keep explicit `--host` / `--port` overrides working.
 
 Acceptance criteria:
+
 - Default runtime resolution is always `127.0.0.1:3210` with no hidden worktree-based drift.
 - `BROWSER_BRIDGE_ISOLATED_MODE` and legacy isolated env aliases no longer affect runtime selection.
 - `.context/browser-bridge/dev.json` no longer stores or relies on `isolated_mode`, `worktree_id`, or persisted routing data for normal operation.
 
 Implementation notes:
+
 - Touch [packages/shared/src/runtime-config.ts](/Users/btraut/Development/browser-bridge/packages/shared/src/runtime-config.ts), [packages/core/src/server.ts](/Users/btraut/Development/browser-bridge/packages/core/src/server.ts), [packages/cli/src/core-client.ts](/Users/btraut/Development/browser-bridge/packages/cli/src/core-client.ts), and any shared schema/types that still expose isolated-only metadata.
 - Audit tests that assert deterministic worktree ports or isolated metadata propagation.
 - Prefer deleting dead paths over preserving "just in case" toggles.
 
 Tests and verification:
+
 - `npm test -- packages/shared/src/runtime-config.test.ts`
 - `npm test -- packages/shared/src/core-readiness.test.ts`
 - `npm test -- packages/cli/src/core-client.test.ts`
@@ -82,20 +86,24 @@ Tests and verification:
 ### 2. Remove `dev activate` and replace inspect setup with a narrow command
 
 Scope:
+
 - Delete the isolated activation command and its CLI/doc/runtime contracts.
 - Add `browser-bridge dev enable-inspect` as the only surviving extension-options helper.
 
 Acceptance criteria:
+
 - `browser-bridge dev activate` no longer exists.
 - `browser-bridge dev enable-inspect` opens the options flow needed to enable debugger capability without changing runtime routing.
 - Diagnostics remediation text points to `dev enable-inspect`, not `dev activate --enable-inspect`.
 
 Implementation notes:
+
 - Touch [packages/cli/src/commands/dev.ts](/Users/btraut/Development/browser-bridge/packages/cli/src/commands/dev.ts), [packages/cli/src/extension-id-discovery.ts](/Users/btraut/Development/browser-bridge/packages/cli/src/extension-id-discovery.ts), [packages/core/src/diagnostics.ts](/Users/btraut/Development/browser-bridge/packages/core/src/diagnostics.ts), and command tests under [packages/cli/src/commands/dev.test.ts](/Users/btraut/Development/browser-bridge/packages/cli/src/commands/dev.test.ts).
 - Keep extension-id discovery only if needed for `dev enable-inspect`; otherwise delete more.
 - Replace activation URL query parameters with a single inspect-enablement flag if possible.
 
 Tests and verification:
+
 - `npm test -- packages/cli/src/commands/dev.test.ts`
 - `npm test -- packages/core/src/diagnostics.test.ts`
 - Manual: with inspect disabled, `diagnostics doctor` remediation points to `dev enable-inspect`; after running it, `inspect.capability` becomes true.
@@ -103,20 +111,24 @@ Tests and verification:
 ### 3. Remove extension-side alternate-port routing and migrate stale storage
 
 Scope:
+
 - Stop reading/writing extension routing state from storage.
 - Ensure stale `corePort` values from old installs do not keep the extension pointed at dead ports.
 
 Acceptance criteria:
+
 - Extension background always targets `127.0.0.1:3210` unless a command explicitly overrides the Core endpoint for that process.
 - Old stored `corePort` values do not affect extension connection after upgrade.
 - Connection UI/diagnostics stop implying there are multiple persistent runtime targets.
 
 Implementation notes:
+
 - Touch [packages/extension/src/background.ts](/Users/btraut/Development/browser-bridge/packages/extension/src/background.ts), [packages/extension/src/options-ui.ts](/Users/btraut/Development/browser-bridge/packages/extension/src/options-ui.ts), [packages/extension/src/connection-state.ts](/Users/btraut/Development/browser-bridge/packages/extension/src/connection-state.ts), and any popup/options copy that references routing activation.
 - Add a one-time cleanup or outright stop honoring the storage key.
 - Confirm restricted-url help text no longer suggests `dev activate`.
 
 Tests and verification:
+
 - `npm test -- packages/extension/src/connection-state.test.ts`
 - `npm test -- packages/extension/src/restricted-url.test.ts`
 - Add/update background/options tests for stale storage cleanup.
@@ -125,19 +137,23 @@ Tests and verification:
 ### 4. Clean docs, inventories, and changelog to match reality
 
 Scope:
+
 - Remove or rewrite docs that mention isolated worktree routing as a supported workflow.
 - Update changelog and bug-fix registry to reflect the simplification.
 
 Acceptance criteria:
+
 - README, manual test docs, troubleshooting, and diagnostics guidance describe a single-runtime model.
 - Obsolete design docs are either removed or clearly marked superseded by this spec.
 - `CHANGELOG.md` gets an `[Unreleased]` entry for the simplification.
 
 Implementation notes:
+
 - Touch [README.md](/Users/btraut/Development/browser-bridge/README.md), [docs/manual-test.md](/Users/btraut/Development/browser-bridge/docs/manual-test.md), [docs/current-interface-inventory.md](/Users/btraut/Development/browser-bridge/docs/current-interface-inventory.md), [docs/worktree-dev-loop-spec.md](/Users/btraut/Development/browser-bridge/docs/worktree-dev-loop-spec.md), [docs/single-instance-default-runtime-spec.md](/Users/btraut/Development/browser-bridge/docs/single-instance-default-runtime-spec.md), [docs/bug-fix-registry.md](/Users/btraut/Development/browser-bridge/docs/bug-fix-registry.md), and [CHANGELOG.md](/Users/btraut/Development/browser-bridge/CHANGELOG.md).
 - Prefer deleting stale workflow advice instead of stacking caveats on top of it.
 
 Tests and verification:
+
 - `npm run format:check`
 - `npm run lint`
 - Manual grep: `rg -n "dev activate|isolated mode|worktree-specific" README.md docs packages`
@@ -161,15 +177,18 @@ Tests and verification:
 ## Beads Mapping
 
 Epic:
+
 - Remove isolated runtime routing and activation from Browser Bridge
 
 Child tasks:
+
 1. Remove isolated runtime resolution and metadata plumbing.
 2. Replace `dev activate` with standalone inspect enablement.
 3. Remove extension alternate-port routing and migrate stale storage.
 4. Rewrite docs/tests/changelog to match the single-runtime model.
 
 Dependencies:
+
 - Task 2 depends on Task 1.
 - Task 3 depends on Task 2.
 - Task 4 depends on Tasks 1-3.

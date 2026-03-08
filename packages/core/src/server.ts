@@ -164,8 +164,7 @@ export type CoreServerHandle = {
 };
 
 export const buildRuntimeMetadataForPersist = (
-  runtime: ResolvedCoreRuntime,
-  _resolvedPort: number
+  runtime: ResolvedCoreRuntime
 ): RuntimeMetadata => ({
   ...(runtime.metadata ?? {}),
   extension_id: runtime.metadata?.extension_id,
@@ -328,10 +327,9 @@ export const startCoreServer = async (
       });
 
       try {
-        writeRuntimeMetadata(
-          buildRuntimeMetadataForPersist(runtime, resolvedPort),
-          { metadataPath: runtime.metadataPath }
-        );
+        writeRuntimeMetadata(buildRuntimeMetadataForPersist(runtime), {
+          metadataPath: runtime.metadataPath,
+        });
         logger.info('core.runtime_metadata.persisted', {
           metadata_path: runtime.metadataPath,
           host: runtime.host,

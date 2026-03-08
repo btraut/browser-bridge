@@ -5,10 +5,7 @@ export type CoreEndpointConfig = {
 };
 
 type LocalStorageArea = {
-  get(
-    keys: string[],
-    callback: (items: Record<string, unknown>) => void
-  ): void;
+  get(keys: string[], callback: (items: Record<string, unknown>) => void): void;
   remove(keys: string[], callback?: () => void): void;
 };
 
@@ -19,11 +16,12 @@ export const LEGACY_CORE_PORT_KEY = 'corePort';
 const hasOwn = (value: Record<string, unknown>, key: string): boolean =>
   Object.prototype.hasOwnProperty.call(value, key);
 
-export const readCoreEndpointConfig = async (): Promise<CoreEndpointConfig> => ({
-  host: DEFAULT_CORE_HOST,
-  port: DEFAULT_CORE_PORT,
-  portSource: 'default',
-});
+export const readCoreEndpointConfig =
+  async (): Promise<CoreEndpointConfig> => ({
+    host: DEFAULT_CORE_HOST,
+    port: DEFAULT_CORE_PORT,
+    portSource: 'default',
+  });
 
 export const clearLegacyCorePort = async (
   storage: LocalStorageArea
