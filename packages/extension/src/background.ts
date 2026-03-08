@@ -30,6 +30,11 @@ import {
   touchSiteLastUsed,
 } from './site-permissions.js';
 import { ConnectionStateTracker } from './connection-state.js';
+import {
+  isCaptureVisibleTabRateLimitedError,
+  mapScreenshotCaptureError,
+} from './screenshot-errors.js';
+import { buildRestrictedUrlError, isRestrictedUrl } from './restricted-url.js';
 
 type ContentResult =
   | { ok: true; result?: unknown }
@@ -231,25 +236,6 @@ const CAPTURE_VISIBLE_TAB_RETRY_BASE_DELAY_MS = 500;
 let captureVisibleTabQueue: Promise<void> = Promise.resolve();
 let captureVisibleTabLastCallAt = 0;
 
-const isCaptureVisibleTabRateLimitedMessage = (message: string): boolean => {
-  const normalized = message.toLowerCase();
-  const hasCaptureSignal =
-    normalized.includes('capturevisibletab') ||
-    normalized.includes('max_capture_visible_tab_calls_per_second');
-  const hasRateSignal =
-    normalized.includes('too often') ||
-    normalized.includes('rate limit') ||
-    normalized.includes('rate-limit');
-  return hasCaptureSignal && hasRateSignal;
-};
-
-const isCaptureVisibleTabRateLimitedError = (error: unknown): boolean => {
-  return (
-    error instanceof Error &&
-    isCaptureVisibleTabRateLimitedMessage(error.message)
-  );
-};
-
 const randomJitterMs = (maxMs: number): number => {
   return Math.floor(Math.random() * Math.max(1, maxMs));
 };
@@ -311,33 +297,6 @@ const captureVisibleTabWithThrottle = async (
     }
     throw new Error('captureVisibleTab failed unexpectedly.');
   });
-};
-
-const mapScreenshotCaptureError = (
-  error: unknown,
-  fallbackMessage: string
-): DriveErrorInfo => {
-  const message =
-    error instanceof Error && error.message ? error.message : fallbackMessage;
-
-  if (isCaptureVisibleTabRateLimitedError(error)) {
-    return {
-      code: 'RATE_LIMITED',
-      message:
-        'Screenshot capture hit Chrome capture rate limits. Please retry shortly.',
-      retryable: true,
-      details: {
-        reason: 'capture_visible_tab_rate_limited',
-        original_message: message,
-      },
-    };
-  }
-
-  return {
-    code: 'ARTIFACT_IO_ERROR',
-    message,
-    retryable: false,
-  };
 };
 
 const parseDataUrl = (
@@ -471,38 +430,6 @@ const readDebuggerIdleTimeoutMs = async (): Promise<number> => {
   });
 };
 
-const RESTRICTED_URL_PREFIXES = [
-  'chrome://',
-  'chrome-extension://',
-  'chrome-devtools://',
-  'devtools://',
-  'edge://',
-  'brave://',
-  'view-source:',
-];
-
-const isRestrictedUrl = (url?: string): boolean => {
-  if (!url || typeof url !== 'string') {
-    return false;
-  }
-  const lowered = url.toLowerCase();
-  if (RESTRICTED_URL_PREFIXES.some((prefix) => lowered.startsWith(prefix))) {
-    return true;
-  }
-  try {
-    const parsed = new URL(url);
-    if (parsed.hostname === 'chromewebstore.google.com') {
-      return true;
-    }
-    if (parsed.hostname === 'chrome.google.com') {
-      return parsed.pathname.startsWith('/webstore');
-    }
-  } catch (error) {
-    console.debug('Ignoring invalid URL in restriction check.', error);
-  }
-  return false;
-};
-
 const mapDebuggerErrorMessage = (
   message: string,
   fallbackCode = 'INSPECT_UNAVAILABLE'
@@ -581,6 +508,27 @@ const buildTabInfo = (tab: Record<string, unknown>): DriveTabInfo | null => {
   };
 };
 
+const tabRecencyScore = (tab: DriveTabInfo): number => {
+  const parsed = Date.parse(tab.last_active_at);
+  return Number.isFinite(parsed) ? parsed : -Infinity;
+};
+
+const compareTabsForReport = (a: DriveTabInfo, b: DriveTabInfo): number => {
+  const aActive = a.active === true ? 1 : 0;
+  const bActive = b.active === true ? 1 : 0;
+  if (aActive !== bActive) {
+    return bActive - aActive;
+  }
+  const recencyDelta = tabRecencyScore(b) - tabRecencyScore(a);
+  if (recencyDelta !== 0) {
+    return recencyDelta;
+  }
+  if (a.window_id !== b.window_id) {
+    return a.window_id - b.window_id;
+  }
+  return a.tab_id - b.tab_id;
+};
+
 const queryTabs = async (): Promise<DriveTabInfo[]> => {
   const tabs = await wrapChromeCallback<Record<string, unknown>[]>((callback) =>
     chrome.tabs.query({}, callback)
@@ -592,12 +540,21 @@ const queryTabs = async (): Promise<DriveTabInfo[]> => {
       result.push(info);
     }
   }
+  result.sort(compareTabsForReport);
   return result;
 };
 
 const getTab = async (tabId: number): Promise<Record<string, unknown>> => {
   return await wrapChromeCallback<Record<string, unknown>>((callback) =>
     chrome.tabs.get(tabId, callback)
+  );
+};
+
+const getWindow = async (
+  windowId: number
+): Promise<Record<string, unknown>> => {
+  return await wrapChromeCallback<Record<string, unknown>>((callback) =>
+    chrome.windows.get(windowId, callback)
   );
 };
 
@@ -1223,6 +1180,7 @@ class DriveSocket {
       tabs = [];
     }
     const params: DriveHelloParams = {
+      extension_id: chrome.runtime.id,
       version: manifest.version,
       protocol_version: DRIVE_WS_PROTOCOL_VERSION,
       capabilities: buildNegotiatedCapabilities(debuggerCapabilityEnabled),
@@ -1429,12 +1387,11 @@ class DriveSocket {
           if (isRestrictedUrl(url)) {
             return {
               ok: false,
-              error: {
-                code: 'NOT_SUPPORTED',
-                message: 'Navigation is not supported for this URL.',
-                retryable: false,
-                details: { url },
-              },
+              error: buildRestrictedUrlError({
+                url,
+                operation: 'navigate',
+                action,
+              }),
             };
           }
           siteKey = siteKeyFromUrl(url);
@@ -1475,18 +1432,14 @@ class DriveSocket {
             };
           }
           if (isRestrictedUrl(url)) {
-            const message =
-              action === 'drive.screenshot'
-                ? 'Screenshots are not supported for this URL.'
-                : 'This action is not supported for this URL.';
             return {
               ok: false,
-              error: {
-                code: 'NOT_SUPPORTED',
-                message,
-                retryable: false,
-                details: { url },
-              },
+              error: buildRestrictedUrlError({
+                url,
+                operation:
+                  action === 'drive.screenshot' ? 'screenshot' : 'action',
+                action,
+              }),
             };
           }
           siteKey = siteKeyFromUrl(url);
@@ -1600,15 +1553,41 @@ class DriveSocket {
           if (tabId === undefined) {
             tabId = await getDefaultTabId();
           }
+          const requestedWaitMode = params.wait;
+          if (
+            requestedWaitMode !== undefined &&
+            requestedWaitMode !== 'none' &&
+            requestedWaitMode !== 'domcontentloaded' &&
+            requestedWaitMode !== 'networkidle'
+          ) {
+            respondError({
+              code: 'INVALID_ARGUMENT',
+              message: `Unsupported wait mode: ${String(requestedWaitMode)}.`,
+              retryable: false,
+              details: {
+                field: 'wait',
+                supported_wait_modes: [
+                  'none',
+                  'domcontentloaded',
+                  'networkidle',
+                ],
+                mapped_wait_mode: 'domcontentloaded',
+              },
+            });
+            return;
+          }
           const waitMode =
-            params.wait === 'none' || params.wait === 'domcontentloaded'
-              ? params.wait
-              : 'domcontentloaded';
+            requestedWaitMode === 'none' ? 'none' : 'domcontentloaded';
           const domContentLoadedSignal =
             waitMode === 'domcontentloaded'
               ? waitForDomContentLoaded(tabId as number, 30000)
               : null;
           const warnings: string[] = [];
+          if (requestedWaitMode === 'networkidle') {
+            warnings.push(
+              'wait=networkidle is mapped to domcontentloaded in this runtime.'
+            );
+          }
           await wrapChromeVoid((callback) =>
             chrome.tabs.update(tabId as number, { url }, () => callback())
           );
@@ -1723,7 +1702,18 @@ class DriveSocket {
             });
             return;
           }
-          const tab = await getTab(tabId);
+          let tab: Record<string, unknown>;
+          try {
+            tab = await getTab(tabId);
+          } catch {
+            respondError({
+              code: 'TAB_NOT_FOUND',
+              message: `tab_id ${tabId} was not found.`,
+              retryable: false,
+              details: { tab_id: tabId },
+            });
+            return;
+          }
           await wrapChromeVoid((callback) =>
             chrome.tabs.update(tabId, { active: true }, () => callback())
           );
@@ -1734,6 +1724,30 @@ class DriveSocket {
                 callback()
               )
             );
+          }
+          const activatedTab = await getTab(tabId).catch(() => undefined);
+          if (!activatedTab || activatedTab.active !== true) {
+            respondError({
+              code: 'FAILED_PRECONDITION',
+              message: `Failed to activate tab_id ${tabId}.`,
+              retryable: true,
+              details: { tab_id: tabId },
+            });
+            return;
+          }
+          if (typeof windowId === 'number') {
+            const focusedWindow = await getWindow(windowId).catch(
+              () => undefined
+            );
+            if (focusedWindow && focusedWindow.focused !== true) {
+              respondError({
+                code: 'FAILED_PRECONDITION',
+                message: `Failed to focus window_id ${windowId} for tab_id ${tabId}.`,
+                retryable: true,
+                details: { tab_id: tabId, window_id: windowId },
+              });
+              return;
+            }
           }
           markTabActive(tabId);
           respondOk({ ok: true });
@@ -2384,12 +2398,13 @@ class DriveSocket {
           const tab = await getTab(tabId as number);
           const url = tab.url;
           if (typeof url === 'string' && isRestrictedUrl(url)) {
-            respondError({
-              code: 'NOT_SUPPORTED',
-              message: 'Screenshots are not supported for this URL.',
-              retryable: false,
-              details: { url },
-            });
+            respondError(
+              buildRestrictedUrlError({
+                url,
+                operation: 'screenshot',
+                action: 'drive.screenshot',
+              })
+            );
             return;
           }
           const windowId = tab.windowId;
@@ -3476,12 +3491,11 @@ class DriveSocket {
       const tab = await getTab(tabId);
       const url = typeof tab.url === 'string' ? tab.url : undefined;
       if (isRestrictedUrl(url)) {
-        return {
-          code: 'NOT_SUPPORTED',
-          message: 'Debugger cannot attach to restricted pages.',
-          retryable: false,
-          details: { url },
-        };
+        return buildRestrictedUrlError({
+          url: url ?? 'about:blank',
+          operation: 'debugger',
+          action: 'debugger.attach',
+        });
       }
     } catch (error) {
       return mapDebuggerErrorMessage(
@@ -3632,6 +3646,20 @@ chrome.runtime.onConnect.addListener((port: unknown) => {
 
 chrome.windows.onRemoved.addListener((windowId: number) => {
   permissionPrompts.handleWindowRemoved(windowId);
+});
+
+chrome.windows.onFocusChanged.addListener((windowId: number) => {
+  if (windowId === chrome.windows.WINDOW_ID_NONE) {
+    return;
+  }
+  void queryActiveTabIdInWindow(windowId)
+    .then((tabId) => {
+      markTabActive(tabId);
+      socket.sendTabReport();
+    })
+    .catch(() => {
+      socket.sendTabReport();
+    });
 });
 
 chrome.tabs.onActivated.addListener((activeInfo: { tabId: number }) => {

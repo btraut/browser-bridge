@@ -1,13 +1,18 @@
 import { Command } from 'commander';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { ResolvedCoreRuntime } from '@btraut/browser-bridge-shared';
+import type {
+  DiagnosticReport,
+  ResolvedCoreRuntime,
+} from '@btraut/browser-bridge-shared';
 import {
   resolveCoreRuntime,
   resolveLogDirectory,
   writeRuntimeMetadata,
 } from '@btraut/browser-bridge-shared';
 import { runLocal } from '../cli-runtime';
+import { createCoreClient } from '../core-client';
 import { openPath } from '../open-path';
+import { discoverActivationExtensionId } from '../extension-id-discovery';
 import {
   buildActivationOptionsUrl,
   registerDevCommands,
@@ -20,6 +25,17 @@ vi.mock('../cli-runtime', () => ({
 
 vi.mock('../open-path', () => ({
   openPath: vi.fn(),
+}));
+
+vi.mock('../core-client', () => ({
+  createCoreClient: vi.fn(),
+}));
+
+vi.mock('../extension-id-discovery', () => ({
+  discoverActivationExtensionId: vi.fn(async () => ({
+    kind: 'none',
+    searchedPaths: [],
+  })),
 }));
 
 vi.mock('@btraut/browser-bridge-shared', async () => {
@@ -106,25 +122,75 @@ describe('dev command helpers', () => {
       'chrome-extension://abcdefghijklmnopabcdefghijklmnop/options.html?bb_activate=1&corePort=4567&worktreeId=wt-abc'
     );
   });
+
+  it('builds options URL with inspect enablement when requested', () => {
+    expect(
+      buildActivationOptionsUrl({
+        extensionId: 'abcdefghijklmnopabcdefghijklmnop',
+        corePort: 4567,
+        worktreeId: null,
+        enableInspect: true,
+      })
+    ).toBe(
+      'chrome-extension://abcdefghijklmnopabcdefghijklmnop/options.html?bb_activate=1&corePort=4567&enableInspect=1'
+    );
+  });
 });
 
 describe('dev commands', () => {
   const originalExtensionId = process.env.BROWSER_BRIDGE_EXTENSION_ID;
+  const originalActivationTimeout =
+    process.env.BROWSER_BRIDGE_ACTIVATE_TIMEOUT_MS;
+  const activationReadyReport = (
+    overrides: Partial<DiagnosticReport> = {}
+  ): DiagnosticReport => ({
+    ok: true,
+    extension: {
+      connected: true,
+    },
+    checks: [
+      {
+        name: 'runtime.extension.endpoint_match',
+        ok: true,
+      },
+    ],
+    ...overrides,
+  });
 
   beforeEach(() => {
     vi.mocked(runLocal).mockReset();
     vi.mocked(resolveCoreRuntime).mockReset();
     vi.mocked(resolveLogDirectory).mockReset();
     vi.mocked(openPath).mockReset();
+    vi.mocked(createCoreClient).mockReset();
+    vi.mocked(discoverActivationExtensionId).mockReset();
+    vi.mocked(discoverActivationExtensionId).mockResolvedValue({
+      kind: 'none',
+      searchedPaths: [],
+    });
+    vi.mocked(createCoreClient).mockReturnValue({
+      baseUrl: 'http://127.0.0.1:4321',
+      ensureReady: vi.fn(async () => {}),
+      post: vi.fn(async () => ({
+        ok: true as const,
+        result: activationReadyReport(),
+      })),
+    } as ReturnType<typeof createCoreClient>);
     delete process.env.BROWSER_BRIDGE_EXTENSION_ID;
+    delete process.env.BROWSER_BRIDGE_ACTIVATE_TIMEOUT_MS;
   });
 
   afterEach(() => {
     if (originalExtensionId === undefined) {
       delete process.env.BROWSER_BRIDGE_EXTENSION_ID;
+    } else {
+      process.env.BROWSER_BRIDGE_EXTENSION_ID = originalExtensionId;
+    }
+    if (originalActivationTimeout === undefined) {
+      delete process.env.BROWSER_BRIDGE_ACTIVATE_TIMEOUT_MS;
       return;
     }
-    process.env.BROWSER_BRIDGE_EXTENSION_ID = originalExtensionId;
+    process.env.BROWSER_BRIDGE_ACTIVATE_TIMEOUT_MS = originalActivationTimeout;
   });
 
   it('dev info returns resolved runtime details', async () => {
@@ -217,6 +283,11 @@ describe('dev commands', () => {
     expect(openPath).toHaveBeenCalledWith(
       'chrome-extension://flag-ext/options.html?bb_activate=1&corePort=4321&worktreeId=wt-abc'
     );
+    expect(createCoreClient).toHaveBeenCalledWith({
+      host: '127.0.0.1',
+      port: 4321,
+      ensureDaemon: true,
+    });
     expect(envelope).toEqual({
       ok: true,
       result: {
@@ -228,6 +299,7 @@ describe('dev commands', () => {
         metadataPath: '/tmp/runtime/dev.json',
         activationUrl:
           'chrome-extension://flag-ext/options.html?bb_activate=1&corePort=4321&worktreeId=wt-abc',
+        inspectEnabledRequested: false,
       },
     });
   });
@@ -263,5 +335,182 @@ describe('dev commands', () => {
     await expect(
       program.parseAsync(['node', 'cli', 'dev', 'activate'])
     ).rejects.toThrow('Missing extension id.');
+  });
+
+  it('dev activate uses discovered connected extension id when explicit sources are missing', async () => {
+    const isolatedRuntime = createRuntime({
+      metadata: null,
+      port: 4321,
+      isolatedMode: true,
+    });
+    const sharedRuntime = createRuntime({
+      metadata: null,
+      port: 3210,
+      isolatedMode: false,
+    });
+    vi.mocked(resolveCoreRuntime)
+      .mockReturnValueOnce(isolatedRuntime)
+      .mockReturnValueOnce(sharedRuntime);
+    vi.mocked(discoverActivationExtensionId).mockResolvedValue({
+      kind: 'resolved',
+      extensionId: 'connected-ext',
+      source: 'connected',
+      searchedPaths: [],
+    });
+
+    let envelope: unknown;
+    vi.mocked(runLocal).mockImplementation(async (_command, work) => {
+      envelope = await work({ json: false });
+    });
+
+    const program = buildProgram();
+    await program.parseAsync(['node', 'cli', 'dev', 'activate']);
+
+    expect(discoverActivationExtensionId).toHaveBeenCalledWith(sharedRuntime);
+    expect(openPath).toHaveBeenCalledWith(
+      'chrome-extension://connected-ext/options.html?bb_activate=1&corePort=4321&worktreeId=wt-abc'
+    );
+    expect(envelope).toEqual({
+      ok: true,
+      result: {
+        extensionId: 'connected-ext',
+        extensionIdSource: 'connected',
+        host: '127.0.0.1',
+        port: 4321,
+        isolatedMode: true,
+        metadataPath: '/tmp/runtime/dev.json',
+        activationUrl:
+          'chrome-extension://connected-ext/options.html?bb_activate=1&corePort=4321&worktreeId=wt-abc',
+        inspectEnabledRequested: false,
+      },
+    });
+  });
+
+  it('dev activate can enable inspect capability during activation', async () => {
+    const runtime = createRuntime();
+    vi.mocked(resolveCoreRuntime).mockReturnValue(runtime);
+    vi.mocked(createCoreClient).mockReturnValue({
+      baseUrl: 'http://127.0.0.1:4321',
+      ensureReady: vi.fn(async () => {}),
+      post: vi.fn(async () => ({
+        ok: true as const,
+        result: activationReadyReport({
+          checks: [
+            {
+              name: 'runtime.extension.endpoint_match',
+              ok: true,
+            },
+            {
+              name: 'inspect.capability',
+              ok: true,
+            },
+          ],
+        }),
+      })),
+    } as ReturnType<typeof createCoreClient>);
+
+    let envelope: unknown;
+    vi.mocked(runLocal).mockImplementation(async (_command, work) => {
+      envelope = await work({ json: false });
+    });
+
+    const program = buildProgram();
+    await program.parseAsync([
+      'node',
+      'cli',
+      'dev',
+      'activate',
+      '--extension-id',
+      'flag-ext',
+      '--enable-inspect',
+    ]);
+
+    expect(openPath).toHaveBeenCalledWith(
+      'chrome-extension://flag-ext/options.html?bb_activate=1&corePort=4321&worktreeId=wt-abc&enableInspect=1'
+    );
+    expect(envelope).toEqual({
+      ok: true,
+      result: {
+        extensionId: 'flag-ext',
+        extensionIdSource: 'flag',
+        host: '127.0.0.1',
+        port: 4321,
+        isolatedMode: true,
+        metadataPath: '/tmp/runtime/dev.json',
+        activationUrl:
+          'chrome-extension://flag-ext/options.html?bb_activate=1&corePort=4321&worktreeId=wt-abc&enableInspect=1',
+        inspectEnabledRequested: true,
+      },
+    });
+  });
+
+  it('dev activate errors deterministically when discovered ids are ambiguous', async () => {
+    const isolatedRuntime = createRuntime({
+      metadata: null,
+      port: 4321,
+      isolatedMode: true,
+    });
+    const sharedRuntime = createRuntime({
+      metadata: null,
+      port: 3210,
+      isolatedMode: false,
+    });
+    vi.mocked(resolveCoreRuntime)
+      .mockReturnValueOnce(isolatedRuntime)
+      .mockReturnValueOnce(sharedRuntime);
+    vi.mocked(discoverActivationExtensionId).mockResolvedValue({
+      kind: 'ambiguous',
+      candidates: [
+        'aaaabbbbccccddddeeeeffffgggghhhh',
+        'hhhhggggffffeeeeddddccccbbbbaaaa',
+      ],
+      searchedPaths: ['/tmp/Profile 1/Secure Preferences'],
+    });
+    vi.mocked(runLocal).mockImplementation(async (_command, work) => {
+      await work({ json: false });
+    });
+
+    const program = buildProgram();
+    await expect(
+      program.parseAsync(['node', 'cli', 'dev', 'activate'])
+    ).rejects.toThrow('Multiple Browser Bridge extension ids discovered');
+    expect(discoverActivationExtensionId).toHaveBeenCalledWith(sharedRuntime);
+  });
+
+  it('dev activate fails with actionable timeout details when isolated bind never completes', async () => {
+    process.env.BROWSER_BRIDGE_ACTIVATE_TIMEOUT_MS = '1';
+    const runtime = createRuntime();
+    vi.mocked(resolveCoreRuntime).mockReturnValue(runtime);
+    vi.mocked(createCoreClient).mockReturnValue({
+      baseUrl: 'http://127.0.0.1:4321',
+      ensureReady: vi.fn(async () => {}),
+      post: vi.fn(async () => ({
+        ok: true as const,
+        result: activationReadyReport({
+          extension: { connected: false },
+          checks: [
+            {
+              name: 'runtime.extension.endpoint_match',
+              ok: false,
+            },
+          ],
+        }),
+      })),
+    } as ReturnType<typeof createCoreClient>);
+    vi.mocked(runLocal).mockImplementation(async (_command, work) => {
+      await work({ json: false });
+    });
+
+    const program = buildProgram();
+    await expect(
+      program.parseAsync([
+        'node',
+        'cli',
+        'dev',
+        'activate',
+        '--extension-id',
+        'flag-ext',
+      ])
+    ).rejects.toThrow('Isolated activation did not complete');
   });
 });

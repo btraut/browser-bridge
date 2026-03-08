@@ -144,6 +144,81 @@ describe('registerDriveRoutes', () => {
     });
   });
 
+  it('passes through wait=networkidle for drive.navigate', async () => {
+    const registry = new SessionRegistry();
+    const existing = registry.create();
+    const execute = vi.fn().mockResolvedValue({
+      ok: true,
+      result: { ok: true },
+    });
+    const drive = { execute } as unknown as DriveController;
+
+    const harness = createRouteHarness();
+    registerDriveRoutes(harness.router, { drive, registry });
+
+    const navigate = harness.handlers.get('/drive/navigate');
+    expect(navigate).toBeDefined();
+
+    const response = createResponse();
+    navigate?.(
+      {
+        body: {
+          session_id: existing.id,
+          url: 'https://example.com',
+          wait: 'networkidle',
+        },
+      },
+      response.res
+    );
+    await flushAsync();
+
+    expect(execute).toHaveBeenCalledWith(existing.id, 'drive.navigate', {
+      url: 'https://example.com',
+      wait: 'networkidle',
+    });
+    expect(response.statusCode()).toBe(200);
+  });
+
+  it('returns wait-mode guidance for unsupported drive.navigate wait values', async () => {
+    const registry = new SessionRegistry();
+    const execute = vi.fn();
+    const drive = { execute } as unknown as DriveController;
+
+    const harness = createRouteHarness();
+    registerDriveRoutes(harness.router, { drive, registry });
+
+    const navigate = harness.handlers.get('/drive/navigate');
+    expect(navigate).toBeDefined();
+
+    const response = createResponse();
+    navigate?.(
+      {
+        body: {
+          url: 'https://example.com',
+          wait: 'load',
+        },
+      },
+      response.res
+    );
+    await flushAsync();
+
+    expect(execute).not.toHaveBeenCalled();
+    expect(response.statusCode()).toBe(400);
+    expect(response.payload()).toEqual({
+      ok: false,
+      error: {
+        code: 'INVALID_ARGUMENT',
+        message: 'Unsupported wait mode: load.',
+        retryable: false,
+        details: {
+          field: 'wait',
+          supported_wait_modes: ['none', 'domcontentloaded', 'networkidle'],
+          mapped_wait_mode: 'domcontentloaded',
+        },
+      },
+    });
+  });
+
   it('normalizes legacy error codes in route responses', async () => {
     const registry = new SessionRegistry();
     const session = registry.create();

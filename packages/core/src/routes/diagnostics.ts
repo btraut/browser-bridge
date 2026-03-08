@@ -79,6 +79,9 @@ export const registerDiagnosticsRoutes = (
       sessions: { active: sessionsActive },
       extension: {
         connected: extensionStatus?.connected ?? false,
+        ...(extensionStatus?.extensionId
+          ? { extension_id: extensionStatus.extensionId }
+          : {}),
         ...(extensionStatus?.lastSeenAt
           ? { last_seen_at: extensionStatus.lastSeenAt }
           : {}),
@@ -205,11 +208,13 @@ export const registerDiagnosticsRoutes = (
         const status = options.extensionBridge.getStatus();
         context.extension = {
           connected: status.connected,
+          extensionId: status.extensionId,
           version: status.version,
           lastSeenAt: status.lastSeenAt,
         };
         if (status.connected) {
           context.runtime.extension = {
+            extensionId: status.extensionId,
             version: status.version,
             protocolVersion: status.protocolVersion,
             capabilityNegotiated: status.capabilityNegotiated,
@@ -254,6 +259,7 @@ export const registerDiagnosticsRoutes = (
             message: lastError.error.message,
             retryable: lastError.error.retryable,
             at: lastError.at,
+            details: lastError.error.details,
           };
         }
       }
@@ -266,6 +272,7 @@ export const registerDiagnosticsRoutes = (
             message: lastError.error.message,
             retryable: lastError.error.retryable,
             at: lastError.at,
+            details: lastError.error.details,
           };
         }
       }

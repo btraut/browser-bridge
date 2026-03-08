@@ -109,6 +109,7 @@ const DiagnosticsRuntimeContextSchema = z.object({
     .optional(),
   extension: z
     .object({
+      extension_id: z.string().optional(),
       version: z.string().optional(),
       protocol_version: z.string().optional(),
       capability_negotiated: z.boolean().optional(),
@@ -212,7 +213,9 @@ export const DriveNavigateInputSchema = z.object({
   session_id: z.string().min(1).optional(),
   url: z.string().min(1),
   tab_id: z.number().finite().optional(),
-  wait: z.enum(['none', 'domcontentloaded']).default('domcontentloaded'),
+  wait: z
+    .enum(['none', 'domcontentloaded', 'networkidle'])
+    .default('domcontentloaded'),
 });
 export const DriveNavigateOutputSchema = OpResultSchema.extend({
   session_id: z.string().min(1),
@@ -672,6 +675,7 @@ export const HealthCheckOutputSchema = z
     extension: z
       .object({
         connected: z.boolean(),
+        extension_id: z.string().optional(),
         last_seen_at: z.string().min(1).optional(),
       })
       .passthrough(),

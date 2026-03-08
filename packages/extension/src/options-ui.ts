@@ -31,6 +31,7 @@ type DebuggerEls = {
 
 const ACTIVATION_FLAG_PARAM = 'bb_activate';
 const ACTIVATION_PORT_PARAM = 'corePort';
+const ACTIVATION_ENABLE_INSPECT_PARAM = 'enableInspect';
 
 const byId = (id: string): HTMLElement => {
   const el = document.getElementById(id);
@@ -105,6 +106,14 @@ const writeCorePort = async (corePort: number): Promise<void> => {
   });
 };
 
+const refreshCapabilities = async (): Promise<void> => {
+  await new Promise<void>((resolve) => {
+    chrome.runtime.sendMessage({ action: 'drive.refresh_capabilities' }, () =>
+      resolve()
+    );
+  });
+};
+
 const applyActivationQueryParams = async (): Promise<void> => {
   const url = new URL(window.location.href);
   const params = url.searchParams;
@@ -113,14 +122,29 @@ const applyActivationQueryParams = async (): Promise<void> => {
   }
 
   const corePort = parseActivationPort(params.get(ACTIVATION_PORT_PARAM));
+  const enableInspect = params.get(ACTIVATION_ENABLE_INSPECT_PARAM) === '1';
   try {
-    if (corePort !== null) {
-      await writeCorePort(corePort);
-    } else {
-      console.warn('Ignoring dev activation request with invalid corePort.');
+    try {
+      if (corePort !== null) {
+        await writeCorePort(corePort);
+      } else {
+        console.warn('Ignoring dev activation request with invalid corePort.');
+      }
+    } catch (error) {
+      console.warn('Failed to apply dev activation corePort.', error);
     }
-  } catch (error) {
-    console.warn('Failed to apply dev activation corePort.', error);
+
+    if (enableInspect) {
+      try {
+        await writeDebuggerCapabilityEnabled(true);
+        await refreshCapabilities();
+      } catch (error) {
+        console.warn(
+          'Failed to enable inspect debugger capability from activation request.',
+          error
+        );
+      }
+    }
   } finally {
     clearActivationQueryParams();
   }
@@ -402,12 +426,7 @@ const setDebuggerCapability = async (enabled: boolean): Promise<void> => {
       const next = pendingDebuggerCapability;
       pendingDebuggerCapability = null;
       await writeDebuggerCapabilityEnabled(next);
-      await new Promise<void>((resolve) => {
-        chrome.runtime.sendMessage(
-          { action: 'drive.refresh_capabilities' },
-          () => resolve()
-        );
-      });
+      await refreshCapabilities();
     }
   } catch {
     applyDebuggerCapability(DEFAULT_DEBUGGER_CAPABILITY_ENABLED);

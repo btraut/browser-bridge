@@ -29,7 +29,7 @@ export type DriveTabInfo = {
 
 export type DriveNavigateParams = {
   url: string;
-  wait?: 'none' | 'domcontentloaded';
+  wait?: 'none' | 'domcontentloaded' | 'networkidle';
 };
 
 export type DriveGoBackParams = {
@@ -164,6 +164,7 @@ export type DriveTabCloseParams = {
 export type ExtensionCapabilityMap = Record<string, boolean>;
 
 export type DriveHelloParams = {
+  extension_id?: string;
   version?: string;
   protocol_version?: string;
   capabilities?: ExtensionCapabilityMap;

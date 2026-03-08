@@ -62,6 +62,14 @@ describe('shared schemas', () => {
     expect(parsed.wait).toBe('domcontentloaded');
   });
 
+  it('accepts drive navigate networkidle wait mode', () => {
+    const parsed = DriveNavigateInputSchema.parse({
+      url: 'https://example.com',
+      wait: 'networkidle',
+    });
+    expect(parsed.wait).toBe('networkidle');
+  });
+
   it('parses drive navigate output with canonical session_id', () => {
     const parsed = DriveNavigateOutputSchema.parse({
       ok: true,
@@ -406,9 +414,15 @@ describe('shared schemas', () => {
         arrayBuffers: 0,
       },
       sessions: { active: 1 },
-      extension: { connected: true },
+      extension: {
+        connected: true,
+        extension_id: 'abcdefghijklmnopabcdefghijklmnop',
+      },
     });
     expect(output.extension.connected).toBe(true);
+    expect(output.extension.extension_id).toBe(
+      'abcdefghijklmnopabcdefghijklmnop'
+    );
   });
 
   it('parses diagnostics report with debugger info', () => {
@@ -426,6 +440,9 @@ describe('shared schemas', () => {
             version: '0.11.1',
           },
         },
+        extension: {
+          extension_id: 'abcdefghijklmnopabcdefghijklmnop',
+        },
       },
       debugger: {
         attached: true,
@@ -435,6 +452,9 @@ describe('shared schemas', () => {
       },
     });
     expect(parsed.debugger?.attached).toBe(true);
+    expect(parsed.runtime?.extension?.extension_id).toBe(
+      'abcdefghijklmnopabcdefghijklmnop'
+    );
 
     const report = ErrorEnvelopeSchema.safeParse({
       ok: false,

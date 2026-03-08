@@ -35,6 +35,7 @@ type ErrorEnvelope = {
       | 'EXTENSION_DISCONNECTED'
       | 'DEBUGGER_IN_USE'
       | 'ATTACH_DENIED'
+      | 'PERMISSION_REQUIRED'
       | 'TAB_NOT_FOUND'
       | 'NOT_SUPPORTED'
       | 'RATE_LIMITED'

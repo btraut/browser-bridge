@@ -38,6 +38,7 @@ export type DiagnosticReport = {
   };
   extension?: {
     connected?: boolean;
+    extension_id?: string;
     version?: string;
     last_seen_at?: string;
   };
@@ -119,6 +120,7 @@ export type DiagnosticReport = {
       };
     };
     extension?: {
+      extension_id?: string;
       version?: string;
       protocol_version?: string;
       capability_negotiated?: boolean;
@@ -146,6 +148,7 @@ export type DiagnosticsContext = {
   };
   extension?: {
     connected: boolean;
+    extensionId?: string;
     lastSeenAt?: string;
     version?: string;
   };
@@ -166,12 +169,14 @@ export type DiagnosticsContext = {
     message: string;
     retryable: boolean;
     at: string;
+    details?: Record<string, unknown>;
   };
   inspectLastError?: {
     code: string;
     message: string;
     retryable: boolean;
     at: string;
+    details?: Record<string, unknown>;
   };
   recoveryAttempt?: RecoveryAttempt;
   recoveryMetrics?: RecoveryMetrics;
@@ -185,6 +190,7 @@ export type DiagnosticsContext = {
       process?: RuntimeProcessContext;
     };
     extension?: {
+      extensionId?: string;
       version?: string;
       protocolVersion?: string;
       capabilityNegotiated?: boolean;
@@ -196,6 +202,9 @@ export type DiagnosticsContext = {
 };
 
 const STALE_ERROR_THRESHOLD_MS = 2 * 60 * 1000;
+const ACTIVATION_FLAG_PARAM = 'bb_activate';
+const ACTIVATION_PORT_PARAM = 'corePort';
+const ACTIVATION_ENABLE_INSPECT_PARAM = 'enableInspect';
 
 const getErrorAgeMs = (timestamp: string): number | undefined => {
   const parsed = Date.parse(timestamp);
@@ -228,6 +237,33 @@ const readCapability = (
   const candidate = capabilities[name];
   return typeof candidate === 'boolean' ? candidate : undefined;
 };
+
+const buildInspectEnableCommand = (extensionId?: string): string => {
+  if (extensionId) {
+    return `browser-bridge dev activate --extension-id ${extensionId} --enable-inspect`;
+  }
+  return 'browser-bridge dev activate --extension-id <id> --enable-inspect';
+};
+
+const buildInspectActivationUrl = (
+  extensionId: string | undefined,
+  corePort: number | undefined
+): string | undefined => {
+  if (!extensionId || corePort === undefined) {
+    return undefined;
+  }
+  const search = new URLSearchParams();
+  search.set(ACTIVATION_FLAG_PARAM, '1');
+  search.set(ACTIVATION_PORT_PARAM, String(corePort));
+  search.set(ACTIVATION_ENABLE_INSPECT_PARAM, '1');
+  return `chrome-extension://${extensionId}/options.html?${search.toString()}`;
+};
+
+const hasCapturePermissionErrorReason = (
+  details: Record<string, unknown> | undefined
+): boolean =>
+  typeof details?.reason === 'string' &&
+  details.reason === 'capture_visible_tab_permission_required';
 
 const hasEndpoint = (
   endpoint?: RuntimeEndpointContext
@@ -424,6 +460,13 @@ export const buildDiagnosticReport = (
       capabilities,
       'debugger.command'
     );
+    const extensionId =
+      context.runtime?.extension?.extensionId ?? context.extension?.extensionId;
+    const inspectEnableCommand = buildInspectEnableCommand(extensionId);
+    const inspectActivationUrl = buildInspectActivationUrl(
+      extensionId,
+      coreEndpoint?.port
+    );
 
     checks.push({
       name: 'runtime.extension.capability_negotiated',
@@ -461,12 +504,20 @@ export const buildDiagnosticReport = (
         required_capabilities: ['debugger.attach', 'debugger.command'],
         debugger_attach: inspectAttachCapability,
         debugger_command: inspectCommandCapability,
+        remediation:
+          capabilityNegotiated && !inspectEnabled
+            ? {
+                enable_command: inspectEnableCommand,
+                activation_url: inspectActivationUrl,
+                verify_check: 'inspect.capability',
+              }
+            : undefined,
       },
     });
 
     if (capabilityNegotiated && !inspectEnabled) {
       warnings.push(
-        'Inspect commands require debugger capability. Enable debugger-based inspect in extension options to use inspect.* routes.'
+        `Inspect commands require debugger capability. Run "${inspectEnableCommand}" to enable debugger-based inspect and verify inspect.capability before using inspect.* routes.`
       );
     }
   }
@@ -508,9 +559,15 @@ export const buildDiagnosticReport = (
         code: context.driveLastError.code,
         retryable: context.driveLastError.retryable,
         at: context.driveLastError.at,
+        ...(context.driveLastError.details ?? {}),
         ...(ageMs !== undefined ? { age_ms: ageMs } : {}),
       },
     });
+    if (hasCapturePermissionErrorReason(context.driveLastError.details)) {
+      warnings.push(
+        'Screenshot capture permission is missing. Reload the Browser Bridge extension in chrome://extensions and retry screenshot capture.'
+      );
+    }
   }
 
   if (context.inspectLastError) {
@@ -531,9 +588,15 @@ export const buildDiagnosticReport = (
         code: context.inspectLastError.code,
         retryable: context.inspectLastError.retryable,
         at: context.inspectLastError.at,
+        ...(context.inspectLastError.details ?? {}),
         ...(ageMs !== undefined ? { age_ms: ageMs } : {}),
       },
     });
+    if (hasCapturePermissionErrorReason(context.inspectLastError.details)) {
+      warnings.push(
+        'Screenshot capture permission is missing. Reload the Browser Bridge extension in chrome://extensions and retry screenshot capture.'
+      );
+    }
   }
 
   if (context.recoveryAttempt) {
@@ -574,6 +637,7 @@ export const buildDiagnosticReport = (
       : undefined,
     extension: {
       connected: extensionConnected,
+      extension_id: context.extension?.extensionId,
       version: context.extension?.version,
       last_seen_at: context.extension?.lastSeenAt,
     },
@@ -630,6 +694,7 @@ export const buildDiagnosticReport = (
             : undefined,
           extension: context.runtime.extension
             ? {
+                extension_id: context.runtime.extension.extensionId,
                 version: context.runtime.extension.version,
                 protocol_version: context.runtime.extension.protocolVersion,
                 capability_negotiated:

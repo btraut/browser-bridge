@@ -61,3 +61,16 @@ describe('SessionRegistry.cleanupIdleSessions', () => {
     expect(registry.get(session.id)).toBeDefined();
   });
 });
+
+describe('SessionRegistry tab targeting', () => {
+  it('stores and clears selected tab id per session', () => {
+    const registry = new SessionRegistry();
+    const session = registry.create();
+
+    registry.setSelectedTab(session.id, 42);
+    expect(registry.require(session.id).selectedTabId).toBe(42);
+
+    registry.clearSelectedTab(session.id);
+    expect(registry.require(session.id).selectedTabId).toBeUndefined();
+  });
+});

@@ -555,6 +555,83 @@ describe('InspectService', () => {
     });
   });
 
+  it('falls back to CDP when extension full-page capture is permission-gated', async () => {
+    await withTempArtifactsRoot(async () => {
+      const registry = new SessionRegistry();
+      const session = registry.create();
+
+      const pngPayload = Buffer.from('permission-fallback-bytes').toString(
+        'base64'
+      );
+
+      const extensionRequestSpy = vi.fn();
+      const extensionRequest = async <T = unknown>(
+        action: DriveAction
+      ): Promise<DriveResponse<T>> => {
+        extensionRequestSpy(action);
+        return {
+          id: 'test-extension-request',
+          action,
+          status: 'error',
+          error: {
+            code: 'PERMISSION_REQUIRED',
+            message:
+              'Either the <all_urls> or activeTab permission is required.',
+            retryable: false,
+            details: {
+              reason: 'capture_visible_tab_permission_required',
+            },
+          },
+        } as DriveResponse<T>;
+      };
+
+      const debuggerCommand = vi.fn(async (_tabId: number, method: string) => {
+        if (method === 'Page.getLayoutMetrics') {
+          return {
+            ok: true as const,
+            result: { contentSize: { width: 10, height: 20 } },
+          };
+        }
+        if (method === 'Page.captureScreenshot') {
+          return { ok: true as const, result: { data: pngPayload } };
+        }
+        return { ok: true as const, result: {} };
+      });
+
+      const debuggerBridge = {
+        hasAttachments: () => true,
+        getLastError: () => undefined,
+        command: debuggerCommand,
+      } as unknown as DebuggerBridge;
+
+      const service = new InspectService({
+        registry,
+        extensionBridge: {
+          isConnected: () => true,
+          getStatus: () => ({ tabs: [DEFAULT_TAB] }),
+          request: extensionRequest,
+        },
+        debuggerBridge,
+      });
+
+      const result = await service.screenshot({
+        sessionId: session.id,
+        target: 'full',
+        format: 'png',
+        targetHint: { url: DEFAULT_TAB.url },
+      });
+
+      expect(extensionRequestSpy).toHaveBeenCalledTimes(1);
+      expect(
+        debuggerCommand.mock.calls.some(
+          (call) => call[1] === 'Page.captureScreenshot'
+        )
+      ).toBe(true);
+      expect(result.mime).toBe('image/png');
+      expect((await readFile(result.path)).byteLength).toBeGreaterThan(0);
+    });
+  });
+
   it('throws INSPECT_UNAVAILABLE when screenshot data is missing', async () => {
     const registry = new SessionRegistry();
     const session = registry.create();

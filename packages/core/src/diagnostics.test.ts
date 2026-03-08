@@ -149,6 +149,52 @@ describe('buildDiagnosticReport', () => {
     expect(driveCheck?.ok).toBe(false);
   });
 
+  it('surfaces screenshot permission remediation from last error details', () => {
+    const now = new Date().toISOString();
+    const report = buildDiagnosticReport('session-123', {
+      sessionState: SessionState.DRIVE_READY,
+      extension: { connected: true },
+      driveLastError: {
+        code: 'PERMISSION_REQUIRED',
+        message: 'Screenshot capture requires permission.',
+        retryable: false,
+        at: now,
+        details: {
+          reason: 'capture_visible_tab_permission_required',
+          required_any_of: ['<all_urls>', 'activeTab'],
+        },
+      },
+      inspectLastError: {
+        code: 'PERMISSION_REQUIRED',
+        message: 'Screenshot capture requires permission.',
+        retryable: false,
+        at: now,
+        details: {
+          reason: 'capture_visible_tab_permission_required',
+        },
+      },
+    });
+
+    const driveCheck = report.checks?.find(
+      (check) => check.name === 'drive.last_error'
+    );
+    const inspectCheck = report.checks?.find(
+      (check) => check.name === 'inspect.last_error'
+    );
+    expect(driveCheck?.details).toMatchObject({
+      reason: 'capture_visible_tab_permission_required',
+      required_any_of: ['<all_urls>', 'activeTab'],
+    });
+    expect(inspectCheck?.details).toMatchObject({
+      reason: 'capture_visible_tab_permission_required',
+    });
+    expect(
+      report.warnings?.some((warning) =>
+        warning.includes('Screenshot capture permission is missing')
+      )
+    ).toBe(true);
+  });
+
   it('reports caller/extension runtime endpoint mismatches explicitly', () => {
     const report = buildDiagnosticReport(undefined, {
       extension: {
@@ -216,6 +262,7 @@ describe('buildDiagnosticReport', () => {
     const report = buildDiagnosticReport(undefined, {
       extension: {
         connected: true,
+        extensionId: 'abcdefghijklmnopabcdefghijklmnop',
         version: '2.0.0',
       },
       runtime: {
@@ -245,6 +292,7 @@ describe('buildDiagnosticReport', () => {
           },
         },
         extension: {
+          extensionId: 'abcdefghijklmnopabcdefghijklmnop',
           version: '2.0.0',
           capabilityNegotiated: true,
           capabilities: {
@@ -278,6 +326,12 @@ describe('buildDiagnosticReport', () => {
     );
     expect(capabilityNegotiated?.ok).toBe(true);
     expect(inspectCapability?.ok).toBe(true);
+    expect(report.extension?.extension_id).toBe(
+      'abcdefghijklmnopabcdefghijklmnop'
+    );
+    expect(report.runtime?.extension?.extension_id).toBe(
+      'abcdefghijklmnopabcdefghijklmnop'
+    );
   });
 
   it('ignores extension runtime mismatch checks when extension is disconnected', () => {
@@ -334,8 +388,15 @@ describe('buildDiagnosticReport', () => {
     const report = buildDiagnosticReport(undefined, {
       extension: {
         connected: true,
+        extensionId: 'abcdefghijklmnopabcdefghijklmnop',
       },
       runtime: {
+        core: {
+          endpoint: {
+            host: '127.0.0.1',
+            port: 3210,
+          },
+        },
         extension: {
           capabilityNegotiated: true,
           capabilities: {
@@ -352,6 +413,15 @@ describe('buildDiagnosticReport', () => {
     );
     expect(inspectCapability?.ok).toBe(false);
     expect(inspectCapability?.message).toContain('disabled');
+    expect(inspectCapability?.details).toMatchObject({
+      remediation: {
+        enable_command:
+          'browser-bridge dev activate --extension-id abcdefghijklmnopabcdefghijklmnop --enable-inspect',
+        activation_url:
+          'chrome-extension://abcdefghijklmnopabcdefghijklmnop/options.html?bb_activate=1&corePort=3210&enableInspect=1',
+        verify_check: 'inspect.capability',
+      },
+    });
     expect(
       report.warnings?.some((warning) => warning.includes('Inspect'))
     ).toBe(true);

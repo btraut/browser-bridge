@@ -104,6 +104,122 @@ describe('mcp-adapter tools', () => {
     });
   });
 
+  it('auto-recreates stale sessions and retries session-bound tool calls', async () => {
+    const client: CoreClient = {
+      baseUrl: 'http://core',
+      ensureReady: vi.fn().mockResolvedValue(undefined),
+      post: vi
+        .fn()
+        .mockResolvedValueOnce({
+          ok: false as const,
+          error: {
+            code: 'NOT_FOUND' as const,
+            message: 'Session missing.',
+            retryable: false,
+            details: { reason: 'session_not_found', resource: 'session' },
+          },
+        })
+        .mockResolvedValueOnce({
+          ok: true as const,
+          result: {
+            session_id: 'session-2',
+            state: 'INIT',
+          },
+        })
+        .mockResolvedValueOnce({
+          ok: true as const,
+          result: { ok: true },
+        }),
+    };
+
+    const handler = createToolHandler(client, '/drive/click');
+    const result = await handler(
+      {
+        session_id: 'session-1',
+        locator: { css: '#buy' },
+      },
+      {} as never
+    );
+
+    expect(client.post).toHaveBeenNthCalledWith(1, '/drive/click', {
+      session_id: 'session-1',
+      locator: { css: '#buy' },
+    });
+    expect(client.post).toHaveBeenNthCalledWith(2, '/session/create', {});
+    expect(client.post).toHaveBeenNthCalledWith(3, '/drive/click', {
+      session_id: 'session-2',
+      locator: { css: '#buy' },
+    });
+    expect(result.structuredContent).toEqual({
+      ok: true,
+      result: {
+        ok: true,
+        warnings: [
+          'Session session-1 became stale after runtime switch; retried with session-2.',
+        ],
+        session_migration: {
+          stale_session_id: 'session-1',
+          replacement_session_id: 'session-2',
+        },
+      },
+    });
+  });
+
+  it('returns recovery guidance when stale-session auto-recreate fails', async () => {
+    const client: CoreClient = {
+      baseUrl: 'http://core',
+      ensureReady: vi.fn().mockResolvedValue(undefined),
+      post: vi
+        .fn()
+        .mockResolvedValueOnce({
+          ok: false as const,
+          error: {
+            code: 'NOT_FOUND' as const,
+            message: 'Session missing.',
+            retryable: false,
+            details: { reason: 'session_not_found', resource: 'session' },
+          },
+        })
+        .mockResolvedValueOnce({
+          ok: false as const,
+          error: {
+            code: 'UNAVAILABLE' as const,
+            message: 'Core unavailable.',
+            retryable: true,
+          },
+        }),
+    };
+
+    const handler = createToolHandler(client, '/inspect/dom_snapshot');
+    const result = await handler(
+      {
+        session_id: 'session-1',
+        format: 'html',
+      },
+      {} as never
+    );
+
+    expect(client.post).toHaveBeenNthCalledWith(1, '/inspect/dom_snapshot', {
+      session_id: 'session-1',
+      format: 'html',
+    });
+    expect(client.post).toHaveBeenNthCalledWith(2, '/session/create', {});
+    expect(result.structuredContent).toEqual({
+      ok: false,
+      error: {
+        code: 'NOT_FOUND',
+        message: 'Session missing.',
+        retryable: false,
+        details: {
+          reason: 'session_not_found',
+          resource: 'session',
+          recover_action: 'session.create',
+        },
+      },
+    });
+    expect(result.isError).toBe(true);
+  });
+
   it('transforms dialog alias payloads to the canonical handle_dialog shape', async () => {
     const envelope = { ok: true as const, result: { ok: true } };
     const client: CoreClient = {
