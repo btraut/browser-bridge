@@ -1,5 +1,6 @@
 import { Command } from 'commander';
 import {
+  type DiagnosticReport,
   resolveCoreRuntime,
   resolveLogDirectory,
   writeRuntimeMetadata,
@@ -7,6 +8,7 @@ import {
   type RuntimeMetadata,
 } from '@btraut/browser-bridge-shared';
 import { CliError } from '../cli-output';
+import { createCoreClient } from '../core-client';
 import { runLocal } from '../cli-runtime';
 import { openPath } from '../open-path';
 import { discoverActivationExtensionId } from '../extension-id-discovery';
@@ -15,6 +17,8 @@ const ENV_EXTENSION_ID = 'BROWSER_BRIDGE_EXTENSION_ID';
 const ACTIVATION_FLAG_PARAM = 'bb_activate';
 const ACTIVATION_PORT_PARAM = 'corePort';
 const ACTIVATION_WORKTREE_PARAM = 'worktreeId';
+const ACTIVATION_WAIT_TIMEOUT_MS = 30000;
+const ACTIVATION_WAIT_INTERVAL_MS = 500;
 
 type ExtensionIdSource = 'flag' | 'env' | 'metadata' | 'connected' | 'profile';
 
@@ -107,6 +111,90 @@ const resolveRuntimeForCommand = (
     runtimeOptions.isolatedMode = overrides.isolatedMode;
   }
   return resolveCoreRuntime(runtimeOptions);
+};
+
+const sleep = async (ms: number): Promise<void> =>
+  new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+
+const resolveActivationWaitTimeoutMs = (): number => {
+  const raw = process.env.BROWSER_BRIDGE_ACTIVATE_TIMEOUT_MS;
+  if (!raw) {
+    return ACTIVATION_WAIT_TIMEOUT_MS;
+  }
+  const parsed = Number.parseInt(raw, 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return ACTIVATION_WAIT_TIMEOUT_MS;
+  }
+  return parsed;
+};
+
+const hasPassingCheck = (
+  report: DiagnosticReport | undefined,
+  name: string
+): boolean =>
+  report?.checks?.some((check) => check.name === name && check.ok) ?? false;
+
+const waitForIsolatedActivation = async (
+  runtime: ResolvedCoreRuntime,
+  expectedExtensionId: string,
+  activationUrl: string
+): Promise<void> => {
+  const timeoutMs = resolveActivationWaitTimeoutMs();
+  const client = createCoreClient({
+    host: runtime.host,
+    port: runtime.port,
+    ensureDaemon: true,
+  });
+  const deadline = Date.now() + timeoutMs;
+  let lastReport: DiagnosticReport | undefined;
+
+  while (Date.now() <= deadline) {
+    try {
+      const envelope = await client.post<DiagnosticReport>(
+        '/diagnostics/doctor',
+        {}
+      );
+      if (envelope.ok && envelope.result) {
+        lastReport = envelope.result;
+      }
+    } catch {
+      // ignore transient health failures while activation is in progress
+    }
+
+    const extensionConnected = lastReport?.extension?.connected === true;
+    const endpointMatch = hasPassingCheck(
+      lastReport,
+      'runtime.extension.endpoint_match'
+    );
+    const runtimeExtensionId = lastReport?.runtime?.extension?.extension_id;
+    const extensionIdMatch =
+      !runtimeExtensionId || runtimeExtensionId === expectedExtensionId;
+
+    if (extensionConnected && endpointMatch && extensionIdMatch) {
+      return;
+    }
+
+    await sleep(ACTIVATION_WAIT_INTERVAL_MS);
+  }
+
+  throw new CliError({
+    code: 'FAILED_PRECONDITION',
+    message:
+      'Isolated activation did not complete: extension did not bind to the isolated runtime before timeout.',
+    retryable: true,
+    details: {
+      timeoutMs,
+      host: runtime.host,
+      port: runtime.port,
+      expectedExtensionId,
+      observedConnected: lastReport?.extension?.connected ?? false,
+      observedExtensionId: lastReport?.runtime?.extension?.extension_id,
+      observedEndpoint: lastReport?.runtime?.extension?.endpoint?.base_url,
+      activationUrl,
+    },
+  });
 };
 
 export const registerDevCommands = (program: Command): void => {
@@ -210,6 +298,11 @@ export const registerDevCommands = (program: Command): void => {
         });
 
         await openPath(activationUrl);
+        await waitForIsolatedActivation(
+          runtime,
+          resolvedExtension.extensionId,
+          activationUrl
+        );
 
         return {
           ok: true,
