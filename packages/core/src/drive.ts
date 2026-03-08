@@ -13,6 +13,23 @@ export type DriveResult<T> =
 
 const LOOPBACK_NAVIGATION_PREFLIGHT_TIMEOUT_MS = 1200;
 const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '::1']);
+const ACTIONS_WITH_OPTIONAL_TAB_ID = new Set<DriveAction>([
+  'drive.navigate',
+  'drive.go_back',
+  'drive.go_forward',
+  'drive.click',
+  'drive.hover',
+  'drive.select',
+  'drive.type',
+  'drive.fill_form',
+  'drive.drag',
+  'drive.handle_dialog',
+  'drive.key',
+  'drive.key_press',
+  'drive.scroll',
+  'drive.screenshot',
+  'drive.wait_for',
+]);
 
 const isLikelyUnreachableLoopbackError = (message: string): boolean => {
   const normalized = message.toLowerCase();
@@ -150,8 +167,9 @@ export class DriveController {
     timeoutMs?: number
   ): Promise<DriveResult<T>> {
     return await driveMutex.runExclusive(async () => {
+      let selectedTabId: number | undefined;
       try {
-        this.registry.require(sessionId);
+        selectedTabId = this.registry.require(sessionId).selectedTabId;
       } catch (error) {
         if (error instanceof SessionError) {
           const errorInfo: DriveErrorInfo = {
@@ -199,7 +217,13 @@ export class DriveController {
 
       this.ensureDriveReady(sessionId);
 
-      const preflightError = await preflightLoopbackNavigation(action, params);
+      const prepared = this.prepareRequestParams(action, params, selectedTabId);
+      const requestParams = prepared.params;
+
+      const preflightError = await preflightLoopbackNavigation(
+        action,
+        requestParams
+      );
       if (preflightError) {
         this.recordError(preflightError);
         return {
@@ -213,10 +237,11 @@ export class DriveController {
         try {
           const response = await this.bridge.request<T>(
             action,
-            params,
+            requestParams,
             timeoutMs
           );
           if (response.status === 'ok') {
+            this.applySessionTargetOnSuccess(sessionId, action, requestParams);
             this.clearLastError();
             return {
               ok: true,
@@ -246,6 +271,12 @@ export class DriveController {
             continue;
           }
 
+          if (
+            prepared.injectedSessionTabId &&
+            this.isMissingTabError(errorInfo)
+          ) {
+            this.clearSessionTarget(sessionId);
+          }
           this.recordError(errorInfo);
           return { ok: false, error: errorInfo };
         } catch (error) {
@@ -264,6 +295,12 @@ export class DriveController {
               attempt += 1;
               continue;
             }
+            if (
+              prepared.injectedSessionTabId &&
+              this.isMissingTabError(errorInfo)
+            ) {
+              this.clearSessionTarget(sessionId);
+            }
             this.recordError(errorInfo);
             return { ok: false, error: errorInfo };
           }
@@ -281,6 +318,90 @@ export class DriveController {
         }
       }
     });
+  }
+
+  private readTabId(params?: Record<string, unknown>): number | undefined {
+    const value = params?.tab_id;
+    return typeof value === 'number' && Number.isFinite(value)
+      ? value
+      : undefined;
+  }
+
+  private prepareRequestParams(
+    action: DriveAction,
+    params: Record<string, unknown> | undefined,
+    selectedTabId: number | undefined
+  ): { params?: Record<string, unknown>; injectedSessionTabId: boolean } {
+    if (!ACTIONS_WITH_OPTIONAL_TAB_ID.has(action)) {
+      return { params, injectedSessionTabId: false };
+    }
+
+    if (!selectedTabId || selectedTabId <= 0) {
+      return { params, injectedSessionTabId: false };
+    }
+
+    const explicitTabId = this.readTabId(params);
+    if (explicitTabId !== undefined) {
+      return { params, injectedSessionTabId: false };
+    }
+
+    return {
+      params: { ...(params ?? {}), tab_id: selectedTabId },
+      injectedSessionTabId: true,
+    };
+  }
+
+  private applySessionTargetOnSuccess(
+    sessionId: string,
+    action: DriveAction,
+    params?: Record<string, unknown>
+  ): void {
+    const tabId = this.readTabId(params);
+    if (tabId === undefined) {
+      return;
+    }
+    try {
+      if (action === 'drive.tab_close') {
+        const session = this.registry.require(sessionId);
+        if (session.selectedTabId === tabId) {
+          this.registry.clearSelectedTab(sessionId);
+        }
+        return;
+      }
+      if (
+        action === 'drive.tab_activate' ||
+        ACTIONS_WITH_OPTIONAL_TAB_ID.has(action)
+      ) {
+        this.registry.setSelectedTab(sessionId, tabId);
+      }
+    } catch (error) {
+      console.debug(
+        `Drive target update ignored for session ${sessionId}.`,
+        error
+      );
+    }
+  }
+
+  private isMissingTabError(error: DriveErrorInfo): boolean {
+    const code = error.code.toUpperCase();
+    if (code === 'TAB_NOT_FOUND') {
+      return true;
+    }
+    const resource = error.details?.resource;
+    return (
+      code === 'NOT_FOUND' && (resource === undefined || resource === 'tab')
+    );
+  }
+
+  private clearSessionTarget(sessionId: string): void {
+    try {
+      this.registry.clearSelectedTab(sessionId);
+    } catch (error) {
+      console.debug(
+        `Drive target clear ignored for session ${sessionId}.`,
+        error
+      );
+    }
   }
 
   private ensureDriveReady(sessionId: string): void {

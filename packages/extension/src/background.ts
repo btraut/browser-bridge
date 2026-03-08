@@ -539,6 +539,27 @@ const buildTabInfo = (tab: Record<string, unknown>): DriveTabInfo | null => {
   };
 };
 
+const tabRecencyScore = (tab: DriveTabInfo): number => {
+  const parsed = Date.parse(tab.last_active_at);
+  return Number.isFinite(parsed) ? parsed : -Infinity;
+};
+
+const compareTabsForReport = (a: DriveTabInfo, b: DriveTabInfo): number => {
+  const aActive = a.active === true ? 1 : 0;
+  const bActive = b.active === true ? 1 : 0;
+  if (aActive !== bActive) {
+    return bActive - aActive;
+  }
+  const recencyDelta = tabRecencyScore(b) - tabRecencyScore(a);
+  if (recencyDelta !== 0) {
+    return recencyDelta;
+  }
+  if (a.window_id !== b.window_id) {
+    return a.window_id - b.window_id;
+  }
+  return a.tab_id - b.tab_id;
+};
+
 const queryTabs = async (): Promise<DriveTabInfo[]> => {
   const tabs = await wrapChromeCallback<Record<string, unknown>[]>((callback) =>
     chrome.tabs.query({}, callback)
@@ -550,12 +571,21 @@ const queryTabs = async (): Promise<DriveTabInfo[]> => {
       result.push(info);
     }
   }
+  result.sort(compareTabsForReport);
   return result;
 };
 
 const getTab = async (tabId: number): Promise<Record<string, unknown>> => {
   return await wrapChromeCallback<Record<string, unknown>>((callback) =>
     chrome.tabs.get(tabId, callback)
+  );
+};
+
+const getWindow = async (
+  windowId: number
+): Promise<Record<string, unknown>> => {
+  return await wrapChromeCallback<Record<string, unknown>>((callback) =>
+    chrome.windows.get(windowId, callback)
   );
 };
 
@@ -1682,7 +1712,18 @@ class DriveSocket {
             });
             return;
           }
-          const tab = await getTab(tabId);
+          let tab: Record<string, unknown>;
+          try {
+            tab = await getTab(tabId);
+          } catch {
+            respondError({
+              code: 'TAB_NOT_FOUND',
+              message: `tab_id ${tabId} was not found.`,
+              retryable: false,
+              details: { tab_id: tabId },
+            });
+            return;
+          }
           await wrapChromeVoid((callback) =>
             chrome.tabs.update(tabId, { active: true }, () => callback())
           );
@@ -1693,6 +1734,30 @@ class DriveSocket {
                 callback()
               )
             );
+          }
+          const activatedTab = await getTab(tabId).catch(() => undefined);
+          if (!activatedTab || activatedTab.active !== true) {
+            respondError({
+              code: 'FAILED_PRECONDITION',
+              message: `Failed to activate tab_id ${tabId}.`,
+              retryable: true,
+              details: { tab_id: tabId },
+            });
+            return;
+          }
+          if (typeof windowId === 'number') {
+            const focusedWindow = await getWindow(windowId).catch(
+              () => undefined
+            );
+            if (focusedWindow && focusedWindow.focused !== true) {
+              respondError({
+                code: 'FAILED_PRECONDITION',
+                message: `Failed to focus window_id ${windowId} for tab_id ${tabId}.`,
+                retryable: true,
+                details: { tab_id: tabId, window_id: windowId },
+              });
+              return;
+            }
           }
           markTabActive(tabId);
           respondOk({ ok: true });
@@ -3591,6 +3656,20 @@ chrome.runtime.onConnect.addListener((port: unknown) => {
 
 chrome.windows.onRemoved.addListener((windowId: number) => {
   permissionPrompts.handleWindowRemoved(windowId);
+});
+
+chrome.windows.onFocusChanged.addListener((windowId: number) => {
+  if (windowId === chrome.windows.WINDOW_ID_NONE) {
+    return;
+  }
+  void queryActiveTabIdInWindow(windowId)
+    .then((tabId) => {
+      markTabActive(tabId);
+      socket.sendTabReport();
+    })
+    .catch(() => {
+      socket.sendTabReport();
+    });
 });
 
 chrome.tabs.onActivated.addListener((activeInfo: { tabId: number }) => {

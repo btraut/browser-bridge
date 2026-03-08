@@ -12,6 +12,7 @@ export type SessionRecord = {
   createdAt: Date;
   updatedAt: Date;
   lastAccessedAt: Date;
+  selectedTabId?: number;
 };
 
 export type RecoverResult = {
@@ -45,6 +46,7 @@ export class SessionRegistry {
       createdAt: now,
       updatedAt: now,
       lastAccessedAt: now,
+      selectedTabId: undefined,
     };
 
     this.sessions.set(id, session);
@@ -162,6 +164,20 @@ export class SessionRegistry {
   close(sessionId: string): SessionRecord {
     const session = this.require(sessionId);
     session.state = transitionSession(session.state, 'CLOSE');
+    session.updatedAt = new Date();
+    return session;
+  }
+
+  setSelectedTab(sessionId: string, tabId: number): SessionRecord {
+    const session = this.require(sessionId);
+    session.selectedTabId = tabId;
+    session.updatedAt = new Date();
+    return session;
+  }
+
+  clearSelectedTab(sessionId: string): SessionRecord {
+    const session = this.require(sessionId);
+    session.selectedTabId = undefined;
     session.updatedAt = new Date();
     return session;
   }

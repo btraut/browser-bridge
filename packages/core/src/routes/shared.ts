@@ -65,13 +65,20 @@ export const deriveHintFromTabs = (
   if (!Array.isArray(tabs) || tabs.length === 0) {
     return undefined;
   }
+  const candidatePool = tabs.some((tab) => tab.active === true)
+    ? tabs.filter((tab) => tab.active === true)
+    : tabs;
   let best: DriveTabInfo | undefined;
   let bestTime = -Infinity;
-  for (const tab of tabs) {
+  for (const tab of candidatePool) {
     const raw = tab.last_active_at;
     const time = raw ? Date.parse(raw) : NaN;
     const score = Number.isFinite(time) ? time : -Infinity;
-    if (!best || score > bestTime) {
+    if (
+      !best ||
+      score > bestTime ||
+      (score === bestTime && tab.tab_id < best.tab_id)
+    ) {
       best = tab;
       bestTime = score;
     }

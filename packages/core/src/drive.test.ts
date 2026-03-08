@@ -159,4 +159,81 @@ describe('DriveController', () => {
       vi.unstubAllGlobals();
     }
   });
+
+  it('reuses session-selected tab_id when later actions omit tab_id', async () => {
+    const registry = new SessionRegistry();
+    const session = registry.create();
+    const bridge = {
+      isConnected: () => true,
+      request: vi
+        .fn()
+        .mockResolvedValueOnce({
+          id: 'req-1',
+          action: 'drive.tab_activate',
+          status: 'ok',
+          result: { ok: true },
+        })
+        .mockResolvedValueOnce({
+          id: 'req-2',
+          action: 'drive.click',
+          status: 'ok',
+          result: { ok: true },
+        }),
+    } as unknown as ExtensionBridge;
+    const controller = new DriveController(bridge, registry);
+
+    await controller.execute(session.id, 'drive.tab_activate', { tab_id: 42 });
+    await controller.execute(session.id, 'drive.click', {
+      locator: { css: '#submit' },
+    });
+
+    expect(bridge.request).toHaveBeenNthCalledWith(
+      2,
+      'drive.click',
+      expect.objectContaining({ tab_id: 42 }),
+      undefined
+    );
+  });
+
+  it('clears session-selected tab_id after closing the selected tab', async () => {
+    const registry = new SessionRegistry();
+    const session = registry.create();
+    const bridge = {
+      isConnected: () => true,
+      request: vi
+        .fn()
+        .mockResolvedValueOnce({
+          id: 'req-1',
+          action: 'drive.tab_activate',
+          status: 'ok',
+          result: { ok: true },
+        })
+        .mockResolvedValueOnce({
+          id: 'req-2',
+          action: 'drive.tab_close',
+          status: 'ok',
+          result: { ok: true },
+        })
+        .mockResolvedValueOnce({
+          id: 'req-3',
+          action: 'drive.click',
+          status: 'ok',
+          result: { ok: true },
+        }),
+    } as unknown as ExtensionBridge;
+    const controller = new DriveController(bridge, registry);
+
+    await controller.execute(session.id, 'drive.tab_activate', { tab_id: 42 });
+    await controller.execute(session.id, 'drive.tab_close', { tab_id: 42 });
+    await controller.execute(session.id, 'drive.click', {
+      locator: { css: '#submit' },
+    });
+
+    expect(bridge.request).toHaveBeenNthCalledWith(
+      3,
+      'drive.click',
+      { locator: { css: '#submit' } },
+      undefined
+    );
+  });
 });
