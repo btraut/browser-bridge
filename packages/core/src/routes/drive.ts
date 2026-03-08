@@ -22,7 +22,13 @@ import {
   DriveTypeInputSchema,
   DriveWaitForInputSchema,
 } from '@btraut/browser-bridge-shared';
-import { ResponseLike, errorStatus, sendError, sendResult } from './shared';
+import {
+  ResponseLike,
+  errorStatus,
+  isRecord,
+  sendError,
+  sendResult,
+} from './shared';
 
 type RequestLike = {
   body?: unknown;
@@ -59,6 +65,12 @@ type HandlerOptions = {
   timeoutFromParams?: (params: Record<string, unknown>) => number | undefined;
 };
 
+const SUPPORTED_NAVIGATE_WAIT_MODES = [
+  'none',
+  'domcontentloaded',
+  'networkidle',
+] as const;
+
 const parseBody = <T>(
   schema: SchemaLike<T>,
   body: unknown
@@ -86,6 +98,28 @@ const makeNavigateHandler = <T extends { session_id?: string }>(
   registry: SessionRegistry
 ) => {
   return (req: RequestLike, res: ResponseLike): void => {
+    if (isRecord(req.body) && req.body.wait !== undefined) {
+      const waitMode = req.body.wait;
+      if (
+        typeof waitMode !== 'string' ||
+        !SUPPORTED_NAVIGATE_WAIT_MODES.includes(
+          waitMode as (typeof SUPPORTED_NAVIGATE_WAIT_MODES)[number]
+        )
+      ) {
+        sendError(res, errorStatus('INVALID_ARGUMENT'), {
+          code: 'INVALID_ARGUMENT',
+          message: `Unsupported wait mode: ${String(waitMode)}.`,
+          retryable: false,
+          details: {
+            field: 'wait',
+            supported_wait_modes: SUPPORTED_NAVIGATE_WAIT_MODES,
+            mapped_wait_mode: 'domcontentloaded',
+          },
+        });
+        return;
+      }
+    }
+
     const parsed = parseBody(schema, req.body ?? {});
     if (parsed.error) {
       sendError(res, errorStatus('INVALID_ARGUMENT'), {

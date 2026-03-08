@@ -213,7 +213,9 @@ export const DriveNavigateInputSchema = z.object({
   session_id: z.string().min(1).optional(),
   url: z.string().min(1),
   tab_id: z.number().finite().optional(),
-  wait: z.enum(['none', 'domcontentloaded']).default('domcontentloaded'),
+  wait: z
+    .enum(['none', 'domcontentloaded', 'networkidle'])
+    .default('domcontentloaded'),
 });
 export const DriveNavigateOutputSchema = OpResultSchema.extend({
   session_id: z.string().min(1),

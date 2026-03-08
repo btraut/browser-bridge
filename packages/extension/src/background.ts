@@ -1589,15 +1589,41 @@ class DriveSocket {
           if (tabId === undefined) {
             tabId = await getDefaultTabId();
           }
+          const requestedWaitMode = params.wait;
+          if (
+            requestedWaitMode !== undefined &&
+            requestedWaitMode !== 'none' &&
+            requestedWaitMode !== 'domcontentloaded' &&
+            requestedWaitMode !== 'networkidle'
+          ) {
+            respondError({
+              code: 'INVALID_ARGUMENT',
+              message: `Unsupported wait mode: ${String(requestedWaitMode)}.`,
+              retryable: false,
+              details: {
+                field: 'wait',
+                supported_wait_modes: [
+                  'none',
+                  'domcontentloaded',
+                  'networkidle',
+                ],
+                mapped_wait_mode: 'domcontentloaded',
+              },
+            });
+            return;
+          }
           const waitMode =
-            params.wait === 'none' || params.wait === 'domcontentloaded'
-              ? params.wait
-              : 'domcontentloaded';
+            requestedWaitMode === 'none' ? 'none' : 'domcontentloaded';
           const domContentLoadedSignal =
             waitMode === 'domcontentloaded'
               ? waitForDomContentLoaded(tabId as number, 30000)
               : null;
           const warnings: string[] = [];
+          if (requestedWaitMode === 'networkidle') {
+            warnings.push(
+              'wait=networkidle is mapped to domcontentloaded in this runtime.'
+            );
+          }
           await wrapChromeVoid((callback) =>
             chrome.tabs.update(tabId as number, { url }, () => callback())
           );

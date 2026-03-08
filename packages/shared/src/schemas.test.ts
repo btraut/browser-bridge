@@ -62,6 +62,14 @@ describe('shared schemas', () => {
     expect(parsed.wait).toBe('domcontentloaded');
   });
 
+  it('accepts drive navigate networkidle wait mode', () => {
+    const parsed = DriveNavigateInputSchema.parse({
+      url: 'https://example.com',
+      wait: 'networkidle',
+    });
+    expect(parsed.wait).toBe('networkidle');
+  });
+
   it('parses drive navigate output with canonical session_id', () => {
     const parsed = DriveNavigateOutputSchema.parse({
       ok: true,
