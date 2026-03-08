@@ -1173,7 +1173,9 @@ export const runDriveAction = async (
 
         const checkCondition = (): boolean => {
           if (kind === 'text_present') {
-            return getRenderedText(document.body).includes(normalizeText(value));
+            return getRenderedText(document.body).includes(
+              normalizeText(value)
+            );
           }
           if (kind === 'url_matches') {
             return urlMatcher

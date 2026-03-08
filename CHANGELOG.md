@@ -11,6 +11,7 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 - `browser-bridge dev activate` now discovers connected/stored extensions more reliably across isolated and shared runtimes, and `--enable-inspect` now rebinds the extension to the activated runtime so debugger-based inspect actually comes up.
 - `artifacts screenshot` now prefers extension-driven capture for viewport, full-page, and element targets instead of failing just because debugger-based inspect is disabled.
 - `locator.text` now favors visible, clickable, exact matches over ancestor containers or hidden duplicates, and `drive.wait_for` `text_present` now matches normalized visible text instead of raw substring checks.
+- `diagnostics.doctor` no longer carries an unused inspect-enable helper argument, and the live runtime follow-up files now satisfy the validate workflow's formatting checks.
 
 ## [0.13.2] - 2026-02-18
 

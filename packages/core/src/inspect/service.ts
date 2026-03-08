@@ -738,19 +738,20 @@ export class InspectService {
         );
       }
 
-      const response = await this.extensionBridge.request<DriveScreenshotResult>(
-        'drive.screenshot',
-        {
-          tab_id: selection.tabId,
-          mode,
-          ...(input.selector ? { selector: input.selector } : {}),
-          format,
-          ...(typeof input.quality === 'number'
-            ? { quality: input.quality }
-            : {}),
-        },
-        120000
-      );
+      const response =
+        await this.extensionBridge.request<DriveScreenshotResult>(
+          'drive.screenshot',
+          {
+            tab_id: selection.tabId,
+            mode,
+            ...(input.selector ? { selector: input.selector } : {}),
+            format,
+            ...(typeof input.quality === 'number'
+              ? { quality: input.quality }
+              : {}),
+          },
+          120000
+        );
 
       if (response.status === 'error') {
         const error = createScreenshotError(
@@ -778,15 +779,22 @@ export class InspectService {
     const shouldFallbackFromExtensionScreenshot = (
       error: InspectError
     ): boolean =>
-      ['NOT_SUPPORTED', 'NOT_IMPLEMENTED', 'INSPECT_UNAVAILABLE', 'PERMISSION_REQUIRED', 'RATE_LIMITED'].includes(
-        error.code
-      );
+      [
+        'NOT_SUPPORTED',
+        'NOT_IMPLEMENTED',
+        'INSPECT_UNAVAILABLE',
+        'PERMISSION_REQUIRED',
+        'RATE_LIMITED',
+      ].includes(error.code);
     const shouldPreserveExtensionScreenshotError = (
       fallbackError: InspectError
     ): boolean =>
-      ['INSPECT_UNAVAILABLE', 'ATTACH_DENIED', 'NOT_SUPPORTED', 'NOT_IMPLEMENTED'].includes(
-        fallbackError.code
-      );
+      [
+        'INSPECT_UNAVAILABLE',
+        'ATTACH_DENIED',
+        'NOT_SUPPORTED',
+        'NOT_IMPLEMENTED',
+      ].includes(fallbackError.code);
     const captureViaDebugger = async (): Promise<ArtifactInfo> => {
       await this.debuggerCommand(selection.tabId, 'Page.enable', {});
 
@@ -843,7 +851,10 @@ export class InspectService {
     };
 
     if (input.selector) {
-      return await captureViaExtension('element', 'Failed to capture element screenshot.');
+      return await captureViaExtension(
+        'element',
+        'Failed to capture element screenshot.'
+      );
     }
 
     let extensionScreenshotError: InspectError | undefined;

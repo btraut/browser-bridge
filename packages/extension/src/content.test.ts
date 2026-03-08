@@ -20,7 +20,10 @@ const setRect = (el: HTMLElement, rect: DOMRect): void => {
   el.getBoundingClientRect = () => rect;
 };
 
-const makeVisible = (el: HTMLElement, rect = new DOMRect(0, 0, 120, 24)): void => {
+const makeVisible = (
+  el: HTMLElement,
+  rect = new DOMRect(0, 0, 120, 24)
+): void => {
   setRect(el, rect);
   Object.defineProperty(el, 'offsetWidth', {
     configurable: true,
@@ -354,8 +357,14 @@ describe('content drive actions', () => {
       );
       document.body.appendChild(button);
       makeVisible(button, new DOMRect(10, 10, 120, 24));
-      makeVisible(button.children[0] as HTMLElement, new DOMRect(10, 10, 40, 24));
-      makeVisible(button.children[1] as HTMLElement, new DOMRect(50, 10, 60, 24));
+      makeVisible(
+        button.children[0] as HTMLElement,
+        new DOMRect(10, 10, 40, 24)
+      );
+      makeVisible(
+        button.children[1] as HTMLElement,
+        new DOMRect(50, 10, 60, 24)
+      );
 
       let clicks = 0;
       button.addEventListener('click', () => {
@@ -519,8 +528,14 @@ describe('content drive actions', () => {
           Object.assign(document.createElement('span'), { textContent: 'ved' })
         );
         makeVisible(status, new DOMRect(10, 10, 120, 24));
-        makeVisible(status.children[0] as HTMLElement, new DOMRect(10, 10, 30, 24));
-        makeVisible(status.children[1] as HTMLElement, new DOMRect(40, 10, 40, 24));
+        makeVisible(
+          status.children[0] as HTMLElement,
+          new DOMRect(10, 10, 30, 24)
+        );
+        makeVisible(
+          status.children[1] as HTMLElement,
+          new DOMRect(40, 10, 40, 24)
+        );
       }, 100);
 
       await vi.advanceTimersByTimeAsync(250);

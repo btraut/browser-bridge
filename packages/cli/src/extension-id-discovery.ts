@@ -298,7 +298,11 @@ const discoverConnectedExtensionId = async (
       continue;
     }
 
-    for (let attempt = 0; attempt < CONNECTED_DISCOVERY_ATTEMPTS; attempt += 1) {
+    for (
+      let attempt = 0;
+      attempt < CONNECTED_DISCOVERY_ATTEMPTS;
+      attempt += 1
+    ) {
       let response: Awaited<ReturnType<CoreClientLike['post']>>;
       try {
         response = await client.post('/health/check', {});

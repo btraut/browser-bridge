@@ -686,8 +686,7 @@ describe('InspectService', () => {
       status: 'error',
       error: {
         code: 'PERMISSION_REQUIRED',
-        message:
-          'Either the <all_urls> or activeTab permission is required.',
+        message: 'Either the <all_urls> or activeTab permission is required.',
         retryable: false,
         details: {
           reason: 'capture_visible_tab_permission_required',

@@ -3788,17 +3788,16 @@ chrome.storage.onChanged.addListener(
     }
 
     let work = Promise.resolve();
-    if (
-      corePortChange &&
-      corePortChange.newValue !== corePortChange.oldValue
-    ) {
+    if (corePortChange && corePortChange.newValue !== corePortChange.oldValue) {
       work = work.then(() => socket.reconnectForEndpointChange());
     }
 
     if (debuggerChange) {
       if (typeof debuggerChange.newValue === 'boolean') {
         work = work.then(() =>
-          socket.handleDebuggerCapabilityChange(debuggerChange.newValue as boolean)
+          socket.handleDebuggerCapabilityChange(
+            debuggerChange.newValue as boolean
+          )
         );
       } else {
         work = work.then(() => socket.refreshDebuggerCapabilityState());

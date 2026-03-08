@@ -2,8 +2,7 @@
 
 ## Context
 
-A live Browser Bridge test drove `manavault.gg` through a real deck-edit flow.
-The run succeeded only by working around multiple runtime gaps:
+A live Browser Bridge test drove `manavault.gg` through a real deck-edit flow. The run succeeded only by working around multiple runtime gaps:
 
 - `browser-bridge dev activate` failed with a missing extension id even though a Browser Bridge extension was connected.
 - `inspect.*` and `artifacts_screenshot` failed because debugger capabilities were disabled.

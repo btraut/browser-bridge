@@ -238,7 +238,7 @@ const readCapability = (
   return typeof candidate === 'boolean' ? candidate : undefined;
 };
 
-const buildInspectEnableCommand = (_extensionId?: string): string =>
+const buildInspectEnableCommand = (): string =>
   'browser-bridge dev activate --enable-inspect';
 
 const buildInspectActivationUrl = (
@@ -458,7 +458,7 @@ export const buildDiagnosticReport = (
     );
     const extensionId =
       context.runtime?.extension?.extensionId ?? context.extension?.extensionId;
-    const inspectEnableCommand = buildInspectEnableCommand(extensionId);
+    const inspectEnableCommand = buildInspectEnableCommand();
     const inspectActivationUrl = buildInspectActivationUrl(
       extensionId,
       coreEndpoint?.port
