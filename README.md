@@ -124,7 +124,7 @@ Manage approvals (and bypass mode):
 - Switch **Permission mode** to **Bypass (dangerous)** to skip the allowlist and prompts entirely.
 - In bypass mode, the agent can take actions on any website without asking.
 - Restricted URLs (for example `chrome://` and `file://`) are still blocked.
-- `inspect.*` requires enabling **Debugger-based inspect** in extension options. If disabled, inspect calls fail with `ATTACH_DENIED` and a clear next step.
+- `inspect.*` requires enabling **Debugger-based inspect** in extension options. If disabled, inspect calls fail with `ATTACH_DENIED` and a clear next step; the supported setup path is `browser-bridge dev activate --enable-inspect` (or the same command with `--extension-id` when discovery is ambiguous).
 
 </details>
 

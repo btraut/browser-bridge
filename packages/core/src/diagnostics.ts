@@ -238,12 +238,8 @@ const readCapability = (
   return typeof candidate === 'boolean' ? candidate : undefined;
 };
 
-const buildInspectEnableCommand = (extensionId?: string): string => {
-  if (extensionId) {
-    return `browser-bridge dev activate --extension-id ${extensionId} --enable-inspect`;
-  }
-  return 'browser-bridge dev activate --extension-id <id> --enable-inspect';
-};
+const buildInspectEnableCommand = (_extensionId?: string): string =>
+  'browser-bridge dev activate --enable-inspect';
 
 const buildInspectActivationUrl = (
   extensionId: string | undefined,

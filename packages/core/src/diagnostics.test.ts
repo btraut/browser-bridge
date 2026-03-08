@@ -416,7 +416,7 @@ describe('buildDiagnosticReport', () => {
     expect(inspectCapability?.details).toMatchObject({
       remediation: {
         enable_command:
-          'browser-bridge dev activate --extension-id abcdefghijklmnopabcdefghijklmnop --enable-inspect',
+          'browser-bridge dev activate --enable-inspect',
         activation_url:
           'chrome-extension://abcdefghijklmnopabcdefghijklmnop/options.html?bb_activate=1&corePort=3210&enableInspect=1',
         verify_check: 'inspect.capability',

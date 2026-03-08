@@ -10,7 +10,7 @@ This checklist validates the Drive + Inspect planes and artifact handling end-to
 3. Load the extension from `packages/extension` (repo) or `node_modules/@btraut/browser-bridge/extension` (npm install) in `chrome://extensions`.
 4. Open a dedicated Chrome tab you do not mind navigating (example: `about:blank` or `https://example.com`).
 5. Ensure DevTools is closed on the target tab (the debugger cannot attach while DevTools is open).
-6. In extension options, enable **Debugger-based inspect** before running `inspect.*` checks.
+6. In extension options, enable **Debugger-based inspect** before running `inspect.*` checks, or use `node packages/cli/dist/index.js dev activate --enable-inspect --json` during isolated-worktree setup.
 
 ## Runtime Setup
 
