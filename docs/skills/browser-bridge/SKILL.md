@@ -76,6 +76,7 @@ Element targeting:
   - `--locator-css <selector>`
   - `--locator-text <text>`
   - `--locator-role <role>` + `--locator-role-value <value>`
+- If a CSS or testid locator matches multiple nodes, Browser Bridge prefers the visible candidate, but exact text/role targeting is still the cleanest path.
 
 Wait conditions (`drive wait-for`):
 

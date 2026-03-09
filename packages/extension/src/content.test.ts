@@ -593,6 +593,47 @@ describe('content drive actions', () => {
     }
   });
 
+  it('prefers the visible css-matched quantity control over a hidden twin', async () => {
+    vi.useFakeTimers();
+    try {
+      const hidden = document.createElement('button');
+      hidden.setAttribute(
+        'aria-label',
+        'Increase maindeck count for Jace, the Mind Sculptor'
+      );
+      hidden.style.display = 'none';
+      const visible = document.createElement('button');
+      visible.setAttribute(
+        'aria-label',
+        'Increase maindeck count for Jace, the Mind Sculptor'
+      );
+      document.body.append(hidden, visible);
+      makeVisible(visible, new DOMRect(10, 10, 28, 28));
+
+      let hiddenClicks = 0;
+      let visibleClicks = 0;
+      hidden.addEventListener('click', () => {
+        hiddenClicks += 1;
+      });
+      visible.addEventListener('click', () => {
+        visibleClicks += 1;
+      });
+
+      const result = await runDriveAction('drive.click', {
+        locator: {
+          css: 'button[aria-label="Increase maindeck count for Jace, the Mind Sculptor"]',
+        },
+      });
+
+      expect(result.ok).toBe(true);
+      await vi.runAllTimersAsync();
+      expect(visibleClicks).toBe(1);
+      expect(hiddenClicks).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('wait_for text_present matches normalized text across nested elements', async () => {
     const status = document.createElement('div');
     const first = document.createElement('span');
