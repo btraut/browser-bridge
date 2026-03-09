@@ -11,7 +11,7 @@ This project uses **bd (beads)** for issue tracking. Run `bd onboard` to get sta
 - `bd update <id> --status in_progress` - Claim work
 - `bd create "Title" --type task --priority 2` - Create issue
 - `bd close <id>` - Complete work
-- `bd sync` - Sync with git (run at session end)
+- `bd dolt push` - Push beads only if a Dolt remote is configured
 
 ## Coding guardrails
 
@@ -44,6 +44,8 @@ For Browser Bridge tasks, run this flow in the active worktree:
 - Store full specs/plans in the repo under `docs/` and link the path in the epic's design field (and optionally in milestones).
 - Update beads if scope, decisions, or acceptance criteria change.
 - Beads sync branch is managed via a git worktree (e.g., `beads-sync`); do not commit `.beads` changes on feature branches or delete the sync worktree.
+- This repo's Beads setup is local-only by default. No Dolt remote is required.
+- Do not treat "no Dolt remote configured" as an error. Only run `bd dolt push` when `bd dolt remote list` shows a remote.
 
 ## Bug Fix Registry
 
@@ -72,7 +74,6 @@ For Browser Bridge tasks, run this flow in the active worktree:
 4. **PUSH TO REMOTE** - This is MANDATORY:
    ```bash
    git pull --rebase
-   bd sync
    git push
    git status  # MUST show "up to date with origin"
    ```
