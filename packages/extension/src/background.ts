@@ -41,6 +41,7 @@ import {
   readCoreEndpointConfig,
   type CoreEndpointConfig,
 } from './core-endpoint-config.js';
+import { resolveTabActivationOutcome } from './tab-activation.js';
 
 type ContentResult =
   | { ok: true; result?: unknown }
@@ -1681,39 +1682,37 @@ class DriveSocket {
             chrome.tabs.update(tabId, { active: true }, () => callback())
           );
           const windowId = tab.windowId;
+          let focusErrorMessage: string | undefined;
           if (typeof windowId === 'number') {
-            await wrapChromeVoid((callback) =>
-              chrome.windows.update(windowId, { focused: true }, () =>
-                callback()
-              )
-            );
-          }
-          const activatedTab = await getTab(tabId).catch(() => undefined);
-          if (!activatedTab || activatedTab.active !== true) {
-            respondError({
-              code: 'FAILED_PRECONDITION',
-              message: `Failed to activate tab_id ${tabId}.`,
-              retryable: true,
-              details: { tab_id: tabId },
-            });
-            return;
-          }
-          if (typeof windowId === 'number') {
-            const focusedWindow = await getWindow(windowId).catch(
-              () => undefined
-            );
-            if (focusedWindow && focusedWindow.focused !== true) {
-              respondError({
-                code: 'FAILED_PRECONDITION',
-                message: `Failed to focus window_id ${windowId} for tab_id ${tabId}.`,
-                retryable: true,
-                details: { tab_id: tabId, window_id: windowId },
-              });
-              return;
+            try {
+              await wrapChromeVoid((callback) =>
+                chrome.windows.update(windowId, { focused: true }, () =>
+                  callback()
+                )
+              );
+            } catch (error) {
+              focusErrorMessage =
+                error instanceof Error ? error.message : 'Unknown focus error.';
             }
           }
+          const activatedTab = await getTab(tabId).catch(() => undefined);
+          const focusedWindow =
+            typeof windowId === 'number'
+              ? await getWindow(windowId).catch(() => undefined)
+              : undefined;
+          const outcome = resolveTabActivationOutcome({
+            tabId,
+            windowId: typeof windowId === 'number' ? windowId : undefined,
+            activated: Boolean(activatedTab?.active === true),
+            focusErrorMessage,
+            windowFocused: focusedWindow?.focused,
+          });
+          if (!outcome.ok) {
+            respondError(outcome.error);
+            return;
+          }
           markTabActive(tabId);
-          respondOk({ ok: true });
+          respondOk(outcome.result);
           this.sendTabReport();
           return;
         }

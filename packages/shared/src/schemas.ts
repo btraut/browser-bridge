@@ -424,6 +424,8 @@ export const InspectConsistencySchema = z.enum(['best_effort', 'quiesce']);
 export const TargetHintSchema = z.object({
   url: z.string().min(1).optional(),
   title: z.string().min(1).optional(),
+  tab_id: z.number().finite().optional(),
+  tabId: z.number().finite().optional(),
   last_active_at: z.string().optional(),
   lastActiveAt: z.string().optional(),
 });

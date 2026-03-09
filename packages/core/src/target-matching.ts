@@ -1,6 +1,7 @@
 export type TargetHint = {
   url?: string;
   title?: string;
+  tabId?: number;
   lastActiveAt?: string;
 };
 

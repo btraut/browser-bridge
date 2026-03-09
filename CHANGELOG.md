@@ -14,6 +14,8 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 - Checked-in `.githooks/pre-commit` now matches the current beads CLI and uses `bd hooks run pre-commit` instead of the removed `bd hook pre-commit` command.
 - Active docs now describe one Browser Bridge runtime at `127.0.0.1:3210`, mark the old worktree-routing story as superseded, and point debugger-based inspect setup at `browser-bridge dev enable-inspect`.
 - `artifacts screenshot` now prefers extension-driven capture for viewport, full-page, and element targets instead of failing just because debugger-based inspect is disabled.
+- `drive.click` role matching now includes native interactive controls and exact accessible-name preference, so visible header buttons like `Sign in` and `Account menu` resolve without falling back to inspect/evaluate.
+- `inspect.*` commands now support explicit `--tab-id` targeting end-to-end, and `drive.tab_activate` treats OS-level window-focus failures as warnings once the requested tab is actually active.
 - `locator.text` now favors visible, clickable, exact matches over ancestor containers or hidden duplicates, and `drive.wait_for` `text_present` now matches normalized visible text instead of raw substring checks.
 - `diagnostics.doctor` no longer carries an unused inspect-enable helper argument, and the live runtime follow-up files now satisfy the validate workflow's formatting checks.
 

@@ -257,6 +257,16 @@ describe('shared schemas', () => {
     expect(parsed.selector).toBe('#main-content');
   });
 
+  it('parses inspect target tab_id hints', () => {
+    const parsed = InspectDomSnapshotInputSchema.parse({
+      session_id: 'session-1',
+      target: {
+        tab_id: 7,
+      },
+    });
+    expect(parsed.target?.tab_id).toBe(7);
+  });
+
   it('parses dom snapshot max_nodes', () => {
     const parsed = InspectDomSnapshotInputSchema.parse({
       session_id: 'session-1',

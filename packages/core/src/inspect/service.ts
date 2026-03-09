@@ -924,6 +924,20 @@ export class InspectService {
       throw error;
     }
 
+    if (typeof hint?.tabId === 'number' && Number.isFinite(hint.tabId)) {
+      const tab = tabs.find((entry) => entry.tab_id === hint.tabId);
+      if (!tab) {
+        const error = new InspectError(
+          'TAB_NOT_FOUND',
+          `No matching tab found for tab_id ${hint.tabId}.`,
+          { tab_id: hint.tabId }
+        );
+        this.recordError(error);
+        throw error;
+      }
+      return { tabId: hint.tabId, tab };
+    }
+
     const candidates = tabs.map((tab) => ({
       id: String(tab.tab_id),
       url: tab.url ?? '',

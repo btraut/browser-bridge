@@ -453,6 +453,8 @@ export const CLI_TOOL_FIXTURES: CliToolFixture[] = [
       'quiesce',
       '--interactive',
       '--compact',
+      '--tab-id',
+      '7',
       '--selector',
       '#main',
     ],
@@ -462,6 +464,9 @@ export const CLI_TOOL_FIXTURES: CliToolFixture[] = [
       consistency: 'quiesce',
       interactive: true,
       compact: true,
+      target: {
+        tab_id: 7,
+      },
       selector: '#main',
     },
   },

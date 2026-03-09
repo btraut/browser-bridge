@@ -13,6 +13,22 @@ import {
 import { CliError, parseInput } from '../cli-output';
 import { runCommand } from '../cli-runtime';
 
+const parseNumber = (value: unknown): number | undefined => {
+  if (value === undefined || value === null || value === '') {
+    return undefined;
+  }
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : Number.NaN;
+};
+
+const buildTargetHint = (options: { tabId?: unknown }) => {
+  const tabId = parseNumber(options.tabId);
+  if (tabId === undefined) {
+    return undefined;
+  }
+  return { tab_id: tabId };
+};
+
 export const registerInspectCommands = (program: Command): void => {
   const inspect = program.command('inspect').description('Inspect commands');
 
@@ -26,6 +42,7 @@ export const registerInspectCommands = (program: Command): void => {
     .option('-c, --compact', 'Remove empty/decorative nodes')
     .option('--max-nodes <n>', 'Limit AX snapshot to at most n nodes')
     .option('-s, --selector <selector>', 'Limit snapshot to selector')
+    .option('--tab-id <id>', 'Explicit tab identifier')
     .action(async (options, command) => {
       await runCommand(command, (client) => {
         const payload = parseInput(InspectDomSnapshotInputSchema, {
@@ -36,6 +53,7 @@ export const registerInspectCommands = (program: Command): void => {
           compact: options.compact,
           max_nodes: options.maxNodes,
           selector: options.selector,
+          target: buildTargetHint(options),
         });
         return client.post('/inspect/dom_snapshot', payload);
       });
@@ -61,6 +79,7 @@ export const registerInspectCommands = (program: Command): void => {
     .argument('<kind>', 'Find kind (role, text, label)')
     .argument('<value>', 'Role name or text to match')
     .option('--name <name>', 'Accessible name to match (role only)')
+    .option('--tab-id <id>', 'Explicit tab identifier')
     .action(async (kind, value, options, command) => {
       await runCommand(command, (client) => {
         const normalizedKind = String(kind ?? '').toLowerCase();
@@ -71,18 +90,21 @@ export const registerInspectCommands = (program: Command): void => {
             kind: 'role',
             role: value,
             name: options.name,
+            target: buildTargetHint(options),
           };
         } else if (normalizedKind === 'text') {
           payload = {
             session_id: options.sessionId,
             kind: 'text',
             text: value,
+            target: buildTargetHint(options),
           };
         } else if (normalizedKind === 'label') {
           payload = {
             session_id: options.sessionId,
             kind: 'label',
             label: value,
+            target: buildTargetHint(options),
           };
         } else {
           throw new CliError({
@@ -104,12 +126,14 @@ export const registerInspectCommands = (program: Command): void => {
     .option('--format <format>', 'Output format (markdown, text, article_json)')
     .option('--include-metadata', 'Include article metadata')
     .option('--no-include-metadata', 'Exclude article metadata')
+    .option('--tab-id <id>', 'Explicit tab identifier')
     .action(async (options, command) => {
       await runCommand(command, (client) => {
         const payload = parseInput(InspectExtractContentInputSchema, {
           session_id: options.sessionId,
           format: options.format,
           include_metadata: options.includeMetadata,
+          target: buildTargetHint(options),
         });
         return client.post('/inspect/extract_content', payload);
       });
@@ -119,10 +143,12 @@ export const registerInspectCommands = (program: Command): void => {
     .command('page-state')
     .description('Capture form, storage, and cookie state')
     .requiredOption('--session-id <id>', 'Session identifier')
+    .option('--tab-id <id>', 'Explicit tab identifier')
     .action(async (options, command) => {
       await runCommand(command, (client) => {
         const payload = parseInput(InspectPageStateInputSchema, {
           session_id: options.sessionId,
+          target: buildTargetHint(options),
         });
         return client.post('/inspect/page_state', payload);
       });
@@ -132,10 +158,12 @@ export const registerInspectCommands = (program: Command): void => {
     .command('console-list')
     .description('Fetch console entries')
     .requiredOption('--session-id <id>', 'Session identifier')
+    .option('--tab-id <id>', 'Explicit tab identifier')
     .action(async (options, command) => {
       await runCommand(command, (client) => {
         const payload = parseInput(InspectConsoleListInputSchema, {
           session_id: options.sessionId,
+          target: buildTargetHint(options),
         });
         return client.post('/inspect/console_list', payload);
       });
@@ -145,10 +173,12 @@ export const registerInspectCommands = (program: Command): void => {
     .command('network-har')
     .description('Fetch network HAR')
     .requiredOption('--session-id <id>', 'Session identifier')
+    .option('--tab-id <id>', 'Explicit tab identifier')
     .action(async (options, command) => {
       await runCommand(command, (client) => {
         const payload = parseInput(InspectNetworkHarInputSchema, {
           session_id: options.sessionId,
+          target: buildTargetHint(options),
         });
         return client.post('/inspect/network_har', payload);
       });
@@ -159,11 +189,13 @@ export const registerInspectCommands = (program: Command): void => {
     .description('Evaluate a JavaScript expression')
     .requiredOption('--session-id <id>', 'Session identifier')
     .option('--expression <expr>', 'Expression to evaluate')
+    .option('--tab-id <id>', 'Explicit tab identifier')
     .action(async (options, command) => {
       await runCommand(command, (client) => {
         const payload = parseInput(InspectEvaluateInputSchema, {
           session_id: options.sessionId,
           expression: options.expression,
+          target: buildTargetHint(options),
         });
         return client.post('/inspect/evaluate', payload);
       });
@@ -173,10 +205,12 @@ export const registerInspectCommands = (program: Command): void => {
     .command('performance-metrics')
     .description('Fetch performance metrics')
     .requiredOption('--session-id <id>', 'Session identifier')
+    .option('--tab-id <id>', 'Explicit tab identifier')
     .action(async (options, command) => {
       await runCommand(command, (client) => {
         const payload = parseInput(InspectPerformanceMetricsInputSchema, {
           session_id: options.sessionId,
+          target: buildTargetHint(options),
         });
         return client.post('/inspect/performance_metrics', payload);
       });

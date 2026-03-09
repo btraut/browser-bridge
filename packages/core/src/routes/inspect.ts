@@ -88,6 +88,8 @@ const sendInspectError = (
 type TargetHintInput = {
   url?: string;
   title?: string;
+  tab_id?: number;
+  tabId?: number;
   last_active_at?: string;
   lastActiveAt?: string;
 };
@@ -119,13 +121,15 @@ const readTargetHint = (target?: TargetHintInput): TargetHint | undefined => {
   }
   const url = typeof target.url === 'string' ? target.url : undefined;
   const title = typeof target.title === 'string' ? target.title : undefined;
+  const tabIdRaw = target.tab_id ?? target.tabId;
+  const tabId = typeof tabIdRaw === 'number' ? tabIdRaw : undefined;
   const lastActiveAtRaw = target.last_active_at ?? target.lastActiveAt;
   const lastActiveAt =
     typeof lastActiveAtRaw === 'string' ? lastActiveAtRaw : undefined;
-  if (!url && !title && !lastActiveAt) {
+  if (!url && !title && tabId === undefined && !lastActiveAt) {
     return undefined;
   }
-  return { url, title, lastActiveAt };
+  return { url, title, tabId, lastActiveAt };
 };
 
 const resolveTargetHint = (
