@@ -1,6 +1,7 @@
 import { InspectError, InspectService, createInspectService } from '../inspect';
 import type { ExtensionBridge } from '../extension-bridge';
 import type { SessionRegistry } from '../session';
+import type { DebuggerBridge } from '../debugger-bridge';
 import { ArtifactsScreenshotInputSchema } from '@btraut/browser-bridge-shared';
 import {
   ResponseLike,
@@ -50,6 +51,7 @@ type ArtifactsRoutesOptions = {
   registry?: SessionRegistry;
   inspectService?: InspectService;
   extensionBridge?: ExtensionBridge;
+  debuggerBridge?: DebuggerBridge;
 };
 
 const sendArtifactsError = (
@@ -74,7 +76,11 @@ export const registerArtifactsRoutes = (
   const inspect =
     options.inspectService ??
     (options.registry
-      ? createInspectService({ registry: options.registry })
+      ? createInspectService({
+          registry: options.registry,
+          extensionBridge: options.extensionBridge,
+          debuggerBridge: options.debuggerBridge,
+        })
       : undefined);
 
   router.post('/artifacts/screenshot', async (req, res) => {

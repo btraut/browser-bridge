@@ -124,6 +124,7 @@ export const createCoreServer = (
   registerArtifactsRoutes(app, {
     registry,
     extensionBridge,
+    debuggerBridge,
     inspectService: inspect,
   });
   registerDiagnosticsRoutes(app, {
