@@ -25,8 +25,9 @@ This project uses **bd (beads)** for issue tracking. Run `bd onboard` to get sta
 For Browser Bridge tasks, run this flow in the active worktree:
 
 1. Run `browser-bridge dev info` first to get resolved host/port/worktree/log paths.
-2. Run `browser-bridge dev activate` for extension-driving tasks.
+2. If the task needs `inspect.*`, run `browser-bridge dev enable-inspect`.
    - Use `--extension-id <id>` when needed.
+   - If the helper stalls, copy the emitted `optionsUrl` into Chrome directly.
 3. Check `.context/logs/browser-bridge/` before ad-hoc debugging.
    - Inspect per-stream JSONL files (`cli.jsonl`, `core.jsonl`, `mcp-adapter.jsonl`) first.
 

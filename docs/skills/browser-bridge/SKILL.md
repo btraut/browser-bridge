@@ -41,6 +41,10 @@ Global option (works on every command):
 Quickstart:
 
 ```bash
+browser-bridge dev info
+# If the task needs inspect.*, enable it explicitly:
+browser-bridge dev enable-inspect
+
 browser-bridge drive navigate --url https://example.com --json
 # Use result.session_id from the navigate output for subsequent session-scoped commands.
 
@@ -59,6 +63,7 @@ Notes:
 
 - `--max-nodes` only applies to `--format ax` snapshots. For `--format html`, the snapshot succeeds and the flag is ignored with a warning.
 - When `tab_id` is omitted, drive commands target a dedicated agent window/tab that Browser Bridge creates and reuses automatically.
+- `inspect.*` requires debugger-based inspect to be enabled. Run `browser-bridge dev enable-inspect` first if diagnostics says inspect capability is unavailable.
 
 Element targeting:
 
@@ -112,6 +117,7 @@ Note: MCP still requires `browser-bridge` to be on PATH, since the client invoke
 - If drive/inspect fails, run diagnostics and include the output:
   - MCP: `diagnostics.doctor`
   - CLI: `browser-bridge diagnostics doctor`
+- For worktree-aware debugging, start with `browser-bridge dev info` so you know which runtime metadata and log directory the current checkout is using.
 
 ### Site Permissions (Drive Actions)
 
