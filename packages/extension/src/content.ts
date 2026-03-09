@@ -288,7 +288,8 @@ export const runDriveAction = async (
         'textarea,input:not([type]),input[type="text"],input[type="search"],input[type="email"],input[type="url"],input[type="tel"],input[type="password"],[role="textbox"]',
       combobox: 'select,input[list],[role="combobox"]',
     };
-    const selector = selectorMap[roleName] ?? `[role="${escapeSelector(roleName)}"]`;
+    const selector =
+      selectorMap[roleName] ?? `[role="${escapeSelector(roleName)}"]`;
     return Array.from(document.querySelectorAll(selector)).filter(isVisible);
   };
 

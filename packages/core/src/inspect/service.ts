@@ -930,7 +930,7 @@ export class InspectService {
         const error = new InspectError(
           'TAB_NOT_FOUND',
           `No matching tab found for tab_id ${hint.tabId}.`,
-          { tab_id: hint.tabId }
+          { details: { tab_id: hint.tabId } }
         );
         this.recordError(error);
         throw error;

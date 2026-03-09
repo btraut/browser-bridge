@@ -1700,12 +1700,16 @@ class DriveSocket {
             typeof windowId === 'number'
               ? await getWindow(windowId).catch(() => undefined)
               : undefined;
+          const windowFocused =
+            focusedWindow && typeof focusedWindow.focused === 'boolean'
+              ? focusedWindow.focused
+              : undefined;
           const outcome = resolveTabActivationOutcome({
             tabId,
             windowId: typeof windowId === 'number' ? windowId : undefined,
             activated: Boolean(activatedTab?.active === true),
             focusErrorMessage,
-            windowFocused: focusedWindow?.focused,
+            windowFocused,
           });
           if (!outcome.ok) {
             respondError(outcome.error);

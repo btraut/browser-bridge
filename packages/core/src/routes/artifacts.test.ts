@@ -72,7 +72,7 @@ describe('registerArtifactsRoutes', () => {
     });
     expect(handler).toBeTypeOf('function');
 
-    const status = vi.fn((code: number) => ({ json: jsonStatus }));
+    const status = vi.fn(() => ({ json: jsonStatus }));
     const jsonDirect = vi.fn();
     const jsonStatus = vi.fn();
 
