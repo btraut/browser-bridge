@@ -489,6 +489,64 @@ describe('content drive actions', () => {
     }
   });
 
+  it('clicks a native button by role using aria-label even without an explicit role attribute', async () => {
+    vi.useFakeTimers();
+    try {
+      const button = document.createElement('button');
+      button.setAttribute('aria-label', 'Account menu');
+      document.body.appendChild(button);
+      makeVisible(button, new DOMRect(10, 10, 40, 40));
+
+      let clicks = 0;
+      button.addEventListener('click', () => {
+        clicks += 1;
+      });
+
+      const result = await runDriveAction('drive.click', {
+        locator: { role: { name: 'button', value: 'Account menu' } },
+      });
+
+      expect(result.ok).toBe(true);
+      await vi.runAllTimersAsync();
+      expect(clicks).toBe(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('prefers an exact native-role button name match over a longer substring match', async () => {
+    vi.useFakeTimers();
+    try {
+      const exact = document.createElement('button');
+      exact.textContent = 'Sign in';
+      const longer = document.createElement('button');
+      longer.textContent = 'Sign in with Google';
+      document.body.append(longer, exact);
+      makeVisible(longer, new DOMRect(10, 10, 180, 24));
+      makeVisible(exact, new DOMRect(10, 50, 90, 24));
+
+      let exactClicks = 0;
+      let longerClicks = 0;
+      exact.addEventListener('click', () => {
+        exactClicks += 1;
+      });
+      longer.addEventListener('click', () => {
+        longerClicks += 1;
+      });
+
+      const result = await runDriveAction('drive.click', {
+        locator: { role: { name: 'button', value: 'Sign in' } },
+      });
+
+      expect(result.ok).toBe(true);
+      await vi.runAllTimersAsync();
+      expect(exactClicks).toBe(1);
+      expect(longerClicks).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('wait_for text_present matches normalized text across nested elements', async () => {
     const status = document.createElement('div');
     const first = document.createElement('span');

@@ -277,6 +277,28 @@ export const runDriveAction = async (
     return candidates[0]?.[0] ?? null;
   };
 
+  const getRoleCandidates = (roleName: string): Element[] => {
+    const selectorMap: Record<string, string> = {
+      button:
+        'button,[role="button"],input[type="button"],input[type="submit"],input[type="reset"],summary',
+      link: 'a[href],[role="link"]',
+      checkbox: 'input[type="checkbox"],[role="checkbox"]',
+      radio: 'input[type="radio"],[role="radio"]',
+      textbox:
+        'textarea,input:not([type]),input[type="text"],input[type="search"],input[type="email"],input[type="url"],input[type="tel"],input[type="password"],[role="textbox"]',
+      combobox: 'select,input[list],[role="combobox"]',
+    };
+    const selector = selectorMap[roleName] ?? `[role="${escapeSelector(roleName)}"]`;
+    return Array.from(document.querySelectorAll(selector)).filter(isVisible);
+  };
+
+  const getRoleAccessibleName = (element: Element): string =>
+    normalizeText(
+      element.getAttribute('aria-label') ??
+        element.getAttribute('title') ??
+        getRenderedText(element)
+    );
+
   const findByRole = (locator: Record<string, unknown>): Element | null => {
     const role = locator.role;
     if (!role || typeof role !== 'object') {
@@ -287,18 +309,23 @@ export const runDriveAction = async (
     if (typeof roleName !== 'string' || roleName.length === 0) {
       return null;
     }
-    const candidates = Array.from(
-      document.querySelectorAll(`[role="${escapeSelector(roleName)}"]`)
-    );
+    const candidates = getRoleCandidates(roleName);
     if (typeof roleValue !== 'string' || roleValue.length === 0) {
       return candidates[0] ?? null;
     }
+
+    const query = normalizeText(roleValue);
+    const exact = candidates.find(
+      (candidate) => getRoleAccessibleName(candidate) === query
+    );
+    if (exact) {
+      return exact;
+    }
+
     return (
-      candidates.find((candidate) => {
-        const label = candidate.getAttribute('aria-label') ?? '';
-        const text = candidate.textContent ?? '';
-        return label.includes(roleValue) || text.includes(roleValue);
-      }) ?? null
+      candidates.find((candidate) =>
+        getRoleAccessibleName(candidate).includes(query)
+      ) ?? null
     );
   };
 
