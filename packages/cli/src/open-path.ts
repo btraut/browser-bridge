@@ -1,10 +1,16 @@
 import { spawn } from 'node:child_process';
 
+const shouldOpenInChrome = (target: string): boolean =>
+  /^chrome(?:-extension)?:\/\//.test(target);
+
 export const openPath = async (target: string): Promise<void> => {
   const platform = process.platform;
 
   if (platform === 'darwin') {
-    const child = spawn('open', [target], { detached: true, stdio: 'ignore' });
+    const args = shouldOpenInChrome(target)
+      ? ['-a', 'Google Chrome', target]
+      : [target];
+    const child = spawn('open', args, { detached: true, stdio: 'ignore' });
     child.unref();
     return;
   }

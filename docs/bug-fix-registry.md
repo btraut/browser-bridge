@@ -6,6 +6,7 @@ Short index of notable bug fixes. Keep entries symptom-first: bug label, one-lin
 - `activate-enable-inspect` - `dev activate --enable-inspect` now provides an automatable path to enable debugger-based inspect and exposes remediation metadata in diagnostics. Ref: PR #45, `a619da3`
 - `screenshot-permission-remediation` - Screenshot capture failures now classify `captureVisibleTab` permission and rate-limit problems with actionable remediation instead of generic errors. Ref: PR #45, `a619da3`
 - `activate-discovery-hardening` - Activation discovery now probes isolated and shared runtimes, retries connected health briefly, and scans broader Chrome profile roots before giving up on extension id lookup. Ref: `ec013b6`
+- `enable-inspect-chrome-opener` - `dev enable-inspect` now opens extension settings in Google Chrome on macOS, avoiding a silent detour through the generic system opener that left inspect capability disabled. Ref: pending commit
 - `enable-inspect-runtime-rebind` - Activation now reconnects the extension when `corePort` changes so `--enable-inspect` actually binds to the runtime it just configured. Ref: `de91967`
 - `cli-bin-executable-mode` - Build and prepack now preserve the executable bit on `dist/index.js`, so the packed CLI ships an actual runnable bin artifact instead of a `0644` script. Ref: pending commit
 - `screenshot-debugger-coupling` - Viewport, full-page, and element screenshots now prefer extension capture so `artifacts.screenshot` does not fail just because debugger-based inspect is disabled. Ref: `dc8d1ee`

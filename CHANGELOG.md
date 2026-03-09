@@ -8,6 +8,7 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 
 ### Fixed
 
+- `dev enable-inspect` now opens `chrome-extension://...` URLs in Google Chrome on macOS instead of relying on the generic system opener, which could silently strand the inspect-enablement flow outside the live Chrome session.
 - The built and packed CLI now preserves the executable bit on `dist/index.js`, and the README calls out the misleading zsh `permission denied` you get when you run `browser-bridge` from inside a same-named directory without the command on `PATH`.
 - Repo agent guidance no longer tells operators to run the removed `browser-bridge dev activate` command; it now points live tasks at `browser-bridge dev info`, `browser-bridge dev enable-inspect`, and the direct `optionsUrl` workaround when inspect bootstrap stalls.
 - Checked-in `.githooks/pre-commit` now matches the current beads CLI and uses `bd hooks run pre-commit` instead of the removed `bd hook pre-commit` command.
