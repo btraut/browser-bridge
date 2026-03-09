@@ -30,12 +30,14 @@ const run = async (cmd, args, options = {}) => {
 
 const rmrf = async (p) => fs.rm(p, { recursive: true, force: true });
 const mkdirp = async (p) => fs.mkdir(p, { recursive: true });
+const cliBinPath = path.join(cliRoot, 'dist', 'index.js');
 
 // 1) Build publish artifacts (CLI bundle + extension bundle).
 await run(process.execPath, [path.join(repoRoot, 'scripts', 'build-cli.mjs')]);
 await run(process.execPath, [
   path.join(repoRoot, 'scripts', 'build-extension.mjs'),
 ]);
+await fs.chmod(cliBinPath, 0o755);
 
 // 2) Stage README + LICENSE (root is canonical).
 await fs.copyFile(

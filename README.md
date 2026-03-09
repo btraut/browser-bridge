@@ -19,6 +19,10 @@ npm i -g @btraut/browser-bridge
 browser-bridge --help
 ```
 
+zsh gotcha:
+
+- If `browser-bridge` is not installed or not on `PATH` and you run it from inside a directory also named `browser-bridge`, zsh can print a misleading `permission denied` by trying to execute the directory itself. Check `command -v browser-bridge` before treating that error as a packaging failure.
+
 2. Run the installer:
 
 ```bash
