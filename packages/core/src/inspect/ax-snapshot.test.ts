@@ -31,9 +31,10 @@ describe('ax-snapshot helpers', () => {
   it('filters to interactive nodes when interactiveOnly is set', () => {
     const snapshot = {
       nodes: [
-        { nodeId: '1', role: 'root', name: '', childIds: ['2', '3'] },
+        { nodeId: '1', role: 'root', name: '', childIds: ['2', '3', '4'] },
         { nodeId: '2', role: 'text', name: 'Hello', childIds: [] },
         { nodeId: '3', role: 'button', name: 'Ok', childIds: [] },
+        { nodeId: '4', role: 'menuitem', name: 'My decks', childIds: [] },
       ],
     };
 
@@ -41,7 +42,7 @@ describe('ax-snapshot helpers', () => {
       interactiveOnly: true,
     });
     const nodes = getAxNodes(filtered);
-    expect(nodes.map((node) => node.nodeId)).toEqual(['3']);
+    expect(nodes.map((node) => node.nodeId)).toEqual(['3', '4']);
   });
 
   it('compacts AX snapshots to a stable set of meaningful nodes', () => {

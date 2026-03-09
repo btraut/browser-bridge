@@ -8,6 +8,7 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 
 ### Fixed
 
+- `inspect.dom_snapshot` no longer drops open-menu options like `menuitem` roles when `interactive=true`, so transient overlays stay visible to AX snapshot consumers instead of disappearing from the filtered result.
 - CI validate is green again after fixing a stray Prettier wrap in `packages/extension/src/content.ts`, an unused test callback arg, and two type regressions in inspect/tab-activation paths.
 - `dev enable-inspect` now opens `chrome-extension://...` URLs in Google Chrome on macOS instead of relying on the generic system opener, which could silently strand the inspect-enablement flow outside the live Chrome session.
 - The built and packed CLI now preserves the executable bit on `dist/index.js`, and the README calls out the misleading zsh `permission denied` you get when you run `browser-bridge` from inside a same-named directory without the command on `PATH`.
