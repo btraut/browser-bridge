@@ -12,6 +12,8 @@ export type DriveResult<T> =
   | { ok: false; error: DriveErrorInfo };
 
 const LOOPBACK_NAVIGATION_PREFLIGHT_TIMEOUT_MS = 1200;
+const POST_CLICK_SETTLE_MS = 75;
+const TRANSIENT_LOCATOR_RETRY_DELAY_MS = 150;
 const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '::1']);
 const ACTIONS_WITH_OPTIONAL_TAB_ID = new Set<DriveAction>([
   'drive.navigate',
@@ -160,6 +162,30 @@ export class DriveController {
     this.lastErrorAt = undefined;
   }
 
+  private async sleep(ms: number): Promise<void> {
+    await new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  private isTransientLocatorError(
+    action: DriveAction,
+    error: DriveErrorInfo
+  ): boolean {
+    if (action !== 'drive.click') {
+      return false;
+    }
+    if (error.code.toUpperCase() !== 'NOT_FOUND') {
+      return false;
+    }
+    const reason = error.details?.reason;
+    const legacyCode = error.details?.legacy_code;
+    const resource = error.details?.resource;
+    return (
+      reason === 'locator_not_found' ||
+      legacyCode === 'LOCATOR_NOT_FOUND' ||
+      resource === 'locator'
+    );
+  }
+
   async execute<T>(
     sessionId: string,
     action: DriveAction,
@@ -241,6 +267,9 @@ export class DriveController {
             timeoutMs
           );
           if (response.status === 'ok') {
+            if (action === 'drive.click') {
+              await this.sleep(POST_CLICK_SETTLE_MS);
+            }
             this.applySessionTargetOnSuccess(sessionId, action, requestParams);
             this.clearLastError();
             return {
@@ -259,6 +288,15 @@ export class DriveController {
               max_attempts: 1,
             },
           };
+
+          if (
+            attempt === 0 &&
+            this.isTransientLocatorError(action, errorInfo)
+          ) {
+            attempt += 1;
+            await this.sleep(TRANSIENT_LOCATOR_RETRY_DELAY_MS);
+            continue;
+          }
 
           if (
             shouldRetryDriveOp({

@@ -195,6 +195,87 @@ describe('DriveController', () => {
     );
   });
 
+  it('waits briefly after a successful click so deferred click dispatch can land', async () => {
+    vi.useFakeTimers();
+    try {
+      const registry = new SessionRegistry();
+      const session = registry.create();
+      const bridge = {
+        isConnected: () => true,
+        request: vi.fn().mockResolvedValue({
+          id: 'req-1',
+          action: 'drive.click',
+          status: 'ok',
+          result: { ok: true },
+        }),
+      } as unknown as ExtensionBridge;
+      const controller = new DriveController(bridge, registry);
+
+      let resolved = false;
+      const promise = controller.execute(session.id, 'drive.click', {
+        locator: { css: '#account-menu' },
+      });
+      void promise.then(() => {
+        resolved = true;
+      });
+
+      await Promise.resolve();
+      expect(resolved).toBe(false);
+
+      await vi.advanceTimersByTimeAsync(100);
+      expect(resolved).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('retries one transient locator miss for drive.click', async () => {
+    vi.useFakeTimers();
+    try {
+      const registry = new SessionRegistry();
+      const session = registry.create();
+      const bridge = {
+        isConnected: () => true,
+        request: vi
+          .fn()
+          .mockResolvedValueOnce({
+            id: 'req-1',
+            action: 'drive.click',
+            status: 'error',
+            error: {
+              code: 'NOT_FOUND',
+              message: 'Failed to resolve locator.',
+              retryable: false,
+              details: {
+                legacy_code: 'LOCATOR_NOT_FOUND',
+                reason: 'locator_not_found',
+                resource: 'locator',
+              },
+            },
+          })
+          .mockResolvedValueOnce({
+            id: 'req-2',
+            action: 'drive.click',
+            status: 'ok',
+            result: { ok: true },
+          }),
+      } as unknown as ExtensionBridge;
+      const controller = new DriveController(bridge, registry);
+
+      const promise = controller.execute(session.id, 'drive.click', {
+        locator: { text: 'My decks' },
+      });
+
+      await vi.advanceTimersByTimeAsync(300);
+      const result = await promise;
+
+      expect(result.ok).toBe(true);
+      expect(bridge.request).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('clears session-selected tab_id after closing the selected tab', async () => {
     const registry = new SessionRegistry();
     const session = registry.create();
