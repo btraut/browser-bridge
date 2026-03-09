@@ -76,6 +76,7 @@ Element targeting:
   - `--locator-css <selector>`
   - `--locator-text <text>`
   - `--locator-role <role>` + `--locator-role-value <value>`
+- For repeated actions in the same menu (for example `Edit cards` vs `Edit details`), prefer exact `--locator-text` or role/name targeting over broad CSS. Broad selectors are how you click the wrong damn thing.
 - If a CSS or testid locator matches multiple nodes, Browser Bridge prefers the visible candidate, but exact text/role targeting is still the cleanest path.
 
 Wait conditions (`drive wait-for`):

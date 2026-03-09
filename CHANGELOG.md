@@ -8,6 +8,7 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 
 ### Fixed
 
+- Browser Bridge targeting docs now explicitly steer repeated menu actions toward exact text/role locators, and regression coverage now proves `locator.text` can pick `Edit cards` without drifting into sibling actions like `Edit details`.
 - CSS/testid locator resolution now prefers visible candidates when multiple nodes match, which avoids no-op clicks on hidden duplicate controls like deck-editor quantity buttons while preserving raw-match fallback for simple pages.
 - Snapshot refs now carry fallback metadata for the current page, so a rerendered list row can still be re-resolved by `locator.ref` through the current visible link instead of failing immediately once `data-bv-ref` disappears.
 - `drive.click` now waits briefly for deferred CDP click dispatch to land and retries one transient locator miss, which makes menu-trigger clicks and freshly opened overlay items less race-prone on live sites.

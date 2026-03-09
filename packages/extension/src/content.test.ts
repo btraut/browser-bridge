@@ -634,6 +634,39 @@ describe('content drive actions', () => {
     }
   });
 
+  it('targets an exact repeated menu action by text without hitting siblings', async () => {
+    vi.useFakeTimers();
+    try {
+      const editDetails = document.createElement('button');
+      editDetails.textContent = 'Edit details';
+      const editCards = document.createElement('button');
+      editCards.textContent = 'Edit cards';
+      document.body.append(editDetails, editCards);
+      makeVisible(editDetails, new DOMRect(10, 10, 120, 24));
+      makeVisible(editCards, new DOMRect(10, 50, 120, 24));
+
+      let detailsClicks = 0;
+      let cardsClicks = 0;
+      editDetails.addEventListener('click', () => {
+        detailsClicks += 1;
+      });
+      editCards.addEventListener('click', () => {
+        cardsClicks += 1;
+      });
+
+      const result = await runDriveAction('drive.click', {
+        locator: { text: 'Edit cards' },
+      });
+
+      expect(result.ok).toBe(true);
+      await vi.runAllTimersAsync();
+      expect(cardsClicks).toBe(1);
+      expect(detailsClicks).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('wait_for text_present matches normalized text across nested elements', async () => {
     const status = document.createElement('div');
     const first = document.createElement('span');
