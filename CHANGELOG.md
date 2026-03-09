@@ -13,6 +13,7 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 - The built and packed CLI now preserves the executable bit on `dist/index.js`, and the README calls out the misleading zsh `permission denied` you get when you run `browser-bridge` from inside a same-named directory without the command on `PATH`.
 - Repo agent guidance no longer tells operators to run the removed `browser-bridge dev activate` command; it now points live tasks at `browser-bridge dev info`, `browser-bridge dev enable-inspect`, and the direct `optionsUrl` workaround when inspect bootstrap stalls.
 - Checked-in `.githooks/pre-commit` now matches the current beads CLI and uses `bd hooks run pre-commit` instead of the removed `bd hook pre-commit` command.
+- Shared git hooks now install cleanly with `npm run hooks:install`, and `.githooks/pre-push` no longer skips the repo's validate gate just because beads is present.
 - Active docs now describe one Browser Bridge runtime at `127.0.0.1:3210`, mark the old worktree-routing story as superseded, and point debugger-based inspect setup at `browser-bridge dev enable-inspect`.
 - `artifacts screenshot` now prefers extension-driven capture for viewport, full-page, and element targets instead of failing just because debugger-based inspect is disabled.
 - `drive.click` role matching now includes native interactive controls and exact accessible-name preference, so visible header buttons like `Sign in` and `Account menu` resolve without falling back to inspect/evaluate.

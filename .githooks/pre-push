@@ -7,16 +7,22 @@
 # This shim delegates to 'bd hooks run pre-push' which contains
 # the actual hook logic. This pattern ensures hook behavior is always
 # in sync with the installed bd version - no manual updates needed.
+#
+# After the beads hook runs, this delegates to the repo pre-push
+# script so format/lint/typecheck gates still block bad pushes.
 
-# Check if bd is available
-if ! command -v bd >/dev/null 2>&1; then
-    repo_root="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
-    fallback="$repo_root/scripts/git-hooks/pre-push.sh"
-    if [ -x "$fallback" ]; then
-        exec "$fallback" "$@"
-    fi
-    echo "Warning: bd not found and no fallback hook at $fallback; skipping pre-push hook" >&2
-    exit 0
+repo_root="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
+hook_script="$repo_root/scripts/git-hooks/pre-push.sh"
+
+if command -v bd >/dev/null 2>&1; then
+    export BD_GIT_HOOK=1
+    bd hooks run pre-push "$@" || exit $?
+else
+    echo "Warning: bd not found; skipping beads pre-push tasks" >&2
 fi
 
-exec bd hooks run pre-push "$@"
+if [ -x "$hook_script" ]; then
+    exec "$hook_script" "$@"
+fi
+
+exit 0

@@ -49,6 +49,8 @@ Then load the unpacked extension from `packages/extension/`.
 
 </details>
 
+Repo contributors: run `npm run hooks:install` once after clone. This repo expects `core.hooksPath=.githooks` so local `pre-commit` and `pre-push` block the same format/lint/typecheck failures that CI enforces.
+
 4. Try it:
 
 ```text

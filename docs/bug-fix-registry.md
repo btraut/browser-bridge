@@ -18,5 +18,6 @@ Short index of notable bug fixes. Keep entries symptom-first: bug label, one-lin
 - `zsh-same-name-permission-denied` - The README now calls out zsh's misleading `permission denied` when `browser-bridge` is run from inside a same-named directory without the command actually being on `PATH`. Ref: pending commit
 - `dead-dev-activate-guidance` - Repo agent guidance now points live worktree tasks at `dev info` plus `dev enable-inspect`, with the emitted `optionsUrl` called out as the inspect-stall fallback. Ref: `a628e6e`
 - `stale-bd-hook-shim` - Checked-in `.githooks/pre-commit` now calls `bd hooks run pre-commit`, matching modern beads installs instead of the removed `bd hook` command. Ref: pending commit
+- `hook-path-validate-chaining` - `npm run hooks:install` now points Git at `.githooks`, and the shared pre-push shim runs repo validation even when beads is installed. Ref: pending commit
 - `ci-validate-regressions` - Fixed the current validate breakage by restoring Prettier formatting, removing an unused test callback arg, and aligning two typed payloads with their declared contracts. Ref: pending commit
 - `validate-gate-cleanup` - Validate now passes again after removing an unused runtime metadata arg, fixing the typed fetch mock in readiness tests, and formatting the affected files. Ref: pending commit
