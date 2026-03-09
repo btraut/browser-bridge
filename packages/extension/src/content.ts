@@ -11,6 +11,7 @@ type ContentResult =
 
 const AGENT_TAB_BRANDING_ACTION = 'drive.agent_tab_branding';
 const AGENT_TAB_FAVICON_MARKER_ATTR = 'data-bb-agent-favicon';
+const SNAPSHOT_REF_REGISTRY_ID = '__bb_snapshot_ref_registry__';
 
 const applyAgentTabFavicon = (faviconUrl: string): void => {
   if (faviconUrl.length === 0) {
@@ -300,6 +301,141 @@ export const runDriveAction = async (
         getRenderedText(element)
     );
 
+  const scoreCandidates = (
+    candidates: Element[],
+    options?: {
+      exactText?: string;
+      exactHref?: string;
+    }
+  ): Element | null => {
+    const queryText = options?.exactText
+      ? normalizeText(options.exactText)
+      : '';
+    const queryHref = options?.exactHref ?? '';
+    if (candidates.length === 0) {
+      return null;
+    }
+    const scored = candidates
+      .filter(isVisible)
+      .map((candidate) => {
+        const text = getRenderedText(candidate);
+        const href = candidate.getAttribute('href') ?? '';
+        return {
+          candidate,
+          exactText: queryText.length > 0 && text === queryText,
+          exactHref:
+            queryHref.length > 0 &&
+            (href === queryHref ||
+              (candidate instanceof HTMLAnchorElement &&
+                candidate.href === queryHref)),
+          clickable: isClickable(candidate),
+          textLength: text.length,
+          depth: getNodeDepth(candidate),
+        };
+      })
+      .sort((a, b) => {
+        if (a.exactHref !== b.exactHref) {
+          return a.exactHref ? -1 : 1;
+        }
+        if (a.exactText !== b.exactText) {
+          return a.exactText ? -1 : 1;
+        }
+        if (a.clickable !== b.clickable) {
+          return a.clickable ? -1 : 1;
+        }
+        if (a.textLength !== b.textLength) {
+          return a.textLength - b.textLength;
+        }
+        return b.depth - a.depth;
+      });
+    return scored[0]?.candidate ?? candidates[0] ?? null;
+  };
+
+  const readSnapshotRefRegistry = (): Map<
+    string,
+    { role?: string; name?: string; url?: string }
+  > => {
+    const registry = new Map<
+      string,
+      { role?: string; name?: string; url?: string }
+    >();
+    const el = document.getElementById(SNAPSHOT_REF_REGISTRY_ID);
+    const raw = el?.textContent;
+    if (!raw) {
+      return registry;
+    }
+    try {
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) {
+        return registry;
+      }
+      for (const entry of parsed) {
+        if (!entry || typeof entry !== 'object') {
+          continue;
+        }
+        const ref = (entry as { ref?: unknown }).ref;
+        if (typeof ref !== 'string' || ref.length === 0) {
+          continue;
+        }
+        registry.set(ref, {
+          role:
+            typeof (entry as { role?: unknown }).role === 'string'
+              ? ((entry as { role?: string }).role ?? undefined)
+              : undefined,
+          name:
+            typeof (entry as { name?: unknown }).name === 'string'
+              ? ((entry as { name?: string }).name ?? undefined)
+              : undefined,
+          url:
+            typeof (entry as { url?: unknown }).url === 'string'
+              ? ((entry as { url?: string }).url ?? undefined)
+              : undefined,
+        });
+      }
+    } catch {
+      return new Map();
+    }
+    return registry;
+  };
+
+  const findBySnapshotRefFallback = (ref: string): Element | null => {
+    const metadata = readSnapshotRefRegistry().get(ref);
+    if (!metadata) {
+      return null;
+    }
+
+    if (typeof metadata.url === 'string' && metadata.url.length > 0) {
+      const linkCandidates = Array.from(
+        document.querySelectorAll('a[href],[role="link"]')
+      );
+      const bestLink = scoreCandidates(linkCandidates, {
+        exactHref: metadata.url,
+        exactText: metadata.name,
+      });
+      if (bestLink) {
+        return bestLink;
+      }
+    }
+
+    if (typeof metadata.role === 'string' && metadata.role.length > 0) {
+      const roleMatch = findByRole({
+        role: {
+          name: metadata.role,
+          ...(metadata.name ? { value: metadata.name } : {}),
+        },
+      });
+      if (roleMatch) {
+        return roleMatch;
+      }
+    }
+
+    if (typeof metadata.name === 'string' && metadata.name.length > 0) {
+      return findByText(metadata.name);
+    }
+
+    return null;
+  };
+
   const findByRole = (locator: Record<string, unknown>): Element | null => {
     const role = locator.role;
     if (!role || typeof role !== 'object') {
@@ -344,18 +480,24 @@ export const runDriveAction = async (
       if (found) {
         return found;
       }
+      const fallback = findBySnapshotRefFallback(normalized);
+      if (fallback) {
+        return fallback;
+      }
     }
     const testid = locator.testid;
     if (typeof testid === 'string' && testid.length > 0) {
       const selector = `[data-testid="${escapeSelector(testid)}"]`;
-      const found = document.querySelector(selector);
+      const found = scoreCandidates(
+        Array.from(document.querySelectorAll(selector))
+      );
       if (found) {
         return found;
       }
     }
     const css = locator.css;
     if (typeof css === 'string' && css.length > 0) {
-      const found = document.querySelector(css);
+      const found = scoreCandidates(Array.from(document.querySelectorAll(css)));
       if (found) {
         return found;
       }

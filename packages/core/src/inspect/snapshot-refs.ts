@@ -1,4 +1,4 @@
-import { getAxNodes } from './ax-snapshot';
+import { getAxName, getAxNodes, getAxRole } from './ax-snapshot';
 
 export type DebuggerCommand = (
   tabId: number,
@@ -8,6 +8,14 @@ export type DebuggerCommand = (
 ) => Promise<unknown>;
 
 export const SNAPSHOT_REF_ATTRIBUTE = 'data-bv-ref';
+export const SNAPSHOT_REF_REGISTRY_ID = '__bb_snapshot_ref_registry__';
+
+export type SnapshotRefBinding = {
+  ref: string;
+  role?: string;
+  name?: string;
+  url?: string;
+};
 
 const MAX_REF_ASSIGNMENTS = 500;
 const MAX_REF_WARNINGS = 5;
@@ -26,9 +34,9 @@ const isInspectError = (
 
 export const assignRefsToAxSnapshot = (
   snapshot: unknown
-): Map<number, string> => {
+): Map<number, SnapshotRefBinding> => {
   const nodes = getAxNodes(snapshot);
-  const refs = new Map<number, string>();
+  const refs = new Map<number, SnapshotRefBinding>();
   let index = 1;
   for (const node of nodes) {
     if (!node || typeof node !== 'object') {
@@ -44,9 +52,34 @@ export const assignRefsToAxSnapshot = (
     const ref = `@e${index}`;
     index += 1;
     node.ref = ref;
-    refs.set(backendId, ref);
+    refs.set(backendId, {
+      ref,
+      ...(getAxRole(node) ? { role: getAxRole(node) } : {}),
+      ...(getAxName(node) ? { name: getAxName(node) } : {}),
+      ...(extractUrl(node) ? { url: extractUrl(node) } : {}),
+    });
   }
   return refs;
+};
+
+const extractUrl = (node: { properties?: unknown[] }): string | undefined => {
+  if (!Array.isArray(node.properties)) {
+    return undefined;
+  }
+  for (const prop of node.properties) {
+    if (!prop || typeof prop !== 'object') {
+      continue;
+    }
+    const name = (prop as { name?: unknown }).name;
+    if (name !== 'url') {
+      continue;
+    }
+    const value = (prop as { value?: { value?: unknown } }).value?.value;
+    if (typeof value === 'string' && value.length > 0) {
+      return value;
+    }
+  }
+  return undefined;
 };
 
 export const clearSnapshotRefs = async (
@@ -54,7 +87,10 @@ export const clearSnapshotRefs = async (
   debuggerCommand: DebuggerCommand
 ): Promise<void> => {
   await debuggerCommand(tabId, 'Runtime.evaluate', {
-    expression: `document.querySelectorAll('[${SNAPSHOT_REF_ATTRIBUTE}]').forEach((el) => el.removeAttribute('${SNAPSHOT_REF_ATTRIBUTE}'))`,
+    expression: `(() => {
+      document.querySelectorAll('[${SNAPSHOT_REF_ATTRIBUTE}]').forEach((el) => el.removeAttribute('${SNAPSHOT_REF_ATTRIBUTE}'));
+      document.getElementById('${SNAPSHOT_REF_REGISTRY_ID}')?.remove();
+    })()`,
     returnByValue: true,
     awaitPromise: true,
   });
@@ -62,7 +98,7 @@ export const clearSnapshotRefs = async (
 
 export const applySnapshotRefs = async (
   tabId: number,
-  refs: Map<number, string>,
+  refs: Map<number, SnapshotRefBinding>,
   debuggerCommand: DebuggerCommand
 ): Promise<string[]> => {
   const warnings: string[] = [];
@@ -80,7 +116,8 @@ export const applySnapshotRefs = async (
   }
 
   let applied = 0;
-  for (const [backendNodeId, ref] of refs) {
+  for (const [backendNodeId, binding] of refs) {
+    const ref = binding.ref;
     if (applied >= MAX_REF_ASSIGNMENTS) {
       warnings.push(
         `Snapshot refs truncated at ${MAX_REF_ASSIGNMENTS} elements.`
@@ -110,6 +147,29 @@ export const applySnapshotRefs = async (
       if (warnings.length < MAX_REF_WARNINGS) {
         warnings.push(`Ref ${ref} could not be applied.`);
       }
+    }
+  }
+
+  try {
+    const registry = JSON.stringify(Array.from(refs.values()));
+    await debuggerCommand(tabId, 'Runtime.evaluate', {
+      expression: `(() => {
+        const id = ${JSON.stringify(SNAPSHOT_REF_REGISTRY_ID)};
+        let el = document.getElementById(id);
+        if (!el) {
+          el = document.createElement('script');
+          el.id = id;
+          el.type = 'application/json';
+          document.documentElement.appendChild(el);
+        }
+        el.textContent = ${JSON.stringify(registry)};
+      })()`,
+      returnByValue: true,
+      awaitPromise: true,
+    });
+  } catch {
+    if (warnings.length < MAX_REF_WARNINGS) {
+      warnings.push('Snapshot ref registry could not be applied.');
     }
   }
   return warnings;

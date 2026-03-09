@@ -9,7 +9,15 @@ describe('snapshot ref helpers', () => {
   it('assignRefsToAxSnapshot mutates nodes and returns a backendId->ref map', () => {
     const snapshot = {
       nodes: [
-        { nodeId: '1', backendDOMNodeId: 10 },
+        {
+          nodeId: '1',
+          backendDOMNodeId: 10,
+          role: { value: 'link' },
+          name: { value: 'Untitled deck' },
+          properties: [
+            { name: 'url', value: { value: 'https://example.com/decks/1' } },
+          ],
+        },
         { nodeId: '2', backendDOMNodeId: 11, ignored: true },
         { nodeId: '3', backendDOMNodeId: 12 },
       ],
@@ -17,8 +25,16 @@ describe('snapshot ref helpers', () => {
 
     const refs = assignRefsToAxSnapshot(snapshot);
     expect(Array.from(refs.entries())).toEqual([
-      [10, '@e1'],
-      [12, '@e2'],
+      [
+        10,
+        {
+          ref: '@e1',
+          role: 'link',
+          name: 'Untitled deck',
+          url: 'https://example.com/decks/1',
+        },
+      ],
+      [12, { ref: '@e2' }],
     ]);
 
     const nodes = (snapshot as { nodes: Array<{ ref?: string }> }).nodes;

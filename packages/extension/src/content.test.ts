@@ -547,6 +547,52 @@ describe('content drive actions', () => {
     }
   });
 
+  it('falls back from a stale snapshot ref to current link metadata', async () => {
+    vi.useFakeTimers();
+    try {
+      const registry = document.createElement('script');
+      registry.id = '__bb_snapshot_ref_registry__';
+      registry.type = 'application/json';
+      registry.textContent = JSON.stringify([
+        {
+          ref: '@e36',
+          role: 'link',
+          name: 'Untitled deck',
+          url: 'https://manavault.gg/decks/123',
+        },
+      ]);
+      document.documentElement.appendChild(registry);
+
+      const hidden = document.createElement('a');
+      hidden.href = 'https://manavault.gg/decks/123';
+      hidden.textContent = 'Untitled deck';
+      hidden.style.display = 'none';
+      const visible = document.createElement('a');
+      visible.href = 'https://manavault.gg/decks/123';
+      visible.textContent = 'Untitled deck';
+      visible.addEventListener('click', (event) => {
+        event.preventDefault();
+      });
+      document.body.append(hidden, visible);
+      makeVisible(visible, new DOMRect(10, 10, 140, 24));
+
+      let visibleClicks = 0;
+      visible.addEventListener('click', () => {
+        visibleClicks += 1;
+      });
+
+      const result = await runDriveAction('drive.click', {
+        locator: { ref: '@e36' },
+      });
+
+      expect(result.ok).toBe(true);
+      await vi.runAllTimersAsync();
+      expect(visibleClicks).toBe(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('wait_for text_present matches normalized text across nested elements', async () => {
     const status = document.createElement('div');
     const first = document.createElement('span');
