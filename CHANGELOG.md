@@ -11,6 +11,8 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 - Inspect APIs now default to the session's primary tab when no explicit target is provided, while still honoring explicit `target.tab_id` over session affinity and global tab heuristics.
 - Drive actions now report the concrete tab they resolved when `tab_id` is omitted, and core persists that tab as the session primary target so later unpinned actions stay on the same page instead of drifting across windows.
 - `inspect.*` routes now default to the session's pinned tab and still honor explicit `target.tab_id`, which keeps inspect reads aligned with the browser context drive already selected.
+- Exact `a[href="..."]` click locators now stay pinned to the visible anchor when hidden duplicates exist nearby, which keeps ordinary link targeting aligned with what inspect can actually see.
+- `Deck actions` role targeting now has regression coverage against nearby auth controls, which guards routine deck flows from misclicking into sign-in affordances.
 - `inspect.dom_snapshot` now strips refs that could not actually be rebound into the live DOM, and the snapshot ref registry only persists refs that were successfully applied.
 - `dev enable-inspect` now enables debugger capability through the live core-extension bridge instead of auto-opening the extension options page, and it returns a manual `optionsUrl` fallback only when the connected runtime cannot perform the change directly.
 - Browser Bridge targeting docs now explicitly steer repeated menu actions toward exact text/role locators, and regression coverage now proves `locator.text` can pick `Edit cards` without drifting into sibling actions like `Edit details`.
