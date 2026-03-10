@@ -4,6 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import { InspectService } from './inspect';
+import { getAxNodes } from './inspect/ax-snapshot';
 import { SessionRegistry } from './session';
 import type { DebuggerBridge } from './debugger-bridge';
 import type { DriveAction, DriveResponse } from './drive-protocol';
@@ -319,6 +320,107 @@ describe('InspectService', () => {
     expect(result.warnings).toContain(
       'max_nodes is only supported for AX snapshots.'
     );
+  });
+
+  it('keeps an expanded trigger and visible menu items in interactive AX snapshots', async () => {
+    const registry = new SessionRegistry();
+    const session = registry.create();
+
+    const axNodes = [
+      {
+        nodeId: '1',
+        backendDOMNodeId: 101,
+        role: 'button',
+        name: 'Account menu',
+        childIds: [],
+        properties: [{ name: 'expanded', value: { value: true } }],
+      },
+      {
+        nodeId: '2',
+        backendDOMNodeId: 102,
+        role: 'menuitem',
+        name: 'Profile',
+        childIds: [],
+      },
+      {
+        nodeId: '3',
+        backendDOMNodeId: 103,
+        role: 'menuitem',
+        name: 'My decks',
+        childIds: [],
+      },
+      {
+        nodeId: '4',
+        backendDOMNodeId: 104,
+        role: 'text',
+        name: 'Ignore me',
+        childIds: [],
+      },
+    ];
+
+    const debuggerBridge = {
+      hasAttachments: () => true,
+      getLastError: () => undefined,
+      command: async (
+        _tabId: number,
+        method: string,
+        params?: Record<string, unknown>
+      ) => {
+        if (method === 'Accessibility.getFullAXTree') {
+          return { ok: true, result: { nodes: axNodes } };
+        }
+        if (method === 'DOM.describeNode') {
+          const backendNodeId = params?.backendNodeId;
+          return {
+            ok: true,
+            result: {
+              node: {
+                nodeId: Number(backendNodeId),
+                nodeType: 1,
+              },
+            },
+          };
+        }
+        if (
+          method === 'Accessibility.enable' ||
+          method === 'DOM.enable' ||
+          method === 'Runtime.enable' ||
+          method === 'DOM.setAttributeValue' ||
+          method === 'Runtime.evaluate'
+        ) {
+          return { ok: true, result: {} };
+        }
+        return { ok: true, result: {} };
+      },
+    } as unknown as DebuggerBridge;
+
+    const service = new InspectService({
+      registry,
+      extensionBridge: {
+        isConnected: () => true,
+        getStatus: () => ({
+          tabs: [DEFAULT_TAB],
+        }),
+      },
+      debuggerBridge,
+    });
+
+    const result = await service.domSnapshot({
+      sessionId: session.id,
+      format: 'ax',
+      consistency: 'best_effort',
+      interactive: true,
+    });
+
+    const nodes = getAxNodes(result.snapshot);
+    expect(nodes.map((node) => ({ role: node.role, name: node.name }))).toEqual(
+      [
+        { role: 'button', name: 'Account menu' },
+        { role: 'menuitem', name: 'Profile' },
+        { role: 'menuitem', name: 'My decks' },
+      ]
+    );
+    expect(nodes.every((node) => typeof node.ref === 'string')).toBe(true);
   });
 
   it('writes a HAR artifact from buffered network events', async () => {
