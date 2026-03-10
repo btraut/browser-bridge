@@ -549,6 +549,39 @@ describe('content drive actions', () => {
     }
   });
 
+  it('targets deck actions without clicking a nearby auth button', async () => {
+    vi.useFakeTimers();
+    try {
+      const auth = document.createElement('button');
+      auth.textContent = 'Sign in with Google';
+      const deckActions = document.createElement('button');
+      deckActions.setAttribute('aria-label', 'Deck actions');
+      document.body.append(auth, deckActions);
+      makeVisible(auth, new DOMRect(10, 10, 180, 24));
+      makeVisible(deckActions, new DOMRect(10, 50, 40, 40));
+
+      let authClicks = 0;
+      let deckActionClicks = 0;
+      auth.addEventListener('click', () => {
+        authClicks += 1;
+      });
+      deckActions.addEventListener('click', () => {
+        deckActionClicks += 1;
+      });
+
+      const result = await runDriveAction('drive.click', {
+        locator: { role: { name: 'button', value: 'Deck actions' } },
+      });
+
+      expect(result.ok).toBe(true);
+      await vi.runAllTimersAsync();
+      expect(deckActionClicks).toBe(1);
+      expect(authClicks).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('falls back from a stale snapshot ref to current link metadata', async () => {
     vi.useFakeTimers();
     try {
