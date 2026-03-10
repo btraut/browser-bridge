@@ -469,10 +469,12 @@ describe('content drive actions', () => {
 
       let hiddenClicks = 0;
       let visibleClicks = 0;
-      hidden.addEventListener('click', () => {
+      hidden.addEventListener('click', (event) => {
+        event.preventDefault();
         hiddenClicks += 1;
       });
-      visible.addEventListener('click', () => {
+      visible.addEventListener('click', (event) => {
+        event.preventDefault();
         visibleClicks += 1;
       });
 
@@ -588,6 +590,43 @@ describe('content drive actions', () => {
       expect(result.ok).toBe(true);
       await vi.runAllTimersAsync();
       expect(visibleClicks).toBe(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('prefers the visible exact-href css match over a hidden duplicate link', async () => {
+    vi.useFakeTimers();
+    try {
+      const hidden = document.createElement('a');
+      hidden.href = 'https://manavault.gg/decks/123';
+      hidden.textContent = 'Hidden deck link';
+      hidden.style.display = 'none';
+      const visible = document.createElement('a');
+      visible.href = 'https://manavault.gg/decks/123';
+      visible.textContent = 'Visible deck link';
+      document.body.append(hidden, visible);
+      makeVisible(visible, new DOMRect(10, 10, 140, 24));
+
+      let hiddenClicks = 0;
+      let visibleClicks = 0;
+      hidden.addEventListener('click', () => {
+        hiddenClicks += 1;
+      });
+      visible.addEventListener('click', () => {
+        visibleClicks += 1;
+      });
+
+      const result = await runDriveAction('drive.click', {
+        locator: {
+          css: 'a[href="https://manavault.gg/decks/123"]',
+        },
+      });
+
+      expect(result.ok).toBe(true);
+      await vi.runAllTimersAsync();
+      expect(visibleClicks).toBe(1);
+      expect(hiddenClicks).toBe(0);
     } finally {
       vi.useRealTimers();
     }

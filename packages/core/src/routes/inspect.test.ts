@@ -38,7 +38,7 @@ const createResponse = () => {
 };
 
 describe('registerInspectRoutes', () => {
-  it('does not invent a target hint when the caller omits target', async () => {
+  it('defaults inspect calls to the session primary tab when the caller omits target', async () => {
     const registry = new SessionRegistry();
     const session = registry.create();
     registry.setSelectedTab(session.id, 77);
@@ -84,7 +84,7 @@ describe('registerInspectRoutes', () => {
     )[0]?.[0];
     expect(firstRequest).toEqual({
       sessionId: session.id,
-      targetHint: undefined,
+      targetHint: { tabId: 77 },
     });
     expect(response.statusCode()).toBe(200);
   });
