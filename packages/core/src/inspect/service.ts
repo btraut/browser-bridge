@@ -122,7 +122,7 @@ export class InspectService {
   async reconnect(sessionId: string): Promise<boolean> {
     try {
       this.requireSession(sessionId);
-      const selection = await this.resolveTab();
+      const selection = await this.resolveTab(sessionId);
       const debuggerBridge = this.ensureDebugger();
       const result = await debuggerBridge.attach(selection.tabId);
       if (result.ok) {
@@ -151,7 +151,7 @@ export class InspectService {
     targetHint?: TargetHint;
   }): Promise<DomSnapshotResult> {
     this.requireSession(input.sessionId);
-    const selection = await this.resolveTab(input.targetHint);
+    const selection = await this.resolveTab(input.sessionId, input.targetHint);
     const debuggerCommand = this.debuggerCommand.bind(this);
 
     const work = async (): Promise<DomSnapshotResult> => {
@@ -435,7 +435,7 @@ export class InspectService {
     targetHint?: TargetHint;
   }): Promise<ConsoleListResult> {
     this.requireSession(input.sessionId);
-    const selection = await this.resolveTab(input.targetHint);
+    const selection = await this.resolveTab(input.sessionId, input.targetHint);
     await this.enableConsole(selection.tabId);
 
     const events = this.ensureDebugger().getConsoleEvents(selection.tabId);
@@ -456,7 +456,7 @@ export class InspectService {
     targetHint?: TargetHint;
   }): Promise<ArtifactInfo> {
     this.requireSession(input.sessionId);
-    const selection = await this.resolveTab(input.targetHint);
+    const selection = await this.resolveTab(input.sessionId, input.targetHint);
     await this.enableNetwork(selection.tabId);
 
     const events = this.ensureDebugger().getNetworkEvents(selection.tabId);
@@ -490,7 +490,7 @@ export class InspectService {
     targetHint?: TargetHint;
   }): Promise<EvaluateResult> {
     this.requireSession(input.sessionId);
-    const selection = await this.resolveTab(input.targetHint);
+    const selection = await this.resolveTab(input.sessionId, input.targetHint);
     const expression = input.expression ?? 'undefined';
 
     await this.debuggerCommand(selection.tabId, 'Runtime.enable', {});
@@ -528,7 +528,7 @@ export class InspectService {
     targetHint?: TargetHint;
   }): Promise<ExtractContentResult> {
     this.requireSession(input.sessionId);
-    const selection = await this.resolveTab(input.targetHint);
+    const selection = await this.resolveTab(input.sessionId, input.targetHint);
 
     const debuggerCommand = this.debuggerCommand.bind(this);
     const html = await captureHtml(selection.tabId, {
@@ -603,7 +603,7 @@ export class InspectService {
     targetHint?: TargetHint;
   }): Promise<PageStateResult> {
     this.requireSession(input.sessionId);
-    const selection = await this.resolveTab(input.targetHint);
+    const selection = await this.resolveTab(input.sessionId, input.targetHint);
 
     await this.debuggerCommand(selection.tabId, 'Runtime.enable', {});
     const expression = PAGE_STATE_SCRIPT;
@@ -660,7 +660,7 @@ export class InspectService {
     targetHint?: TargetHint;
   }): Promise<PerformanceMetricsResult> {
     this.requireSession(input.sessionId);
-    const selection = await this.resolveTab(input.targetHint);
+    const selection = await this.resolveTab(input.sessionId, input.targetHint);
 
     await this.debuggerCommand(selection.tabId, 'Performance.enable', {});
     const result = await this.debuggerCommand(
@@ -691,7 +691,7 @@ export class InspectService {
     targetHint?: TargetHint;
   }): Promise<ArtifactInfo> {
     this.requireSession(input.sessionId);
-    const selection = await this.resolveTab(input.targetHint);
+    const selection = await this.resolveTab(input.sessionId, input.targetHint);
 
     const format = input.format ?? 'png';
     const createScreenshotError = (
@@ -906,6 +906,7 @@ export class InspectService {
   }
 
   private async resolveTab(
+    sessionId?: string,
     hint?: TargetHint
   ): Promise<{ tabId: number; tab: DriveTabInfo; warnings?: string[] }> {
     if (!this.extensionBridge || !this.extensionBridge.isConnected()) {
@@ -928,18 +929,27 @@ export class InspectService {
       throw error;
     }
 
-    if (typeof hint?.tabId === 'number' && Number.isFinite(hint.tabId)) {
-      const tab = tabs.find((entry) => entry.tab_id === hint.tabId);
+    const effectiveHint =
+      hint ??
+      (typeof sessionId === 'string'
+        ? this.readSessionTargetHint(sessionId)
+        : undefined);
+
+    if (
+      typeof effectiveHint?.tabId === 'number' &&
+      Number.isFinite(effectiveHint.tabId)
+    ) {
+      const tab = tabs.find((entry) => entry.tab_id === effectiveHint.tabId);
       if (!tab) {
         const error = new InspectError(
           'TAB_NOT_FOUND',
-          `No matching tab found for tab_id ${hint.tabId}.`,
-          { details: { tab_id: hint.tabId } }
+          `No matching tab found for tab_id ${effectiveHint.tabId}.`,
+          { details: { tab_id: effectiveHint.tabId } }
         );
         this.recordError(error);
         throw error;
       }
-      return { tabId: hint.tabId, tab };
+      return { tabId: effectiveHint.tabId, tab };
     }
 
     const candidates = tabs.map((tab) => ({
@@ -951,7 +961,7 @@ export class InspectService {
         : undefined,
     }));
 
-    const ranked = pickBestTarget(candidates, hint);
+    const ranked = pickBestTarget(candidates, effectiveHint);
     if (!ranked) {
       const error = new InspectError('TAB_NOT_FOUND', 'No matching tab found.');
       this.recordError(error);
@@ -970,7 +980,7 @@ export class InspectService {
 
     const tab = tabs.find((entry) => entry.tab_id === tabId) ?? tabs[0];
     const warnings: string[] = [];
-    if (!hint) {
+    if (!effectiveHint) {
       warnings.push('No target hint provided; using the most recent tab.');
     } else if (ranked.score < 20) {
       warnings.push('Weak target match; using best available tab.');
@@ -981,6 +991,13 @@ export class InspectService {
       tab,
       warnings: warnings.length > 0 ? warnings : undefined,
     };
+  }
+
+  private readSessionTargetHint(sessionId: string): TargetHint | undefined {
+    const selectedTabId = this.registry.get(sessionId)?.selectedTabId;
+    return typeof selectedTabId === 'number' && Number.isFinite(selectedTabId)
+      ? { tabId: selectedTabId }
+      : undefined;
   }
 
   private async enableConsole(tabId: number): Promise<void> {

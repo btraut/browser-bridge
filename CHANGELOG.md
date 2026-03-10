@@ -8,6 +8,7 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 
 ### Fixed
 
+- Inspect APIs now default to the session's primary tab when no explicit target is provided, while still honoring explicit `target.tab_id` over session affinity and global tab heuristics.
 - Drive actions now report the concrete tab they resolved when `tab_id` is omitted, and core persists that tab as the session primary target so later unpinned actions stay on the same page instead of drifting across windows.
 - `inspect.dom_snapshot` now strips refs that could not actually be rebound into the live DOM, and the snapshot ref registry only persists refs that were successfully applied.
 - `dev enable-inspect` now enables debugger capability through the live core-extension bridge instead of auto-opening the extension options page, and it returns a manual `optionsUrl` fallback only when the connected runtime cannot perform the change directly.

@@ -878,7 +878,7 @@ describe('InspectService', () => {
     expect(result.warnings).toContain('from-script');
   });
 
-  it('uses explicit targetHint.tabId instead of active-tab heuristics', async () => {
+  it('defaults inspect calls to the session-selected tab instead of active-tab heuristics', async () => {
     const registry = new SessionRegistry();
     const session = registry.create();
     const desiredTab = {
@@ -895,6 +895,78 @@ describe('InspectService', () => {
       title: 'Browser Bridge - Site Permissions',
       last_active_at: '2026-03-09T00:01:00Z',
     };
+    registry.setSelectedTab(session.id, desiredTab.tab_id);
+
+    const command = vi.fn(async (tabId: number, method: string) => {
+      if (method === 'Runtime.evaluate') {
+        return {
+          ok: true,
+          result: {
+            result: {
+              value: {
+                forms: [],
+                localStorage: [],
+                sessionStorage: [],
+                cookies: [],
+              },
+            },
+          },
+        };
+      }
+      return { ok: true, result: {} };
+    });
+
+    const service = new InspectService({
+      registry,
+      extensionBridge: {
+        isConnected: () => true,
+        getStatus: () => ({ tabs: [optionsTab, desiredTab] }),
+      },
+      debuggerBridge: {
+        hasAttachments: () => true,
+        getLastError: () => undefined,
+        command,
+      } as unknown as DebuggerBridge,
+    });
+
+    await service.pageState({
+      sessionId: session.id,
+    });
+
+    expect(command).toHaveBeenNthCalledWith(
+      1,
+      desiredTab.tab_id,
+      'Runtime.enable',
+      {},
+      undefined
+    );
+    expect(command).toHaveBeenNthCalledWith(
+      2,
+      desiredTab.tab_id,
+      'Runtime.evaluate',
+      expect.any(Object),
+      undefined
+    );
+  });
+
+  it('uses explicit targetHint.tabId instead of the session-selected tab', async () => {
+    const registry = new SessionRegistry();
+    const session = registry.create();
+    const desiredTab = {
+      ...DEFAULT_TAB,
+      tab_id: 42,
+      url: 'https://manavault.gg/',
+      title: 'ManaVault',
+      last_active_at: '2026-03-09T00:00:00Z',
+    };
+    const optionsTab = {
+      ...DEFAULT_TAB,
+      tab_id: 99,
+      url: 'chrome-extension://ext/options.html',
+      title: 'Browser Bridge - Site Permissions',
+      last_active_at: '2026-03-09T00:01:00Z',
+    };
+    registry.setSelectedTab(session.id, optionsTab.tab_id);
 
     const command = vi.fn(async (tabId: number, method: string) => {
       if (method === 'Runtime.evaluate') {
