@@ -1021,6 +1021,34 @@ describe('InspectService', () => {
     );
   });
 
+  it('throws TAB_NOT_FOUND instead of drifting when the session-selected tab is gone', async () => {
+    const registry = new SessionRegistry();
+    const session = registry.create();
+    registry.setSelectedTab(session.id, 42);
+
+    const service = new InspectService({
+      registry,
+      extensionBridge: {
+        isConnected: () => true,
+        getStatus: () => ({ tabs: [DEFAULT_TAB] }),
+      },
+      debuggerBridge: {
+        hasAttachments: () => true,
+        getLastError: () => undefined,
+        command: vi.fn(async () => ({ ok: true, result: {} })),
+      } as unknown as DebuggerBridge,
+    });
+
+    await expect(
+      service.pageState({
+        sessionId: session.id,
+      })
+    ).rejects.toMatchObject({
+      code: 'TAB_NOT_FOUND',
+      details: { tab_id: 42 },
+    });
+  });
+
   it('throws EVALUATION_FAILED when the pageState script throws', async () => {
     const registry = new SessionRegistry();
     const session = registry.create();
