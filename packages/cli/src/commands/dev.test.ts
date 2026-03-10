@@ -11,11 +11,7 @@ import {
 import { runLocal } from '../cli-runtime';
 import { createCoreClient } from '../core-client';
 import { discoverActivationExtensionId } from '../extension-id-discovery';
-import {
-  buildEnableInspectOptionsUrl,
-  registerDevCommands,
-  resolveActivationExtensionId,
-} from './dev';
+import { registerDevCommands, resolveActivationExtensionId } from './dev';
 
 vi.mock('../cli-runtime', () => ({
   runLocal: vi.fn(),
@@ -125,16 +121,6 @@ describe('dev command helpers', () => {
 
   it('returns null when no extension id source exists', () => {
     expect(resolveActivationExtensionId({})).toBeNull();
-  });
-
-  it('builds options URL with inspect enablement params', () => {
-    expect(
-      buildEnableInspectOptionsUrl({
-        extensionId: 'abcdefghijklmnopabcdefghijklmnop',
-      })
-    ).toBe(
-      'chrome-extension://abcdefghijklmnopabcdefghijklmnop/options.html?bb_enable_inspect=1'
-    );
   });
 });
 
@@ -262,8 +248,7 @@ describe('dev commands', () => {
         extensionIdSource: 'flag',
         host: '127.0.0.1',
         port: 3210,
-        optionsUrl:
-          'chrome-extension://flag-ext/options.html?bb_enable_inspect=1',
+        inspectAlwaysEnabled: true,
       },
     });
   });
@@ -354,8 +339,7 @@ describe('dev commands', () => {
         extensionIdSource: 'connected',
         host: '127.0.0.1',
         port: 3210,
-        optionsUrl:
-          'chrome-extension://connected-ext/options.html?bb_enable_inspect=1',
+        inspectAlwaysEnabled: true,
       },
     });
   });
@@ -421,7 +405,7 @@ describe('dev commands', () => {
         '--extension-id',
         'flag-ext',
       ])
-    ).rejects.toThrow('Inspect enablement did not complete');
+    ).rejects.toThrow('Inspect capability did not come up before timeout.');
 
     delete process.env.BROWSER_BRIDGE_ENABLE_INSPECT_TIMEOUT_MS;
   });
@@ -461,6 +445,8 @@ describe('dev commands', () => {
         '--extension-id',
         'flag-ext',
       ])
-    ).rejects.toThrow('Automatic inspect enablement failed.');
+    ).rejects.toThrow(
+      'Inspect capability should already be enabled, but the connected extension did not confirm it.'
+    );
   });
 });

@@ -6,7 +6,7 @@ export const DEBUGGER_CAPABILITY_ENABLED_KEY = 'debuggerCapabilityEnabled';
 
 export type SitePermissionsMode = 'granular' | 'bypass';
 export const DEFAULT_SITE_PERMISSIONS_MODE: SitePermissionsMode = 'granular';
-export const DEFAULT_DEBUGGER_CAPABILITY_ENABLED = false;
+export const DEFAULT_DEBUGGER_CAPABILITY_ENABLED = true;
 
 export type SiteAllowlistEntry = {
   createdAt: string; // ISO
@@ -152,13 +152,13 @@ export const readDebuggerCapabilityEnabled = async (): Promise<boolean> => {
       [DEBUGGER_CAPABILITY_ENABLED_KEY],
       (result: Record<string, unknown>) => {
         const raw = result?.[DEBUGGER_CAPABILITY_ENABLED_KEY];
-        if (typeof raw === 'boolean') {
-          resolve(raw);
+        if (raw === true) {
+          resolve(true);
           return;
         }
 
-        // Keep storage canonical so UI/background can rely on deterministic
-        // booleans after first read.
+        // Inspect is always enabled now; self-heal any legacy false/missing
+        // values so older installs stop carrying the dead toggle around.
         try {
           chrome.storage.local.set({
             [DEBUGGER_CAPABILITY_ENABLED_KEY]:
@@ -176,10 +176,10 @@ export const readDebuggerCapabilityEnabled = async (): Promise<boolean> => {
 export const writeDebuggerCapabilityEnabled = async (
   enabled: boolean
 ): Promise<void> => {
+  void enabled;
   return await new Promise<void>((resolve) => {
-    chrome.storage.local.set(
-      { [DEBUGGER_CAPABILITY_ENABLED_KEY]: Boolean(enabled) },
-      () => resolve()
+    chrome.storage.local.set({ [DEBUGGER_CAPABILITY_ENABLED_KEY]: true }, () =>
+      resolve()
     );
   });
 };

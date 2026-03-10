@@ -11,7 +11,6 @@ import { runLocal } from '../cli-runtime';
 import { discoverActivationExtensionId } from '../extension-id-discovery';
 
 const ENV_EXTENSION_ID = 'BROWSER_BRIDGE_EXTENSION_ID';
-const ENABLE_INSPECT_FLAG_PARAM = 'bb_enable_inspect';
 const ENABLE_INSPECT_WAIT_TIMEOUT_MS = 30000;
 const ENABLE_INSPECT_WAIT_INTERVAL_MS = 500;
 
@@ -51,16 +50,6 @@ export const resolveActivationExtensionId = (options: {
   }
 
   return null;
-};
-
-export const buildEnableInspectOptionsUrl = (options: {
-  extensionId: string;
-}): string => {
-  const search = new URLSearchParams();
-  search.set(ENABLE_INSPECT_FLAG_PARAM, '1');
-  return `chrome-extension://${
-    options.extensionId
-  }/options.html?${search.toString()}`;
 };
 
 const resolveRuntimeForCommand = (options: {
@@ -106,8 +95,7 @@ const hasPassingCheck = (
 
 const requestInspectEnablement = async (
   runtime: ResolvedCoreRuntime,
-  expectedExtensionId: string,
-  optionsUrl: string
+  expectedExtensionId: string
 ): Promise<void> => {
   const client = createCoreClient({
     host: runtime.host,
@@ -125,21 +113,19 @@ const requestInspectEnablement = async (
   throw new CliError({
     code: envelope.error.code,
     message:
-      'Automatic inspect enablement failed. Open the extension options URL manually if you need the old fallback.',
+      'Inspect capability should already be enabled, but the connected extension did not confirm it.',
     retryable: envelope.error.retryable,
     details: {
       ...(envelope.error.details ?? {}),
       expectedExtensionId,
-      optionsUrl,
-      next_step: `Open ${optionsUrl} in Chrome, enable debugger-based inspect, then retry.`,
+      next_step: 'Reload or update the Browser Bridge extension, then retry.',
     },
   });
 };
 
 const waitForInspectEnablement = async (
   runtime: ResolvedCoreRuntime,
-  expectedExtensionId: string,
-  optionsUrl: string
+  expectedExtensionId: string
 ): Promise<void> => {
   const timeoutMs = resolveEnableInspectWaitTimeoutMs();
   const client = createCoreClient({
@@ -178,8 +164,7 @@ const waitForInspectEnablement = async (
 
   throw new CliError({
     code: 'FAILED_PRECONDITION',
-    message:
-      'Inspect enablement did not complete: extension did not report debugger capability before timeout.',
+    message: 'Inspect capability did not come up before timeout.',
     retryable: true,
     details: {
       timeoutMs,
@@ -192,7 +177,7 @@ const waitForInspectEnablement = async (
         lastReport,
         'inspect.capability'
       ),
-      optionsUrl,
+      next_step: 'Reload or update the Browser Bridge extension, then retry.',
     },
   });
 };
@@ -224,12 +209,10 @@ export const registerDevCommands = (program: Command): void => {
 
   dev
     .command('enable-inspect')
-    .description(
-      'Open extension options and enable debugger-based inspect capability'
-    )
+    .description('Compatibility helper that waits for inspect capability')
     .option(
       '--extension-id <id>',
-      'Chrome extension id to configure for debugger-based inspect'
+      'Chrome extension id to verify against while waiting for inspect capability'
     )
     .action(async (options: { extensionId?: string }, command: Command) => {
       await runLocal(command, async (globalOptions) => {
@@ -279,20 +262,8 @@ export const registerDevCommands = (program: Command): void => {
           });
         }
 
-        const optionsUrl = buildEnableInspectOptionsUrl({
-          extensionId: resolvedExtension.extensionId,
-        });
-
-        await requestInspectEnablement(
-          runtime,
-          resolvedExtension.extensionId,
-          optionsUrl
-        );
-        await waitForInspectEnablement(
-          runtime,
-          resolvedExtension.extensionId,
-          optionsUrl
-        );
+        await requestInspectEnablement(runtime, resolvedExtension.extensionId);
+        await waitForInspectEnablement(runtime, resolvedExtension.extensionId);
 
         return {
           ok: true,
@@ -301,7 +272,7 @@ export const registerDevCommands = (program: Command): void => {
             extensionIdSource: resolvedExtension.source,
             host: runtime.host,
             port: runtime.port,
-            optionsUrl,
+            inspectAlwaysEnabled: true,
           },
         };
       });

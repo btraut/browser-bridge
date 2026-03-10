@@ -384,7 +384,7 @@ describe('buildDiagnosticReport', () => {
     expect(extensionVersionCheck).toBeUndefined();
   });
 
-  it('flags inspect capability when debugger actions are disabled', () => {
+  it('flags inspect capability when debugger actions are unavailable', () => {
     const report = buildDiagnosticReport(undefined, {
       extension: {
         connected: true,
@@ -412,17 +412,11 @@ describe('buildDiagnosticReport', () => {
       (check) => check.name === 'inspect.capability'
     );
     expect(inspectCapability?.ok).toBe(false);
-    expect(inspectCapability?.message).toContain('disabled');
-    expect(inspectCapability?.details).toMatchObject({
-      remediation: {
-        enable_command: 'browser-bridge dev enable-inspect',
-        activation_url:
-          'chrome-extension://abcdefghijklmnopabcdefghijklmnop/options.html?bb_enable_inspect=1',
-        verify_check: 'inspect.capability',
-      },
-    });
+    expect(inspectCapability?.message).toContain('unavailable');
     expect(
-      report.warnings?.some((warning) => warning.includes('Inspect'))
+      report.warnings?.some((warning) =>
+        warning.includes('Reload or update the extension')
+      )
     ).toBe(true);
   });
 });

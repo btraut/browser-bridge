@@ -8,6 +8,7 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 
 ### Fixed
 
+- Inspect is now always enabled in the extension; the options page no longer asks users to separately allow debugger-based inspect, and diagnostics/CLI messaging now treat missing inspect capability as a stale runtime problem instead of a permissions toggle.
 - Inspect APIs now default to the session's primary tab when no explicit target is provided, while still honoring explicit `target.tab_id` over session affinity and global tab heuristics.
 - Drive actions now report the concrete tab they resolved when `tab_id` is omitted, and core persists that tab as the session primary target so later unpinned actions stay on the same page instead of drifting across windows.
 - `inspect.*` routes now default to the session's pinned tab and still honor explicit `target.tab_id`, which keeps inspect reads aligned with the browser context drive already selected.

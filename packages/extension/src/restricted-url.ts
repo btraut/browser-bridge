@@ -57,17 +57,13 @@ const getRestrictedUrlKind = (url: string): string => {
 
 const getAlternativeCommands = (url: string): string[] => {
   const lowered = url.toLowerCase();
-  const commands = [
-    'browser-bridge dev info',
-    'browser-bridge diagnostics doctor',
-  ];
   if (
     lowered.startsWith('chrome-extension://') ||
     lowered.startsWith('chrome://extensions')
   ) {
-    commands.unshift('browser-bridge dev enable-inspect --extension-id <id>');
+    return ['browser-bridge diagnostics doctor', 'browser-bridge dev info'];
   }
-  return commands;
+  return ['browser-bridge dev info', 'browser-bridge diagnostics doctor'];
 };
 
 export const buildRestrictedUrlError = (options: {

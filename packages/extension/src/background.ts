@@ -21,10 +21,8 @@ import {
   isTransientTabChannelError,
 } from './drive-reliability.js';
 import {
-  DEBUGGER_CAPABILITY_ENABLED_KEY,
   allowSiteAlways,
   isSiteAllowed,
-  readDebuggerCapabilityEnabled,
   readSitePermissionsMode,
   siteKeyFromUrl,
   touchSiteLastUsed,
@@ -125,30 +123,14 @@ const DEBUGGER_CAPABILITY_ACTIONS = [
   'debugger.command',
 ] as const;
 
-const buildNegotiatedCapabilities = (
-  debuggerCapabilityEnabled: boolean
-): Record<string, boolean> => {
+const buildNegotiatedCapabilities = (): Record<string, boolean> => {
   const capabilities: Record<string, boolean> = {
     ...BASE_NEGOTIATED_CAPABILITIES,
   };
   for (const action of DEBUGGER_CAPABILITY_ACTIONS) {
-    capabilities[action] = debuggerCapabilityEnabled;
+    capabilities[action] = true;
   }
   return capabilities;
-};
-
-const debuggerCapabilityDisabledError = (): DriveErrorInfo => {
-  return {
-    code: 'ATTACH_DENIED',
-    message:
-      'Debugger capability is disabled. Enable debugger-based inspect in extension options and retry.',
-    retryable: false,
-    details: {
-      reason: 'debugger_capability_disabled',
-      next_step:
-        'Open Browser Bridge extension options, enable debugger-based inspect, then retry.',
-    },
-  };
 };
 
 const getAgentTabBootstrapUrl = (): string => {
@@ -1155,7 +1137,6 @@ class DriveSocket {
   private async sendHello(): Promise<void> {
     const manifest = chrome.runtime.getManifest();
     const endpoint = await readCoreEndpointConfig();
-    const debuggerCapabilityEnabled = await readDebuggerCapabilityEnabled();
     let tabs: DriveTabInfo[] = [];
     try {
       tabs = await queryTabs();
@@ -1167,7 +1148,7 @@ class DriveSocket {
       extension_id: chrome.runtime.id,
       version: manifest.version,
       protocol_version: DRIVE_WS_PROTOCOL_VERSION,
-      capabilities: buildNegotiatedCapabilities(debuggerCapabilityEnabled),
+      capabilities: buildNegotiatedCapabilities(),
       core_host: endpoint.host,
       core_port: endpoint.port,
       core_port_source: endpoint.portSource,
@@ -1254,17 +1235,11 @@ class DriveSocket {
   }
 
   async refreshDebuggerCapabilityState(): Promise<void> {
-    const enabled = await readDebuggerCapabilityEnabled();
-    if (!enabled) {
-      await this.detachAllDebuggerSessions();
-    }
     this.refreshCapabilities();
   }
 
   async handleDebuggerCapabilityChange(enabled: boolean): Promise<void> {
-    if (!enabled) {
-      await this.detachAllDebuggerSessions();
-    }
+    void enabled;
     this.refreshCapabilities();
   }
 
@@ -1313,15 +1288,6 @@ class DriveSocket {
         return;
       }
       if (message.action.startsWith('debugger.')) {
-        if (!(await readDebuggerCapabilityEnabled())) {
-          this.sendMessage({
-            id: message.id,
-            action: message.action as DebuggerRequest['action'],
-            status: 'error',
-            error: sanitizeDriveErrorInfo(debuggerCapabilityDisabledError()),
-          });
-          return;
-        }
         await this.handleDebuggerRequest(message as DebuggerRequest);
         return;
       }
@@ -3425,9 +3391,6 @@ class DriveSocket {
     method: string,
     params?: Record<string, unknown>
   ): Promise<void> {
-    if (!(await readDebuggerCapabilityEnabled())) {
-      return;
-    }
     const tabId = source.tabId;
     if (typeof tabId !== 'number') {
       return;
@@ -3450,9 +3413,6 @@ class DriveSocket {
       return;
     }
     this.clearDebuggerSession(tabId);
-    if (!(await readDebuggerCapabilityEnabled())) {
-      return;
-    }
     this.sendDebuggerEvent({
       tab_id: tabId,
       method: 'Debugger.detached',
@@ -3832,8 +3792,7 @@ chrome.storage.onChanged.addListener(
       return;
     }
     const corePortChange = changes[LEGACY_CORE_PORT_KEY];
-    const debuggerChange = changes[DEBUGGER_CAPABILITY_ENABLED_KEY];
-    if (!corePortChange && !debuggerChange) {
+    if (!corePortChange) {
       return;
     }
 
@@ -3842,18 +3801,6 @@ chrome.storage.onChanged.addListener(
       work = work.then(async () => {
         await clearLegacyCorePort(chrome.storage.local);
       });
-    }
-
-    if (debuggerChange) {
-      if (typeof debuggerChange.newValue === 'boolean') {
-        work = work.then(() =>
-          socket.handleDebuggerCapabilityChange(
-            debuggerChange.newValue as boolean
-          )
-        );
-      } else {
-        work = work.then(() => socket.refreshDebuggerCapabilityState());
-      }
     }
 
     void work.catch((error) => {

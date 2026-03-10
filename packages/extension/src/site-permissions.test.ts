@@ -210,7 +210,12 @@ describe('site permissions', () => {
     expect(await readDebuggerCapabilityEnabled()).toBe(true);
 
     store[DEBUGGER_CAPABILITY_ENABLED_KEY] = false;
-    expect(await readDebuggerCapabilityEnabled()).toBe(false);
+    expect(await readDebuggerCapabilityEnabled()).toBe(
+      DEFAULT_DEBUGGER_CAPABILITY_ENABLED
+    );
+    expect(store[DEBUGGER_CAPABILITY_ENABLED_KEY]).toBe(
+      DEFAULT_DEBUGGER_CAPABILITY_ENABLED
+    );
 
     store[DEBUGGER_CAPABILITY_ENABLED_KEY] = 'nope';
     expect(await readDebuggerCapabilityEnabled()).toBe(
@@ -224,7 +229,7 @@ describe('site permissions', () => {
     expect(store[DEBUGGER_CAPABILITY_ENABLED_KEY]).toBe(true);
 
     await writeDebuggerCapabilityEnabled(false);
-    expect(store[DEBUGGER_CAPABILITY_ENABLED_KEY]).toBe(false);
+    expect(store[DEBUGGER_CAPABILITY_ENABLED_KEY]).toBe(true);
   });
 
   it('persists the latest debugger capability write during rapid toggles', async () => {
@@ -232,7 +237,7 @@ describe('site permissions', () => {
     const second = writeDebuggerCapabilityEnabled(false);
 
     await Promise.all([first, second]);
-    expect(await readDebuggerCapabilityEnabled()).toBe(false);
-    expect(store[DEBUGGER_CAPABILITY_ENABLED_KEY]).toBe(false);
+    expect(await readDebuggerCapabilityEnabled()).toBe(true);
+    expect(store[DEBUGGER_CAPABILITY_ENABLED_KEY]).toBe(true);
   });
 });

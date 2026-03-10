@@ -10,7 +10,7 @@ This checklist validates the Drive + Inspect planes and artifact handling end-to
 3. Load the extension from `packages/extension` (repo) or `node_modules/@btraut/browser-bridge/extension` (npm install) in `chrome://extensions`.
 4. Open a dedicated Chrome tab you do not mind navigating (example: `about:blank` or `https://example.com`).
 5. Ensure DevTools is closed on the target tab (the debugger cannot attach while DevTools is open).
-6. In extension options, enable **Debugger-based inspect** before running `inspect.*` checks, or use `node packages/cli/dist/index.js dev enable-inspect --json`.
+6. `inspect.*` is always enabled in current builds. If diagnostics says inspect capability is unavailable, reload or update the extension before running inspect checks.
 
 ## Runtime Setup
 
@@ -18,7 +18,7 @@ This checklist validates the Drive + Inspect planes and artifact handling end-to
    - Core/CLI/extension use `127.0.0.1:3210` by default.
 2. Resolve runtime details when needed:
    - `node packages/cli/dist/index.js dev info --json`
-3. Enable debugger-based inspect only when a test needs `inspect.*`:
+3. If you want a compatibility check for `inspect.*`, run:
    - `node packages/cli/dist/index.js dev enable-inspect --json`
    - If auto-discovery is ambiguous, rerun with `--extension-id <id>`.
 4. Check logs before ad-hoc debugging:
@@ -29,8 +29,8 @@ This checklist validates the Drive + Inspect planes and artifact handling end-to
 
 ### Quick Troubleshooting
 
-- Missing extension id while enabling inspect: retry once first; `dev enable-inspect` probes the connected runtime and common Chrome channel profiles before giving up. If discovery is still ambiguous/unavailable, pass `--extension-id <id>` or set `BROWSER_BRIDGE_EXTENSION_ID`.
-- Options page did not open in Chrome: rerun `dev enable-inspect --json`, copy `result.optionsUrl`, and paste it into Chrome.
+- Missing extension id while verifying inspect: retry once first; `dev enable-inspect` probes the connected runtime and common Chrome channel profiles before giving up. If discovery is still ambiguous/unavailable, pass `--extension-id <id>` or set `BROWSER_BRIDGE_EXTENSION_ID`.
+- Inspect capability still unavailable: reload or update the Browser Bridge extension, then rerun diagnostics.
 - Stream log files: per-stream JSONL files live in `.context/logs/browser-bridge/` with rotations like `core.1.jsonl`.
 - Routing assumptions: default runtime is always `127.0.0.1:3210` unless you explicitly pass host/port overrides.
 

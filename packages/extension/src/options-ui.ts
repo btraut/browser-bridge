@@ -1,13 +1,10 @@
 import {
   allowSiteAlways,
-  DEFAULT_DEBUGGER_CAPABILITY_ENABLED,
   getAllowlistedSites,
-  readDebuggerCapabilityEnabled,
   readSitePermissionsMode,
   revokeSite,
   type SitePermissionsMode,
   upsertAllowlistedSites,
-  writeDebuggerCapabilityEnabled,
   writeSitePermissionsMode,
 } from './site-permissions.js';
 
@@ -22,11 +19,6 @@ type ModeEls = {
   bypass: HTMLInputElement;
   sitesDetails: HTMLDetailsElement;
   sitesSummary: HTMLElement;
-};
-
-type DebuggerEls = {
-  enabled: HTMLInputElement;
-  status: HTMLElement;
 };
 
 const ENABLE_INSPECT_FLAG_PARAM = 'bb_enable_inspect';
@@ -80,14 +72,6 @@ const clearActivationQueryParams = (): void => {
   );
 };
 
-const refreshCapabilities = async (): Promise<void> => {
-  await new Promise<void>((resolve) => {
-    chrome.runtime.sendMessage({ action: 'drive.refresh_capabilities' }, () =>
-      resolve()
-    );
-  });
-};
-
 const applyActivationQueryParams = async (): Promise<void> => {
   const url = new URL(window.location.href);
   const params = url.searchParams;
@@ -96,15 +80,8 @@ const applyActivationQueryParams = async (): Promise<void> => {
   }
 
   try {
-    try {
-      await writeDebuggerCapabilityEnabled(true);
-      await refreshCapabilities();
-    } catch (error) {
-      console.warn(
-        'Failed to enable inspect debugger capability from options URL.',
-        error
-      );
-    }
+    // Compatibility only. Older callers may still open this URL with the
+    // legacy inspect-enablement param even though inspect is always enabled.
   } finally {
     clearActivationQueryParams();
   }
@@ -184,19 +161,8 @@ const getModeEls = (): ModeEls => {
   };
 };
 
-const getDebuggerEls = (): DebuggerEls => {
-  const enabled = byId('bb-debugger-enabled') as HTMLInputElement;
-  const status = byId('bb-debugger-status');
-  if (enabled.type !== 'checkbox') {
-    throw new Error('Expected checkbox input for debugger capability.');
-  }
-  return { enabled, status };
-};
-
 let lastMode: SitePermissionsMode | null = null;
 let modeWriteInProgress = false;
-let debuggerWriteInProgress = false;
-let pendingDebuggerCapability: boolean | null = null;
 
 const applyMode = (mode: SitePermissionsMode): void => {
   const els = getModeEls();
@@ -218,18 +184,6 @@ const applyMode = (mode: SitePermissionsMode): void => {
 
 const refreshMode = async (): Promise<void> => {
   applyMode(await readSitePermissionsMode());
-};
-
-const applyDebuggerCapability = (enabled: boolean): void => {
-  const els = getDebuggerEls();
-  els.enabled.checked = enabled;
-  els.status.textContent = enabled
-    ? 'Enabled. inspect tools can attach through the debugger bridge.'
-    : 'Disabled by default. Enable only when you need inspect tools.';
-};
-
-const refreshDebuggerCapability = async (): Promise<void> => {
-  applyDebuggerCapability(await readDebuggerCapabilityEnabled());
 };
 
 const focusSiteRow = (site: string): void => {
@@ -374,32 +328,9 @@ const setMode = async (mode: SitePermissionsMode): Promise<void> => {
   }
 };
 
-const setDebuggerCapability = async (enabled: boolean): Promise<void> => {
-  pendingDebuggerCapability = enabled;
-  applyDebuggerCapability(enabled);
-  if (debuggerWriteInProgress) {
-    return;
-  }
-  debuggerWriteInProgress = true;
-  try {
-    while (pendingDebuggerCapability !== null) {
-      const next = pendingDebuggerCapability;
-      pendingDebuggerCapability = null;
-      await writeDebuggerCapabilityEnabled(next);
-      await refreshCapabilities();
-    }
-  } catch {
-    applyDebuggerCapability(DEFAULT_DEBUGGER_CAPABILITY_ENABLED);
-  } finally {
-    debuggerWriteInProgress = false;
-    await refreshDebuggerCapability();
-  }
-};
-
 const refreshAll = async (): Promise<void> => {
   // Mode impacts how we want to render the empty state, so apply it first.
   await refreshMode();
-  await refreshDebuggerCapability();
   await refresh();
 };
 
@@ -410,7 +341,6 @@ const main = (): void => {
   })();
 
   const { granular, bypass } = getModeEls();
-  const { enabled } = getDebuggerEls();
   granular.addEventListener('change', () => {
     if (!granular.checked) {
       return;
@@ -422,9 +352,6 @@ const main = (): void => {
       return;
     }
     void setMode('bypass');
-  });
-  enabled.addEventListener('change', () => {
-    void setDebuggerCapability(enabled.checked);
   });
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
