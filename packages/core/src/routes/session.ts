@@ -84,6 +84,9 @@ export const createSessionRouter = (
         session_id: session.id,
         state: session.state,
         updated_at: session.updatedAt.toISOString(),
+        ...(typeof session.selectedTabId === 'number'
+          ? { selected_tab_id: session.selectedTabId }
+          : {}),
       });
     } catch (error) {
       if (error instanceof SessionError) {
