@@ -161,6 +161,11 @@ export type DriveTabCloseParams = {
   tab_id: number;
 };
 
+export type DriveSetDebuggerCapabilityParams = {
+  enabled?: boolean;
+  extension_id?: string;
+};
+
 export type ExtensionCapabilityMap = Record<string, boolean>;
 
 export type DriveHelloParams = {
@@ -198,6 +203,7 @@ export type DriveAction =
   | 'drive.tab_list'
   | 'drive.tab_activate'
   | 'drive.tab_close'
+  | 'drive.set_debugger_capability'
   | 'drive.hello'
   | 'drive.tab_report'
   | 'drive.ping';

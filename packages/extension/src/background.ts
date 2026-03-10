@@ -28,6 +28,7 @@ import {
   readSitePermissionsMode,
   siteKeyFromUrl,
   touchSiteLastUsed,
+  writeDebuggerCapabilityEnabled,
 } from './site-permissions.js';
 import { ConnectionStateTracker } from './connection-state.js';
 import {
@@ -114,6 +115,7 @@ const BASE_NEGOTIATED_CAPABILITIES: Record<string, boolean> = Object.freeze({
   'drive.tab_list': true,
   'drive.tab_activate': true,
   'drive.tab_close': true,
+  'drive.set_debugger_capability': true,
   'drive.ping': true,
 });
 
@@ -1296,7 +1298,7 @@ class DriveSocket {
         if (!(await readDebuggerCapabilityEnabled())) {
           this.sendMessage({
             id: message.id,
-            action: message.action,
+            action: message.action as DebuggerRequest['action'],
             status: 'error',
             error: sanitizeDriveErrorInfo(debuggerCapabilityDisabledError()),
           });
@@ -1492,6 +1494,48 @@ class DriveSocket {
       switch (message.action) {
         case 'drive.ping': {
           respondOk({ ok: true });
+          return;
+        }
+        case 'drive.set_debugger_capability': {
+          const params = (message.params ?? {}) as Record<string, unknown>;
+          const enabled =
+            typeof params.enabled === 'boolean' ? params.enabled : true;
+          const expectedExtensionId = params.extension_id;
+          if (
+            expectedExtensionId !== undefined &&
+            typeof expectedExtensionId !== 'string'
+          ) {
+            respondError({
+              code: 'INVALID_ARGUMENT',
+              message: 'extension_id must be a string when provided.',
+              retryable: false,
+            });
+            return;
+          }
+          if (
+            typeof expectedExtensionId === 'string' &&
+            expectedExtensionId.length > 0 &&
+            expectedExtensionId !== chrome.runtime.id
+          ) {
+            respondError({
+              code: 'FAILED_PRECONDITION',
+              message:
+                'Connected extension id does not match the requested extension.',
+              retryable: false,
+              details: {
+                expected_extension_id: expectedExtensionId,
+                connected_extension_id: chrome.runtime.id,
+              },
+            });
+            return;
+          }
+          await writeDebuggerCapabilityEnabled(enabled);
+          await this.refreshDebuggerCapabilityState();
+          respondOk({
+            ok: true,
+            enabled,
+            extension_id: chrome.runtime.id,
+          });
           return;
         }
         case 'drive.navigate': {

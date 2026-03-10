@@ -8,7 +8,6 @@ import {
 import { CliError } from '../cli-output';
 import { createCoreClient } from '../core-client';
 import { runLocal } from '../cli-runtime';
-import { openPath } from '../open-path';
 import { discoverActivationExtensionId } from '../extension-id-discovery';
 
 const ENV_EXTENSION_ID = 'BROWSER_BRIDGE_EXTENSION_ID';
@@ -104,6 +103,38 @@ const hasPassingCheck = (
   name: string
 ): boolean =>
   report?.checks?.some((check) => check.name === name && check.ok) ?? false;
+
+const requestInspectEnablement = async (
+  runtime: ResolvedCoreRuntime,
+  expectedExtensionId: string,
+  optionsUrl: string
+): Promise<void> => {
+  const client = createCoreClient({
+    host: runtime.host,
+    port: runtime.port,
+    ensureDaemon: true,
+  });
+  const envelope = await client.post<{ enabled?: boolean; ok?: boolean }>(
+    '/diagnostics/enable_inspect',
+    { extension_id: expectedExtensionId }
+  );
+  if (envelope.ok) {
+    return;
+  }
+
+  throw new CliError({
+    code: envelope.error.code,
+    message:
+      'Automatic inspect enablement failed. Open the extension options URL manually if you need the old fallback.',
+    retryable: envelope.error.retryable,
+    details: {
+      ...(envelope.error.details ?? {}),
+      expectedExtensionId,
+      optionsUrl,
+      next_step: `Open ${optionsUrl} in Chrome, enable debugger-based inspect, then retry.`,
+    },
+  });
+};
 
 const waitForInspectEnablement = async (
   runtime: ResolvedCoreRuntime,
@@ -252,7 +283,11 @@ export const registerDevCommands = (program: Command): void => {
           extensionId: resolvedExtension.extensionId,
         });
 
-        await openPath(optionsUrl);
+        await requestInspectEnablement(
+          runtime,
+          resolvedExtension.extensionId,
+          optionsUrl
+        );
         await waitForInspectEnablement(
           runtime,
           resolvedExtension.extensionId,

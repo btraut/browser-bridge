@@ -10,7 +10,6 @@ import {
 } from '@btraut/browser-bridge-shared';
 import { runLocal } from '../cli-runtime';
 import { createCoreClient } from '../core-client';
-import { openPath } from '../open-path';
 import { discoverActivationExtensionId } from '../extension-id-discovery';
 import {
   buildEnableInspectOptionsUrl,
@@ -20,10 +19,6 @@ import {
 
 vi.mock('../cli-runtime', () => ({
   runLocal: vi.fn(),
-}));
-
-vi.mock('../open-path', () => ({
-  openPath: vi.fn(),
 }));
 
 vi.mock('../core-client', () => ({
@@ -158,13 +153,21 @@ describe('dev commands', () => {
     vi.mocked(createCoreClient).mockReturnValue({
       baseUrl: 'http://127.0.0.1:3210',
       ensureReady: vi.fn(async () => {}),
-      post: vi.fn(async () => ({
-        ok: true as const,
-        result: inspectReport({
-          inspectCapability: true,
-          extensionId: 'flag-ext',
-        }),
-      })),
+      post: vi.fn(async (path: string) => {
+        if (path === '/diagnostics/enable_inspect') {
+          return {
+            ok: true as const,
+            result: { ok: true, enabled: true, extension_id: 'flag-ext' },
+          };
+        }
+        return {
+          ok: true as const,
+          result: inspectReport({
+            inspectCapability: true,
+            extensionId: 'flag-ext',
+          }),
+        };
+      }),
     } as ReturnType<typeof createCoreClient>);
   });
 
@@ -224,7 +227,7 @@ describe('dev commands', () => {
     });
   });
 
-  it('enable-inspect opens extension options URL and waits for inspect capability', async () => {
+  it('enable-inspect enables inspect through the core-extension bridge and waits for capability', async () => {
     let envelope: unknown;
     vi.mocked(runLocal).mockImplementation(async (_command, work) => {
       envelope = await work({ json: false });
@@ -240,14 +243,18 @@ describe('dev commands', () => {
       'flag-ext',
     ]);
 
-    expect(openPath).toHaveBeenCalledWith(
-      'chrome-extension://flag-ext/options.html?bb_enable_inspect=1'
-    );
     expect(createCoreClient).toHaveBeenCalledWith({
       host: '127.0.0.1',
       port: 3210,
       ensureDaemon: true,
     });
+    const client = vi.mocked(createCoreClient).mock.results[0]
+      ?.value as ReturnType<typeof createCoreClient>;
+    expect(client.post).toHaveBeenNthCalledWith(
+      1,
+      '/diagnostics/enable_inspect',
+      { extension_id: 'flag-ext' }
+    );
     expect(envelope).toEqual({
       ok: true,
       result: {
@@ -266,20 +273,32 @@ describe('dev commands', () => {
     vi.mocked(createCoreClient).mockReturnValue({
       baseUrl: 'http://127.0.0.1:3210',
       ensureReady: vi.fn(async () => {}),
-      post: vi.fn(async () => ({
-        ok: true as const,
-        result: inspectReport({
-          inspectCapability: true,
-          extensionId: 'env-ext',
-        }),
-      })),
+      post: vi.fn(async (path: string) => {
+        if (path === '/diagnostics/enable_inspect') {
+          return {
+            ok: true as const,
+            result: { ok: true, enabled: true, extension_id: 'env-ext' },
+          };
+        }
+        return {
+          ok: true as const,
+          result: inspectReport({
+            inspectCapability: true,
+            extensionId: 'env-ext',
+          }),
+        };
+      }),
     } as ReturnType<typeof createCoreClient>);
 
     const program = buildProgram();
     await program.parseAsync(['node', 'cli', 'dev', 'enable-inspect']);
 
-    expect(openPath).toHaveBeenCalledWith(
-      'chrome-extension://env-ext/options.html?bb_enable_inspect=1'
+    const client = vi.mocked(createCoreClient).mock.results[0]
+      ?.value as ReturnType<typeof createCoreClient>;
+    expect(client.post).toHaveBeenNthCalledWith(
+      1,
+      '/diagnostics/enable_inspect',
+      { extension_id: 'env-ext' }
     );
   });
 
@@ -290,13 +309,25 @@ describe('dev commands', () => {
     vi.mocked(createCoreClient).mockReturnValue({
       baseUrl: 'http://127.0.0.1:3210',
       ensureReady: vi.fn(async () => {}),
-      post: vi.fn(async () => ({
-        ok: true as const,
-        result: inspectReport({
-          inspectCapability: true,
-          extensionId: 'connected-ext',
-        }),
-      })),
+      post: vi.fn(async (path: string) => {
+        if (path === '/diagnostics/enable_inspect') {
+          return {
+            ok: true as const,
+            result: {
+              ok: true,
+              enabled: true,
+              extension_id: 'connected-ext',
+            },
+          };
+        }
+        return {
+          ok: true as const,
+          result: inspectReport({
+            inspectCapability: true,
+            extensionId: 'connected-ext',
+          }),
+        };
+      }),
     } as ReturnType<typeof createCoreClient>);
     vi.mocked(discoverActivationExtensionId).mockResolvedValue({
       kind: 'resolved',
@@ -316,9 +347,6 @@ describe('dev commands', () => {
     expect(discoverActivationExtensionId).toHaveBeenCalledWith([
       createRuntime({ metadata: null }),
     ]);
-    expect(openPath).toHaveBeenCalledWith(
-      'chrome-extension://connected-ext/options.html?bb_enable_inspect=1'
-    );
     expect(envelope).toEqual({
       ok: true,
       result: {
@@ -364,13 +392,21 @@ describe('dev commands', () => {
     vi.mocked(createCoreClient).mockReturnValue({
       baseUrl: 'http://127.0.0.1:3210',
       ensureReady: vi.fn(async () => {}),
-      post: vi.fn(async () => ({
-        ok: true as const,
-        result: inspectReport({
-          inspectCapability: false,
-          extensionConnected: true,
-        }),
-      })),
+      post: vi.fn(async (path: string) => {
+        if (path === '/diagnostics/enable_inspect') {
+          return {
+            ok: true as const,
+            result: { ok: true, enabled: true, extension_id: 'flag-ext' },
+          };
+        }
+        return {
+          ok: true as const,
+          result: inspectReport({
+            inspectCapability: false,
+            extensionConnected: true,
+          }),
+        };
+      }),
     } as ReturnType<typeof createCoreClient>);
 
     process.env.BROWSER_BRIDGE_ENABLE_INSPECT_TIMEOUT_MS = '5';
@@ -388,5 +424,43 @@ describe('dev commands', () => {
     ).rejects.toThrow('Inspect enablement did not complete');
 
     delete process.env.BROWSER_BRIDGE_ENABLE_INSPECT_TIMEOUT_MS;
+  });
+
+  it('enable-inspect returns actionable fallback details when core cannot enable inspect directly', async () => {
+    vi.mocked(createCoreClient).mockReturnValue({
+      baseUrl: 'http://127.0.0.1:3210',
+      ensureReady: vi.fn(async () => {}),
+      post: vi.fn(async (path: string) => {
+        if (path === '/diagnostics/enable_inspect') {
+          return {
+            ok: false as const,
+            error: {
+              code: 'NOT_IMPLEMENTED',
+              message: 'Extension does not advertise capability.',
+              retryable: false,
+            },
+          };
+        }
+        return {
+          ok: true as const,
+          result: inspectReport({
+            inspectCapability: false,
+            extensionConnected: true,
+          }),
+        };
+      }),
+    } as ReturnType<typeof createCoreClient>);
+
+    const program = buildProgram();
+    await expect(
+      program.parseAsync([
+        'node',
+        'cli',
+        'dev',
+        'enable-inspect',
+        '--extension-id',
+        'flag-ext',
+      ])
+    ).rejects.toThrow('Automatic inspect enablement failed.');
   });
 });

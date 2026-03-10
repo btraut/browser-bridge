@@ -1,6 +1,9 @@
 import { DiagnosticsContext, buildDiagnosticReport } from '../diagnostics';
 import type { SessionRegistry } from '../session';
-import type { ExtensionBridge } from '../extension-bridge';
+import {
+  ExtensionBridgeError,
+  type ExtensionBridge,
+} from '../extension-bridge';
 import type { DriveController } from '../drive';
 import type { InspectService } from '../inspect';
 import type { DebuggerBridge } from '../debugger-bridge';
@@ -92,6 +95,79 @@ export const registerDiagnosticsRoutes = (
   router.post('/health/check', handleHealthCheck);
   // Legacy compatibility route.
   router.post('/health_check', handleHealthCheck);
+
+  router.post('/diagnostics/enable_inspect', async (req, res) => {
+    const body = req.body ?? {};
+    if (!isRecord(body)) {
+      sendError(res, 400, {
+        code: 'INVALID_ARGUMENT',
+        message: 'Request body must be an object.',
+        retryable: false,
+      });
+      return;
+    }
+    const extensionIdRaw = body.extension_id;
+    if (extensionIdRaw !== undefined && typeof extensionIdRaw !== 'string') {
+      sendError(res, 400, {
+        code: 'INVALID_ARGUMENT',
+        message: 'extension_id must be a string when provided.',
+        retryable: false,
+        details: { field: 'extension_id' },
+      });
+      return;
+    }
+    if (!options.extensionBridge) {
+      sendError(res, 503, {
+        code: 'EXTENSION_DISCONNECTED',
+        message: 'Extension bridge is unavailable.',
+        retryable: true,
+      });
+      return;
+    }
+
+    try {
+      const envelope = await options.extensionBridge.request<{
+        ok: boolean;
+        enabled: boolean;
+        extension_id?: string;
+      }>('drive.set_debugger_capability', {
+        enabled: true,
+        ...(extensionIdRaw ? { extension_id: extensionIdRaw } : {}),
+      });
+
+      if (envelope.status === 'error') {
+        const error = envelope.error ?? {
+          code: 'INTERNAL',
+          message: 'Extension request failed.',
+          retryable: false,
+        };
+        sendError(res, 409, {
+          code: error.code,
+          message: error.message,
+          retryable: error.retryable,
+          details: error.details,
+        });
+        return;
+      }
+
+      sendResult(res, envelope.result ?? { ok: true, enabled: true });
+    } catch (error) {
+      if (error instanceof ExtensionBridgeError) {
+        sendError(res, 409, {
+          code: error.code,
+          message: error.message,
+          retryable: error.retryable,
+          details: error.details,
+        });
+        return;
+      }
+      sendError(res, 500, {
+        code: 'INTERNAL',
+        message: 'Unexpected inspect enablement error.',
+        retryable: false,
+      });
+    }
+  });
 
   router.post('/diagnostics/doctor', (req, res) => {
     const body = req.body ?? {};
