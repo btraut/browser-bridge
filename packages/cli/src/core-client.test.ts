@@ -8,12 +8,29 @@ import {
 } from '@btraut/browser-bridge-shared';
 import { createCoreClient } from './core-client';
 
-const makeResponse = (body: unknown, ok = true) =>
+const makeResponse = (
+  body: unknown,
+  options: {
+    ok?: boolean;
+    status?: number;
+    rawText?: string;
+    headers?: Record<string, string>;
+  } = {}
+) =>
   ({
-    ok,
-    status: ok ? 200 : 500,
+    ok: options.ok ?? true,
+    status: options.status ?? ((options.ok ?? true) ? 200 : 500),
     json: async () => body,
-    text: async () => JSON.stringify(body),
+    text: async () =>
+      options.rawText !== undefined ? options.rawText : JSON.stringify(body),
+    headers: {
+      get: (name: string) => {
+        const key = Object.keys(options.headers ?? {}).find(
+          (entry) => entry.toLowerCase() === name.toLowerCase()
+        );
+        return key ? (options.headers?.[key] ?? null) : null;
+      },
+    },
   }) as unknown as Response;
 
 const trackedTempDirs: string[] = [];
@@ -206,5 +223,70 @@ describe('createCoreClient', () => {
     );
     expect(capturedBody?.caller).not.toHaveProperty('endpoint.metadata_path');
     expect(capturedBody?.caller).not.toHaveProperty('endpoint.isolated_mode');
+  });
+
+  it('returns a structured error when core responds with html instead of json', async () => {
+    const fetchImpl = vi.fn(async () =>
+      makeResponse('<!DOCTYPE html><html><body>nope</body></html>', {
+        rawText: '<!DOCTYPE html><html><body>nope</body></html>',
+        headers: {
+          'content-type': 'text/html; charset=utf-8',
+        },
+      })
+    ) as unknown as typeof fetch;
+
+    const client = createCoreClient({
+      host: '127.0.0.1',
+      port: 3210,
+      ensureDaemon: false,
+      fetchImpl,
+    });
+
+    await expect(
+      client.post('/diagnostics/enable_inspect')
+    ).rejects.toMatchObject({
+      info: expect.objectContaining({
+        code: 'UNAVAILABLE',
+        message: 'Core returned HTML instead of JSON.',
+        retryable: true,
+        details: expect.objectContaining({
+          path: '/diagnostics/enable_inspect',
+          status: 200,
+          content_type: 'text/html; charset=utf-8',
+          reason: 'core_invalid_json_response',
+          response_preview: '<!DOCTYPE html><html><body>nope</body></html>',
+        }),
+      }),
+    });
+  });
+
+  it('returns a structured error when core responds with an empty body', async () => {
+    const fetchImpl = vi.fn(async () =>
+      makeResponse(undefined, {
+        rawText: '',
+        status: 503,
+        ok: false,
+      })
+    ) as unknown as typeof fetch;
+
+    const client = createCoreClient({
+      host: '127.0.0.1',
+      port: 3210,
+      ensureDaemon: false,
+      fetchImpl,
+    });
+
+    await expect(client.post('/session/create')).rejects.toMatchObject({
+      info: expect.objectContaining({
+        code: 'UNAVAILABLE',
+        message: 'Core returned an empty response.',
+        retryable: true,
+        details: expect.objectContaining({
+          path: '/session/create',
+          status: 503,
+          reason: 'core_empty_response',
+        }),
+      }),
+    });
   });
 });

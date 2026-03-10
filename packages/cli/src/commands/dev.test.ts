@@ -9,7 +9,7 @@ import {
   resolveLogDirectory,
 } from '@btraut/browser-bridge-shared';
 import { runLocal } from '../cli-runtime';
-import { createCoreClient } from '../core-client';
+import { CoreClientError, createCoreClient } from '../core-client';
 import { discoverActivationExtensionId } from '../extension-id-discovery';
 import { registerDevCommands, resolveActivationExtensionId } from './dev';
 
@@ -17,9 +17,14 @@ vi.mock('../cli-runtime', () => ({
   runLocal: vi.fn(),
 }));
 
-vi.mock('../core-client', () => ({
-  createCoreClient: vi.fn(),
-}));
+vi.mock('../core-client', async () => {
+  const actual =
+    await vi.importActual<typeof import('../core-client')>('../core-client');
+  return {
+    ...actual,
+    createCoreClient: vi.fn(),
+  };
+});
 
 vi.mock('../extension-id-discovery', () => ({
   discoverActivationExtensionId: vi.fn(async () => ({
@@ -448,5 +453,37 @@ describe('dev commands', () => {
     ).rejects.toThrow(
       'Inspect capability should already be enabled, but the connected extension did not confirm it.'
     );
+  });
+
+  it('enable-inspect surfaces structured transport errors from non-json core responses', async () => {
+    vi.mocked(createCoreClient).mockReturnValue({
+      baseUrl: 'http://127.0.0.1:3210',
+      ensureReady: vi.fn(async () => {}),
+      post: vi.fn(async () => {
+        throw new CoreClientError({
+          code: 'UNAVAILABLE',
+          message: 'Core returned HTML instead of JSON.',
+          retryable: true,
+          details: {
+            path: '/diagnostics/enable_inspect',
+            reason: 'core_invalid_json_response',
+            next_step:
+              'Verify Browser Bridge core is reachable on the expected host and port, then retry.',
+          },
+        });
+      }),
+    } as ReturnType<typeof createCoreClient>);
+
+    const program = buildProgram();
+    await expect(
+      program.parseAsync([
+        'node',
+        'cli',
+        'dev',
+        'enable-inspect',
+        '--extension-id',
+        'flag-ext',
+      ])
+    ).rejects.toThrow('Core returned HTML instead of JSON.');
   });
 });

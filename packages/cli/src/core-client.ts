@@ -71,6 +71,81 @@ const normalizePath = (path: string): string =>
 const durationMs = (startedAt: bigint): number =>
   Number((Number(process.hrtime.bigint() - startedAt) / 1_000_000).toFixed(3));
 
+const MAX_RESPONSE_PREVIEW_LENGTH = 200;
+
+const normalizeResponsePreview = (raw: string): string => {
+  const normalized = raw.replace(/\s+/g, ' ').trim();
+  if (normalized.length <= MAX_RESPONSE_PREVIEW_LENGTH) {
+    return normalized;
+  }
+  return `${normalized.slice(0, MAX_RESPONSE_PREVIEW_LENGTH)}...`;
+};
+
+const getHeaderValue = (
+  headers: Response['headers'] | undefined,
+  name: string
+): string | undefined => {
+  if (!headers || typeof headers.get !== 'function') {
+    return undefined;
+  }
+  const value = headers.get(name);
+  return typeof value === 'string' && value.trim().length > 0
+    ? value
+    : undefined;
+};
+
+const buildInvalidCoreResponseError = (options: {
+  kind: 'empty' | 'invalid_json';
+  status: number;
+  baseUrl: string;
+  path: string;
+  contentType?: string;
+  responseText?: string;
+}): CoreClientError => {
+  const details: Record<string, unknown> = {
+    base_url: options.baseUrl,
+    path: options.path,
+    status: options.status,
+    reason:
+      options.kind === 'empty'
+        ? 'core_empty_response'
+        : 'core_invalid_json_response',
+    next_step:
+      'Verify Browser Bridge core is reachable on the expected host and port, then retry.',
+  };
+
+  if (options.contentType) {
+    details.content_type = options.contentType;
+  }
+
+  if (options.responseText && options.responseText.trim().length > 0) {
+    details.response_preview = normalizeResponsePreview(options.responseText);
+  }
+
+  const message =
+    options.kind === 'empty'
+      ? 'Core returned an empty response.'
+      : options.contentType?.toLowerCase().includes('text/html')
+        ? 'Core returned HTML instead of JSON.'
+        : 'Core returned an invalid JSON response.';
+
+  return new CoreClientError({
+    code: 'UNAVAILABLE',
+    message,
+    retryable: true,
+    retry: {
+      retryable: true,
+      reason:
+        options.kind === 'empty'
+          ? 'core_empty_response'
+          : 'core_invalid_json_response',
+      retry_after_ms: 250,
+      max_attempts: 1,
+    },
+    details,
+  });
+};
+
 export const createCoreClient = (
   options: CoreClientOptions = {}
 ): CoreClient => {
@@ -203,6 +278,7 @@ export const createCoreClient = (
         throw error;
       }
 
+      const contentType = getHeaderValue(response.headers, 'content-type');
       const raw = await response.text();
       if (!raw) {
         logger.warn('cli.core.request.empty_response', {
@@ -210,9 +286,16 @@ export const createCoreClient = (
           path: requestPath,
           base_url: readiness.baseUrl,
           status: response.status,
+          content_type: contentType,
           duration_ms: durationMs(startedAt),
         });
-        throw new Error(`Empty response from Core (${response.status}).`);
+        throw buildInvalidCoreResponseError({
+          kind: 'empty',
+          status: response.status,
+          baseUrl: readiness.baseUrl,
+          path: requestPath,
+          contentType,
+        });
       }
 
       try {
@@ -226,17 +309,24 @@ export const createCoreClient = (
         });
         return parsed;
       } catch (error) {
-        const message =
-          error instanceof Error ? error.message : 'Unknown JSON parse error';
         logger.error('cli.core.request.invalid_json', {
           method,
           path: requestPath,
           base_url: readiness.baseUrl,
           status: response.status,
+          content_type: contentType,
+          response_preview: normalizeResponsePreview(raw),
           duration_ms: durationMs(startedAt),
           error,
         });
-        throw new Error(`Failed to parse Core response: ${message}`);
+        throw buildInvalidCoreResponseError({
+          kind: 'invalid_json',
+          status: response.status,
+          baseUrl: readiness.baseUrl,
+          path: requestPath,
+          contentType,
+          responseText: raw,
+        });
       }
     } finally {
       clearTimeout(timeout);

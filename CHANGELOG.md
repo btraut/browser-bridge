@@ -8,6 +8,7 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 
 ### Fixed
 
+- CLI core transport now turns empty or non-JSON responses into structured `UNAVAILABLE` errors with actionable details, so commands like `dev enable-inspect` stop leaking raw JSON parse failures when the runtime returns HTML or nothing at all.
 - Inspect is now always enabled in the extension; the options page no longer asks users to separately allow debugger-based inspect, and diagnostics/CLI messaging now treat missing inspect capability as a stale runtime problem instead of a permissions toggle.
 - Inspect APIs now default to the session's primary tab when no explicit target is provided, while still honoring explicit `target.tab_id` over session affinity and global tab heuristics.
 - Drive actions now report the concrete tab they resolved when `tab_id` is omitted, and core persists that tab as the session primary target so later unpinned actions stay on the same page instead of drifting across windows.
@@ -32,6 +33,7 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 - `drive.click` role matching now includes native interactive controls and exact accessible-name preference, so visible header buttons like `Sign in` and `Account menu` resolve without falling back to inspect/evaluate.
 - `inspect.*` commands now support explicit `--tab-id` targeting end-to-end, and `drive.tab_activate` treats OS-level window-focus failures as warnings once the requested tab is actually active.
 - `locator.text` now favors visible, clickable, exact matches over ancestor containers or hidden duplicates, and `drive.wait_for` now covers normalized visible text plus immediate or delayed `url_matches` transitions without false timeouts.
+- CLI `drive navigate --wait` help text now lists `networkidle`, keeping the operator-facing contract aligned with the shared schema and route validation.
 - `diagnostics.doctor` no longer carries an unused inspect-enable helper argument, and the live runtime follow-up files now satisfy the validate workflow's formatting checks.
 
 ## [0.13.2] - 2026-02-18

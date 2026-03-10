@@ -25,6 +25,21 @@ describe('drive navigate command', () => {
     vi.mocked(runCommand).mockReset();
   });
 
+  it('advertises networkidle as a supported wait mode', () => {
+    const program = buildProgram();
+    const drive = program.commands.find(
+      (command) => command.name() === 'drive'
+    );
+    const navigate = drive?.commands.find(
+      (command) => command.name() === 'navigate'
+    );
+    const waitOption = navigate?.options.find(
+      (option) => option.long === '--wait'
+    );
+
+    expect(waitOption?.description).toContain('networkidle');
+  });
+
   it('forwards drive.navigate without session_id when omitted', async () => {
     const post = vi.fn().mockResolvedValue({
       ok: true as const,

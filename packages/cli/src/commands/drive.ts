@@ -77,7 +77,7 @@ export const registerDriveCommands = (program: Command): void => {
     )
     .requiredOption('--url <url>', 'URL to navigate to')
     .option('--tab-id <id>', 'Tab identifier (defaults to agent window/tab)')
-    .option('--wait <mode>', 'Wait mode (none, domcontentloaded)')
+    .option('--wait <mode>', 'Wait mode (none, domcontentloaded, networkidle)')
     .action(async (options, command) => {
       await runCommand(command, (client) => {
         const payload = parseInput(DriveNavigateInputSchema, {
