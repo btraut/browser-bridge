@@ -16,6 +16,7 @@ Short index of notable bug fixes. Keep entries symptom-first: bug label, one-lin
 - `interactive-ax-menu-roles` - AX snapshot interactive filtering now keeps `menu`, `menuitem`, `menuitemcheckbox`, and `menuitemradio` nodes so open overlay actions remain visible in `inspect.dom_snapshot`. Ref: `283de58`
 - `deferred-click-settle-and-retry` - `drive.click` now waits for deferred CDP click dispatch to land and retries one transient locator miss, reducing racey menu-trigger and overlay-item failures on live pages. Ref: `07d8e26`
 - `snapshot-ref-metadata-fallback` - Snapshot refs now persist link/name/role metadata in the page so `locator.ref` can recover after list rerenders instead of failing the moment the original `data-bv-ref` attribute disappears. Ref: `8169ceb`
+- `snapshot-ref-truthfulness` - `inspect.dom_snapshot` now drops refs that failed to bind into the live DOM and only persists successfully applied refs in the registry. Ref: pending commit
 - `visible-css-locator-preference` - CSS/testid locator resolution now prefers visible matches before falling back to the first raw node, which avoids hidden duplicate quantity controls eating clicks in deck-builder UIs. Ref: `633bf89`
 - `text-targeting-visible-match` - `locator.text` now prefers normalized visible exact/clickable matches over ancestor containers, longer substrings, and hidden duplicates. Ref: `c81d5a5`
 - `wait-for-visible-text` - `drive.wait_for` `text_present` now matches normalized visible text, including split labels and delayed status updates. Ref: `c81d5a5`

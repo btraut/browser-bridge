@@ -8,6 +8,7 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 
 ### Fixed
 
+- `inspect.dom_snapshot` now strips refs that could not actually be rebound into the live DOM, and the snapshot ref registry only persists refs that were successfully applied.
 - `dev enable-inspect` now enables debugger capability through the live core-extension bridge instead of auto-opening the extension options page, and it returns a manual `optionsUrl` fallback only when the connected runtime cannot perform the change directly.
 - Browser Bridge targeting docs now explicitly steer repeated menu actions toward exact text/role locators, and regression coverage now proves `locator.text` can pick `Edit cards` without drifting into sibling actions like `Edit details`.
 - CSS/testid locator resolution now prefers visible candidates when multiple nodes match, which avoids no-op clicks on hidden duplicate controls like deck-editor quantity buttons while preserving raw-match fallback for simple pages.

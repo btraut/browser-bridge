@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   applySnapshotRefs,
   assignRefsToAxSnapshot,
+  pruneUnappliedRefsFromSnapshot,
   resolveNodeIdForSelector,
 } from './snapshot-refs';
 
@@ -64,7 +65,7 @@ describe('snapshot ref helpers', () => {
 
   it('applySnapshotRefs reports a warning when it cannot clear prior refs', async () => {
     const calls: string[] = [];
-    const warnings = await applySnapshotRefs(
+    const result = await applySnapshotRefs(
       1,
       new Map(),
       async (_tabId, method) => {
@@ -78,6 +79,19 @@ describe('snapshot ref helpers', () => {
 
     expect(calls).toContain('DOM.enable');
     expect(calls).toContain('Runtime.enable');
-    expect(warnings).toContain('Failed to clear prior snapshot refs.');
+    expect(result.warnings).toContain('Failed to clear prior snapshot refs.');
+    expect(result.appliedRefs.size).toBe(0);
+  });
+
+  it('prunes refs that were never applied to the DOM', () => {
+    const snapshot = {
+      nodes: [{ ref: '@e1' }, { ref: '@e2' }, {}],
+    };
+
+    pruneUnappliedRefsFromSnapshot(snapshot, new Set(['@e2']));
+
+    expect(snapshot).toEqual({
+      nodes: [{}, { ref: '@e2' }, {}],
+    });
   });
 });

@@ -32,6 +32,7 @@ import { SnapshotHistory } from './snapshot-history';
 import {
   applySnapshotRefs,
   assignRefsToAxSnapshot,
+  pruneUnappliedRefsFromSnapshot,
   resolveNodeIdForSelector,
 } from './snapshot-refs';
 import { InspectError } from './errors';
@@ -204,11 +205,13 @@ export class InspectService {
           if (!resolved.nodeId) {
             let refWarnings: string[] = [];
             try {
-              refWarnings = await applySnapshotRefs(
-                selection.tabId,
-                new Map(),
-                debuggerCommand
-              );
+              refWarnings = (
+                await applySnapshotRefs(
+                  selection.tabId,
+                  new Map(),
+                  debuggerCommand
+                )
+              ).warnings;
             } catch {
               refWarnings = ['Failed to clear prior snapshot refs.'];
             }
@@ -255,16 +258,17 @@ export class InspectService {
           }
         }
         const refMap = assignRefsToAxSnapshot(snapshot);
-        const refWarnings = await applySnapshotRefs(
+        const refResult = await applySnapshotRefs(
           selection.tabId,
           refMap,
           debuggerCommand
         );
+        pruneUnappliedRefsFromSnapshot(snapshot, refResult.appliedRefs);
         const warnings = [
           ...(selection.warnings ?? []),
           ...selectorWarnings,
           ...truncationWarnings,
-          ...(refWarnings ?? []),
+          ...refResult.warnings,
         ];
         return {
           format: 'ax',

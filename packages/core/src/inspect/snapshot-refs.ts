@@ -17,6 +17,11 @@ export type SnapshotRefBinding = {
   url?: string;
 };
 
+export type ApplySnapshotRefsResult = {
+  warnings: string[];
+  appliedRefs: Set<string>;
+};
+
 const MAX_REF_ASSIGNMENTS = 500;
 const MAX_REF_WARNINGS = 5;
 
@@ -100,8 +105,10 @@ export const applySnapshotRefs = async (
   tabId: number,
   refs: Map<number, SnapshotRefBinding>,
   debuggerCommand: DebuggerCommand
-): Promise<string[]> => {
+): Promise<ApplySnapshotRefsResult> => {
   const warnings: string[] = [];
+  const appliedRefs = new Set<string>();
+  const appliedBindings: SnapshotRefBinding[] = [];
   await debuggerCommand(tabId, 'DOM.enable', {});
   await debuggerCommand(tabId, 'Runtime.enable', {});
 
@@ -112,7 +119,7 @@ export const applySnapshotRefs = async (
   }
 
   if (refs.size === 0) {
-    return warnings;
+    return { warnings, appliedRefs };
   }
 
   let applied = 0;
@@ -143,6 +150,8 @@ export const applySnapshotRefs = async (
         value: ref,
       });
       applied += 1;
+      appliedRefs.add(ref);
+      appliedBindings.push(binding);
     } catch {
       if (warnings.length < MAX_REF_WARNINGS) {
         warnings.push(`Ref ${ref} could not be applied.`);
@@ -151,7 +160,7 @@ export const applySnapshotRefs = async (
   }
 
   try {
-    const registry = JSON.stringify(Array.from(refs.values()));
+    const registry = JSON.stringify(appliedBindings);
     await debuggerCommand(tabId, 'Runtime.evaluate', {
       expression: `(() => {
         const id = ${JSON.stringify(SNAPSHOT_REF_REGISTRY_ID)};
@@ -172,7 +181,22 @@ export const applySnapshotRefs = async (
       warnings.push('Snapshot ref registry could not be applied.');
     }
   }
-  return warnings;
+  return { warnings, appliedRefs };
+};
+
+export const pruneUnappliedRefsFromSnapshot = (
+  snapshot: unknown,
+  appliedRefs: Set<string>
+): void => {
+  for (const node of getAxNodes(snapshot)) {
+    if (!node || typeof node !== 'object') {
+      continue;
+    }
+    const ref = (node as { ref?: unknown }).ref;
+    if (typeof ref === 'string' && !appliedRefs.has(ref)) {
+      delete (node as { ref?: unknown }).ref;
+    }
+  }
 };
 
 export const resolveNodeIdForSelector = async (
