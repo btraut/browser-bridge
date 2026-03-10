@@ -270,7 +270,12 @@ export class DriveController {
             if (action === 'drive.click') {
               await this.sleep(POST_CLICK_SETTLE_MS);
             }
-            this.applySessionTargetOnSuccess(sessionId, action, requestParams);
+            this.applySessionTargetOnSuccess(
+              sessionId,
+              action,
+              requestParams,
+              response.result
+            );
             this.clearLastError();
             return {
               ok: true,
@@ -365,6 +370,16 @@ export class DriveController {
       : undefined;
   }
 
+  private readTabIdFromResult(result: unknown): number | undefined {
+    if (!result || typeof result !== 'object' || Array.isArray(result)) {
+      return undefined;
+    }
+    const value = (result as { tab_id?: unknown }).tab_id;
+    return typeof value === 'number' && Number.isFinite(value)
+      ? value
+      : undefined;
+  }
+
   private prepareRequestParams(
     action: DriveAction,
     params: Record<string, unknown> | undefined,
@@ -392,9 +407,10 @@ export class DriveController {
   private applySessionTargetOnSuccess(
     sessionId: string,
     action: DriveAction,
-    params?: Record<string, unknown>
+    params?: Record<string, unknown>,
+    result?: unknown
   ): void {
-    const tabId = this.readTabId(params);
+    const tabId = this.readTabIdFromResult(result) ?? this.readTabId(params);
     if (tabId === undefined) {
       return;
     }

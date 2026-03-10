@@ -524,6 +524,24 @@ const getWindow = async (
   );
 };
 
+const withResolvedTabTarget = async (
+  tabId: number,
+  result: unknown
+): Promise<Record<string, unknown>> => {
+  const payload =
+    result && typeof result === 'object' && !Array.isArray(result)
+      ? { ...(result as Record<string, unknown>) }
+      : {};
+  const tab = await getTab(tabId).catch(() => undefined);
+  const windowId =
+    tab && typeof tab.windowId === 'number' ? tab.windowId : undefined;
+  return {
+    ...payload,
+    tab_id: tabId,
+    ...(typeof windowId === 'number' ? { window_id: windowId } : {}),
+  };
+};
+
 const getActiveTabId = async (): Promise<number> => {
   const tabs = await wrapChromeCallback<Record<string, unknown>[]>((callback) =>
     chrome.tabs.query({ active: true, lastFocusedWindow: true }, callback)
@@ -1628,10 +1646,12 @@ class DriveSocket {
           if (tabId === agentTabId) {
             void refreshAgentTabBranding(tabId as number);
           }
-          respondOk({
-            ok: true,
-            ...(warnings.length > 0 ? { warnings } : {}),
-          });
+          respondOk(
+            await withResolvedTabTarget(tabId as number, {
+              ok: true,
+              ...(warnings.length > 0 ? { warnings } : {}),
+            })
+          );
           return;
         }
         case 'drive.go_back':
@@ -1688,9 +1708,11 @@ class DriveSocket {
           if (tabId === agentTabId) {
             void refreshAgentTabBranding(tabId as number);
           }
-          respondOk({
-            ok: true,
-          });
+          respondOk(
+            await withResolvedTabTarget(tabId as number, {
+              ok: true,
+            })
+          );
           return;
         }
         case 'drive.tab_list': {
@@ -1836,7 +1858,9 @@ class DriveSocket {
               DEFAULT_DEBUGGER_COMMAND_TIMEOUT_MS
             );
             this.touchDebuggerSession(tabId as number);
-            respondOk({ ok: true });
+            respondOk(
+              await withResolvedTabTarget(tabId as number, { ok: true })
+            );
           } catch (error) {
             const info = mapDebuggerErrorMessage(
               error instanceof Error ? error.message : 'Dialog handling failed.'
@@ -1891,7 +1915,7 @@ class DriveSocket {
               }
             );
           }, 0);
-          respondOk({ ok: true });
+          respondOk(await withResolvedTabTarget(tabId as number, { ok: true }));
           return;
         }
         case 'drive.hover': {
@@ -1942,7 +1966,12 @@ class DriveSocket {
               respondError(snapshot.error);
               return;
             }
-            respondOk(snapshot.result ?? { format: 'html', snapshot: '' });
+            respondOk(
+              await withResolvedTabTarget(
+                tabId as number,
+                snapshot.result ?? { format: 'html', snapshot: '' }
+              )
+            );
           } catch (error) {
             const info = mapDebuggerErrorMessage(
               error instanceof Error ? error.message : 'Hover dispatch failed.'
@@ -1998,7 +2027,9 @@ class DriveSocket {
               toResult.point,
               steps
             );
-            respondOk({ ok: true });
+            respondOk(
+              await withResolvedTabTarget(tabId as number, { ok: true })
+            );
           } catch (error) {
             const info = mapDebuggerErrorMessage(
               error instanceof Error ? error.message : 'Drag dispatch failed.'
@@ -2042,7 +2073,9 @@ class DriveSocket {
               key,
               params.modifiers
             );
-            respondOk({ ok: true });
+            respondOk(
+              await withResolvedTabTarget(tabId as number, { ok: true })
+            );
           } catch (error) {
             const info = mapDebuggerErrorMessage(
               error instanceof Error
@@ -2093,7 +2126,9 @@ class DriveSocket {
                 params.modifiers
               );
             }
-            respondOk({ ok: true });
+            respondOk(
+              await withResolvedTabTarget(tabId as number, { ok: true })
+            );
           } catch (error) {
             const info = mapDebuggerErrorMessage(
               error instanceof Error
@@ -2142,7 +2177,7 @@ class DriveSocket {
             respondError(result.error);
             return;
           }
-          respondOk({ ok: true });
+          respondOk(await withResolvedTabTarget(tabId as number, { ok: true }));
           return;
         }
         case 'drive.select': {
@@ -2197,7 +2232,12 @@ class DriveSocket {
             respondError(selectResult.error);
             return;
           }
-          respondOk(selectResult.result ?? { ok: true });
+          respondOk(
+            await withResolvedTabTarget(
+              tabId as number,
+              selectResult.result ?? { ok: true }
+            )
+          );
           return;
         }
         case 'drive.fill_form': {
@@ -2331,11 +2371,13 @@ class DriveSocket {
             }
             errors.push(`Field ${index} could not be filled.`);
           }
-          respondOk({
-            filled,
-            attempted: fields.length,
-            errors: errors.length > 0 ? errors : [],
-          });
+          respondOk(
+            await withResolvedTabTarget(tabId as number, {
+              filled,
+              attempted: fields.length,
+              errors: errors.length > 0 ? errors : [],
+            })
+          );
           return;
         }
         case 'drive.scroll':
@@ -2368,7 +2410,12 @@ class DriveSocket {
             }
           );
           if (result.ok) {
-            respondOk(result.result ?? { ok: true });
+            respondOk(
+              await withResolvedTabTarget(
+                tabId as number,
+                result.result ?? { ok: true }
+              )
+            );
           } else {
             respondError(result.error);
           }
@@ -2645,7 +2692,7 @@ class DriveSocket {
                 format,
                 quality
               );
-              respondOk(rendered);
+              respondOk(await withResolvedTabTarget(tabId as number, rendered));
             } catch (error) {
               respondError(
                 mapScreenshotCaptureError(
@@ -2788,7 +2835,12 @@ class DriveSocket {
                     srcW,
                     srcH
                   );
-                  respondOk(await canvasToResult(cropCanvas));
+                  respondOk(
+                    await withResolvedTabTarget(
+                      tabId as number,
+                      await canvasToResult(cropCanvas)
+                    )
+                  );
                 } finally {
                   bitmap.close();
                 }
@@ -2819,7 +2871,12 @@ class DriveSocket {
                 srcW,
                 srcH
               );
-              respondOk(await canvasToResult(cropCanvas));
+              respondOk(
+                await withResolvedTabTarget(
+                  tabId as number,
+                  await canvasToResult(cropCanvas)
+                )
+              );
             } catch (error) {
               respondError(
                 mapScreenshotCaptureError(
@@ -2840,7 +2897,12 @@ class DriveSocket {
           try {
             const metaInfo = await getMetaInfo();
             const canvas = await captureFullPageCanvas(metaInfo);
-            respondOk(await canvasToResult(canvas));
+            respondOk(
+              await withResolvedTabTarget(
+                tabId as number,
+                await canvasToResult(canvas)
+              )
+            );
           } catch (error) {
             respondError(
               mapScreenshotCaptureError(

@@ -195,6 +195,44 @@ describe('DriveController', () => {
     );
   });
 
+  it('learns the resolved tab_id from omitted-tab actions and pins later commands to it', async () => {
+    const registry = new SessionRegistry();
+    const session = registry.create();
+    const bridge = {
+      isConnected: () => true,
+      request: vi
+        .fn()
+        .mockResolvedValueOnce({
+          id: 'req-1',
+          action: 'drive.navigate',
+          status: 'ok',
+          result: { ok: true, tab_id: 77, window_id: 9 },
+        })
+        .mockResolvedValueOnce({
+          id: 'req-2',
+          action: 'drive.wait_for',
+          status: 'ok',
+          result: { ok: true, tab_id: 77, window_id: 9 },
+        }),
+    } as unknown as ExtensionBridge;
+    const controller = new DriveController(bridge, registry);
+
+    await controller.execute(session.id, 'drive.navigate', {
+      url: 'https://manavault.gg',
+    });
+    await controller.execute(session.id, 'drive.wait_for', {
+      condition: { kind: 'text_present', value: 'My Decks' },
+    });
+
+    expect(registry.require(session.id).selectedTabId).toBe(77);
+    expect(bridge.request).toHaveBeenNthCalledWith(
+      2,
+      'drive.wait_for',
+      expect.objectContaining({ tab_id: 77 }),
+      undefined
+    );
+  });
+
   it('waits briefly after a successful click so deferred click dispatch can land', async () => {
     vi.useFakeTimers();
     try {
