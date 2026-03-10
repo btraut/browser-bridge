@@ -30,7 +30,7 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 - `artifacts screenshot` now prefers extension-driven capture for viewport, full-page, and element targets instead of failing just because debugger-based inspect is disabled.
 - `drive.click` role matching now includes native interactive controls and exact accessible-name preference, so visible header buttons like `Sign in` and `Account menu` resolve without falling back to inspect/evaluate.
 - `inspect.*` commands now support explicit `--tab-id` targeting end-to-end, and `drive.tab_activate` treats OS-level window-focus failures as warnings once the requested tab is actually active.
-- `locator.text` now favors visible, clickable, exact matches over ancestor containers or hidden duplicates, and `drive.wait_for` `text_present` now matches normalized visible text instead of raw substring checks.
+- `locator.text` now favors visible, clickable, exact matches over ancestor containers or hidden duplicates, and `drive.wait_for` now covers normalized visible text plus immediate or delayed `url_matches` transitions without false timeouts.
 - `diagnostics.doctor` no longer carries an unused inspect-enable helper argument, and the live runtime follow-up files now satisfy the validate workflow's formatting checks.
 
 ## [0.13.2] - 2026-02-18

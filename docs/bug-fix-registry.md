@@ -23,7 +23,7 @@ Short index of notable bug fixes. Keep entries symptom-first: bug label, one-lin
 - `deck-actions-auth-misclick-guard` - `Deck actions` role targeting now has regression coverage against nearby auth buttons so routine deck flows do not wander into sign-in controls. Ref: `54259fd`
 - `visible-css-locator-preference` - CSS/testid locator resolution now prefers visible matches before falling back to the first raw node, which avoids hidden duplicate quantity controls eating clicks in deck-builder UIs. Ref: `633bf89`
 - `text-targeting-visible-match` - `locator.text` now prefers normalized visible exact/clickable matches over ancestor containers, longer substrings, and hidden duplicates. Ref: `c81d5a5`
-- `wait-for-visible-text` - `drive.wait_for` `text_present` now matches normalized visible text, including split labels and delayed status updates. Ref: `c81d5a5`
+- `wait-for-visible-text` - `drive.wait_for` now matches normalized visible text and covers immediate or delayed `url_matches` transitions, including split labels and delayed status updates. Ref: pending commit
 - `single-runtime-doc-alignment` - Active docs now describe one runtime at `127.0.0.1:3210`, treat old worktree-routing guidance as superseded, and point inspect setup at `dev enable-inspect` instead of `dev activate`. Ref: `browser-vision-t1l.4`
 - `zsh-same-name-permission-denied` - The README now calls out zsh's misleading `permission denied` when `browser-bridge` is run from inside a same-named directory without the command actually being on `PATH`. Ref: pending commit
 - `dead-dev-activate-guidance` - Repo agent guidance now points live worktree tasks at `dev info` plus `dev enable-inspect`, with the emitted `optionsUrl` called out as the inspect-stall fallback. Ref: `a628e6e`

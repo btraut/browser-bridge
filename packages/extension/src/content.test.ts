@@ -796,6 +796,39 @@ describe('content drive actions', () => {
     }
   });
 
+  it('wait_for url_matches succeeds immediately when the current URL already matches', async () => {
+    window.history.replaceState({}, '', '/my/decks');
+
+    const result = await runDriveAction('drive.wait_for', {
+      condition: { kind: 'url_matches', value: 'my/decks$' },
+      timeout_ms: 10,
+    });
+
+    expect(result.ok).toBe(true);
+  });
+
+  it('wait_for url_matches succeeds when history updates asynchronously', async () => {
+    vi.useFakeTimers();
+    try {
+      window.history.replaceState({}, '', '/');
+
+      const resultPromise = runDriveAction('drive.wait_for', {
+        condition: { kind: 'url_matches', value: 'my/decks$' },
+        timeout_ms: 500,
+      });
+
+      window.setTimeout(() => {
+        window.history.pushState({}, '', '/my/decks');
+      }, 100);
+
+      await vi.advanceTimersByTimeAsync(250);
+      const result = await resultPromise;
+      expect(result.ok).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('wait_for text_present times out when only hidden matching text exists', async () => {
     vi.useFakeTimers();
     try {
