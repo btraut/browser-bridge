@@ -130,7 +130,7 @@ Manage approvals (and bypass mode):
 - Switch **Permission mode** to **Bypass (dangerous)** to skip the allowlist and prompts entirely.
 - In bypass mode, the agent can take actions on any website without asking.
 - Restricted URLs (for example `chrome://` and `file://`) are still blocked.
-- `inspect.*` requires enabling **Debugger-based inspect** in extension options. If disabled, inspect calls fail with `ATTACH_DENIED` and a clear next step; the supported setup path is `browser-bridge dev enable-inspect` (or `browser-bridge dev enable-inspect --extension-id <id>` when discovery is ambiguous).
+- `inspect.*` should already be enabled in current builds. Use `browser-bridge dev enable-inspect` as a diagnostics probe; if it reports missing inspect capability, treat that as stale runtime drift and reload or update the Browser Bridge extension.
 
 </details>
 
@@ -287,12 +287,12 @@ Use `browser-bridge dev enable-inspect` only when you need debugger-based inspec
 browser-bridge dev enable-inspect
 ```
 
-Pass `--extension-id <id>` only when auto-discovery is ambiguous or you want to force a specific unpacked install. The extension id may be cached in `.context/browser-bridge/dev.json` after a successful run, but that metadata is no longer a routing switch.
+The helper verifies inspect capability against the live runtime and can also sanity-check a specific connected extension via `--extension-id <id>`. The extension id may be cached in `.context/browser-bridge/dev.json` after a successful run, but that metadata is no longer a routing switch.
 
 ## 🧯 Runtime Troubleshooting
 
-- Missing extension id while enabling inspect: Retry once first; `browser-bridge dev enable-inspect` probes the connected runtime first and then scans common Chrome channel profiles. If discovery is still ambiguous or unavailable, run `browser-bridge dev enable-inspect --extension-id <id>` or set `BROWSER_BRIDGE_EXTENSION_ID=<id>`. You can copy the id from `chrome://extensions` (enable Developer mode to see ids).
-- Options page did not open in Chrome: Run `browser-bridge dev enable-inspect --json`, copy `result.optionsUrl`, and open it directly in Chrome. The command uses the OS URL opener, so your default browser setting matters.
+- Inspect capability still unavailable: restart the Browser Bridge core daemon, then reload or update the Browser Bridge extension and rerun `browser-bridge diagnostics doctor` plus `browser-bridge dev enable-inspect`.
+- Extension id mismatch while verifying inspect: rerun with the correct `--extension-id <id>` or clear `BROWSER_BRIDGE_EXTENSION_ID` if you pinned the wrong unpacked install. You can copy the id from `chrome://extensions` (enable Developer mode to see ids).
 - Logs and per-stream JSONL inspection: Logs are under `.context/logs/browser-bridge/`. Common streams: `cli.jsonl`, `core.jsonl`, `mcp-adapter.jsonl` (plus rotated files like `core.1.jsonl`).
 
 ```bash
