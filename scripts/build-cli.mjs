@@ -63,7 +63,6 @@ await build({
   ...common,
   entryPoints: [path.join(cliRoot, 'src', 'index.ts')],
   outfile: path.join(outdir, 'index.js'),
-  banner: { js: '#!/usr/bin/env node' },
 });
 await fs.chmod(path.join(outdir, 'index.js'), 0o755);
 
