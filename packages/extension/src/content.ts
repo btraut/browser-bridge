@@ -72,6 +72,14 @@ export const runDriveAction = async (
   const normalizeText = (value: string): string =>
     value.replace(/\s+/g, ' ').trim();
 
+  const normalizeAttr = (value: string | null): string | undefined => {
+    if (typeof value !== 'string') {
+      return undefined;
+    }
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : undefined;
+  };
+
   const isClickable = (element: Element): boolean =>
     element instanceof HTMLElement &&
     element.matches(
@@ -123,6 +131,67 @@ export const runDriveAction = async (
       current = current.parentElement;
     }
     return true;
+  };
+
+  const readPopupTriggerState = (
+    target: Element
+  ): {
+    kind: 'popup_trigger';
+    ariaHasPopup?: string;
+    ariaExpanded?: string;
+    dataState?: string;
+    open?: boolean;
+  } | null => {
+    if (!(target instanceof HTMLElement)) {
+      return null;
+    }
+    const ariaHasPopup = normalizeAttr(target.getAttribute('aria-haspopup'));
+    const ariaExpanded = normalizeAttr(target.getAttribute('aria-expanded'));
+    const dataState = normalizeAttr(target.getAttribute('data-state'));
+    const open =
+      'open' in target &&
+      typeof (target as { open?: unknown }).open === 'boolean'
+        ? ((target as { open: boolean }).open ?? false)
+        : undefined;
+    if (
+      !ariaHasPopup &&
+      ariaExpanded === undefined &&
+      dataState === undefined &&
+      open === undefined
+    ) {
+      return null;
+    }
+    return {
+      kind: 'popup_trigger',
+      ariaHasPopup,
+      ariaExpanded,
+      dataState,
+      open,
+    };
+  };
+
+  const popupTriggerStateChanged = (
+    before: {
+      kind: 'popup_trigger';
+      ariaExpanded?: string;
+      dataState?: string;
+      open?: boolean;
+    } | null,
+    after: {
+      kind: 'popup_trigger';
+      ariaExpanded?: string;
+      dataState?: string;
+      open?: boolean;
+    } | null
+  ): boolean => {
+    if (!before || !after) {
+      return before !== after;
+    }
+    return (
+      before.ariaExpanded !== after.ariaExpanded ||
+      before.dataState !== after.dataState ||
+      before.open !== after.open
+    );
   };
 
   const collectVisibleText = (node: Node): string => {
@@ -841,6 +910,42 @@ export const runDriveAction = async (
           typeof click_count === 'number' && Number.isFinite(click_count)
             ? Math.max(1, Math.floor(click_count))
             : 1;
+        const popupTriggerBefore = readPopupTriggerState(target);
+        const locationBefore = window.location.href;
+        if (popupTriggerBefore) {
+          const popupTarget = target as HTMLElement;
+          try {
+            popupTarget.focus({ preventScroll: true });
+          } catch {
+            popupTarget.focus();
+          }
+          for (let i = 0; i < count; i += 1) {
+            popupTarget.click();
+          }
+          await sleep(50);
+          if (window.location.href !== locationBefore || !target.isConnected) {
+            return ok();
+          }
+          const popupTriggerAfter = readPopupTriggerState(target);
+          if (
+            !popupTriggerStateChanged(popupTriggerBefore, popupTriggerAfter)
+          ) {
+            return buildError(
+              'FAILED_PRECONDITION',
+              'Click focused the popup trigger but did not change its open state.',
+              {
+                reason: 'click_state_unchanged',
+                control: popupTriggerBefore.kind,
+                aria_haspopup: popupTriggerBefore.ariaHasPopup,
+                aria_expanded_before: popupTriggerBefore.ariaExpanded,
+                aria_expanded_after: popupTriggerAfter?.ariaExpanded,
+                data_state_before: popupTriggerBefore.dataState,
+                data_state_after: popupTriggerAfter?.dataState,
+              }
+            );
+          }
+          return ok();
+        }
         // Clicking elements that trigger JS dialogs (alert/confirm/prompt) can
         // block the renderer thread before we can reply to the background script,
         // causing the caller to time out. Defer the click to the next tick so

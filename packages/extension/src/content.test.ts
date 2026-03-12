@@ -516,6 +516,70 @@ describe('content drive actions', () => {
     }
   });
 
+  it('fails when a popup-trigger click leaves the open state unchanged', async () => {
+    vi.useFakeTimers();
+    try {
+      const button = document.createElement('button');
+      button.setAttribute('aria-label', 'Account menu');
+      button.setAttribute('aria-haspopup', 'menu');
+      button.setAttribute('aria-expanded', 'false');
+      button.setAttribute('data-state', 'closed');
+      document.body.appendChild(button);
+      makeVisible(button, new DOMRect(10, 10, 40, 40));
+
+      const promise = runDriveAction('drive.click', {
+        locator: { role: { name: 'button', value: 'Account menu' } },
+      });
+
+      await vi.advanceTimersByTimeAsync(60);
+      const result = await promise;
+
+      expect(result).toEqual({
+        ok: false,
+        error: expect.objectContaining({
+          code: 'FAILED_PRECONDITION',
+          message:
+            'Click focused the popup trigger but did not change its open state.',
+          details: expect.objectContaining({
+            reason: 'click_state_unchanged',
+            aria_expanded_before: 'false',
+            aria_expanded_after: 'false',
+          }),
+        }),
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('accepts a popup-trigger click once the open state changes', async () => {
+    vi.useFakeTimers();
+    try {
+      const button = document.createElement('button');
+      button.setAttribute('aria-label', 'Account menu');
+      button.setAttribute('aria-haspopup', 'menu');
+      button.setAttribute('aria-expanded', 'false');
+      button.setAttribute('data-state', 'closed');
+      button.addEventListener('click', () => {
+        button.setAttribute('aria-expanded', 'true');
+        button.setAttribute('data-state', 'open');
+      });
+      document.body.appendChild(button);
+      makeVisible(button, new DOMRect(10, 10, 40, 40));
+
+      const promise = runDriveAction('drive.click', {
+        locator: { role: { name: 'button', value: 'Account menu' } },
+      });
+
+      await vi.advanceTimersByTimeAsync(60);
+      const result = await promise;
+
+      expect(result.ok).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('prefers an exact native-role button name match over a longer substring match', async () => {
     vi.useFakeTimers();
     try {
