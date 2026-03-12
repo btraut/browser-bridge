@@ -42,7 +42,7 @@ Quickstart:
 
 ```bash
 browser-bridge dev info
-# Optional compatibility helper if you want to verify inspect is available:
+# Optional compatibility probe if you want to verify inspect is available:
 browser-bridge dev enable-inspect
 
 browser-bridge drive navigate --url https://example.com --json
@@ -63,7 +63,8 @@ Notes:
 
 - `--max-nodes` only applies to `--format ax` snapshots. For `--format html`, the snapshot succeeds and the flag is ignored with a warning.
 - When `tab_id` is omitted, drive commands target a dedicated agent window/tab that Browser Bridge creates and reuses automatically.
-- `inspect.*` is always enabled in current builds. If diagnostics says inspect capability is unavailable, treat that as a stale/broken extension runtime and reload or update it.
+- `inspect.*` is always enabled in current builds. `dev enable-inspect` is a diagnostics-backed compatibility probe now; it does not toggle inspect through core.
+- If diagnostics says inspect capability is unavailable, treat that as stale runtime drift. Restart the core daemon and reload or update the extension before retrying inspect commands.
 
 Element targeting:
 

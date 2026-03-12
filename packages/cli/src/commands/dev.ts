@@ -8,13 +8,10 @@ import {
 import { CliError } from '../cli-output';
 import { createCoreClient } from '../core-client';
 import { runLocal } from '../cli-runtime';
-import { discoverActivationExtensionId } from '../extension-id-discovery';
 
 const ENV_EXTENSION_ID = 'BROWSER_BRIDGE_EXTENSION_ID';
-const ENABLE_INSPECT_WAIT_TIMEOUT_MS = 30000;
-const ENABLE_INSPECT_WAIT_INTERVAL_MS = 500;
 
-type ExtensionIdSource = 'flag' | 'env' | 'metadata' | 'connected' | 'profile';
+type ExtensionIdSource = 'flag' | 'env' | 'connected';
 
 type ResolvedExtensionId = {
   extensionId: string;
@@ -32,7 +29,6 @@ const normalizeToken = (value: unknown): string | undefined => {
 export const resolveActivationExtensionId = (options: {
   optionExtensionId?: string;
   envExtensionId?: string;
-  metadataExtensionId?: string;
 }): ResolvedExtensionId | null => {
   const optionId = normalizeToken(options.optionExtensionId);
   if (optionId) {
@@ -42,11 +38,6 @@ export const resolveActivationExtensionId = (options: {
   const envId = normalizeToken(options.envExtensionId);
   if (envId) {
     return { extensionId: envId, source: 'env' };
-  }
-
-  const metadataId = normalizeToken(options.metadataExtensionId);
-  if (metadataId) {
-    return { extensionId: metadataId, source: 'metadata' };
   }
 
   return null;
@@ -68,116 +59,87 @@ const resolveRuntimeForCommand = (options: {
   return resolveCoreRuntime(runtimeOptions);
 };
 
-const sleep = async (ms: number): Promise<void> =>
-  new Promise((resolve) => {
-    setTimeout(resolve, ms);
-  });
-
-const resolveEnableInspectWaitTimeoutMs = (): number => {
-  const raw =
-    process.env.BROWSER_BRIDGE_ENABLE_INSPECT_TIMEOUT_MS ??
-    process.env.BROWSER_BRIDGE_ACTIVATE_TIMEOUT_MS;
-  if (!raw) {
-    return ENABLE_INSPECT_WAIT_TIMEOUT_MS;
-  }
-  const parsed = Number.parseInt(raw, 10);
-  if (!Number.isFinite(parsed) || parsed <= 0) {
-    return ENABLE_INSPECT_WAIT_TIMEOUT_MS;
-  }
-  return parsed;
-};
-
 const hasPassingCheck = (
   report: DiagnosticReport | undefined,
   name: string
 ): boolean =>
   report?.checks?.some((check) => check.name === name && check.ok) ?? false;
 
-const requestInspectEnablement = async (
-  runtime: ResolvedCoreRuntime,
-  expectedExtensionId: string
-): Promise<void> => {
-  const client = createCoreClient({
-    host: runtime.host,
-    port: runtime.port,
-    ensureDaemon: true,
-  });
-  const envelope = await client.post<{ enabled?: boolean; ok?: boolean }>(
-    '/diagnostics/enable_inspect',
-    { extension_id: expectedExtensionId }
-  );
-  if (envelope.ok) {
-    return;
-  }
+const getReportedExtensionId = (
+  report: DiagnosticReport | undefined
+): string | undefined =>
+  normalizeToken(report?.runtime?.extension?.extension_id);
 
-  throw new CliError({
-    code: envelope.error.code,
-    message:
-      'Inspect capability should already be enabled, but the connected extension did not confirm it.',
-    retryable: envelope.error.retryable,
-    details: {
-      ...(envelope.error.details ?? {}),
-      expectedExtensionId,
-      next_step: 'Reload or update the Browser Bridge extension, then retry.',
-    },
-  });
+const inspectCapabilityReady = (
+  report: DiagnosticReport | undefined,
+  expectedExtensionId?: string
+): boolean => {
+  const reportedExtensionId = getReportedExtensionId(report);
+  const extensionIdMatch =
+    !expectedExtensionId ||
+    !reportedExtensionId ||
+    reportedExtensionId === expectedExtensionId;
+  return extensionIdMatch && hasPassingCheck(report, 'inspect.capability');
 };
 
-const waitForInspectEnablement = async (
-  runtime: ResolvedCoreRuntime,
-  expectedExtensionId: string
-): Promise<void> => {
-  const timeoutMs = resolveEnableInspectWaitTimeoutMs();
+const readDiagnosticReport = async (
+  runtime: ResolvedCoreRuntime
+): Promise<DiagnosticReport | undefined> => {
   const client = createCoreClient({
     host: runtime.host,
     port: runtime.port,
     ensureDaemon: true,
   });
-  const deadline = Date.now() + timeoutMs;
-  let lastReport: DiagnosticReport | undefined;
+  const envelope = await client.post<DiagnosticReport>(
+    '/diagnostics/doctor',
+    {}
+  );
+  return envelope.ok ? envelope.result : undefined;
+};
 
-  while (Date.now() <= deadline) {
-    try {
-      const envelope = await client.post<DiagnosticReport>(
-        '/diagnostics/doctor',
-        {}
-      );
-      if (envelope.ok && envelope.result) {
-        lastReport = envelope.result;
-      }
-    } catch {
-      // ignore transient health failures while activation is in progress
-    }
-
-    const extensionConnected = lastReport?.extension?.connected === true;
-    const runtimeExtensionId = lastReport?.runtime?.extension?.extension_id;
-    const extensionIdMatch =
-      !runtimeExtensionId || runtimeExtensionId === expectedExtensionId;
-    const inspectCapability = hasPassingCheck(lastReport, 'inspect.capability');
-
-    if (extensionConnected && extensionIdMatch && inspectCapability) {
-      return;
-    }
-
-    await sleep(ENABLE_INSPECT_WAIT_INTERVAL_MS);
+const buildInspectCapabilityError = (
+  runtime: ResolvedCoreRuntime,
+  report: DiagnosticReport | undefined,
+  expectedExtension?: ResolvedExtensionId | null
+): CliError => {
+  const observedExtensionId = getReportedExtensionId(report);
+  if (
+    expectedExtension &&
+    observedExtensionId &&
+    observedExtensionId !== expectedExtension.extensionId
+  ) {
+    return new CliError({
+      code: 'FAILED_PRECONDITION',
+      message:
+        'Inspect capability is available, but the connected extension does not match the requested extension id.',
+      retryable: false,
+      details: {
+        host: runtime.host,
+        port: runtime.port,
+        expectedExtensionId: expectedExtension.extensionId,
+        expectedExtensionIdSource: expectedExtension.source,
+        observedExtensionId,
+        next_step:
+          'Clear the stale extension-id override or reload the intended Browser Bridge extension, then retry.',
+      },
+    });
   }
 
-  throw new CliError({
+  return new CliError({
     code: 'FAILED_PRECONDITION',
-    message: 'Inspect capability did not come up before timeout.',
+    message:
+      'Inspect capability is unavailable in a build where it should already be enabled.',
     retryable: true,
     details: {
-      timeoutMs,
       host: runtime.host,
       port: runtime.port,
-      expectedExtensionId,
-      observedConnected: lastReport?.extension?.connected ?? false,
-      observedExtensionId: lastReport?.runtime?.extension?.extension_id,
-      observedInspectCapability: hasPassingCheck(
-        lastReport,
-        'inspect.capability'
-      ),
-      next_step: 'Reload or update the Browser Bridge extension, then retry.',
+      expectedExtensionId: expectedExtension?.extensionId,
+      expectedExtensionIdSource: expectedExtension?.source,
+      observedConnected: report?.extension?.connected ?? false,
+      observedExtensionId,
+      observedInspectCapability: hasPassingCheck(report, 'inspect.capability'),
+      next_step:
+        'Restart the Browser Bridge core daemon, then reload or update the Browser Bridge extension and retry.',
     },
   });
 };
@@ -209,70 +171,47 @@ export const registerDevCommands = (program: Command): void => {
 
   dev
     .command('enable-inspect')
-    .description('Compatibility helper that waits for inspect capability')
+    .description('Compatibility helper that verifies inspect capability')
     .option(
       '--extension-id <id>',
-      'Chrome extension id to verify against while waiting for inspect capability'
+      'Chrome extension id to verify against while checking inspect capability'
     )
     .action(async (options: { extensionId?: string }, command: Command) => {
       await runLocal(command, async (globalOptions) => {
         const runtime = resolveRuntimeForCommand(globalOptions);
-        const extension = resolveActivationExtensionId({
+        let resolvedExtension = resolveActivationExtensionId({
           optionExtensionId: options.extensionId,
           envExtensionId: process.env[ENV_EXTENSION_ID],
-          metadataExtensionId: runtime.metadata?.extension_id,
         });
-        let resolvedExtension = extension;
-        let discoveryResult:
-          | Awaited<ReturnType<typeof discoverActivationExtensionId>>
-          | undefined;
+        const report = await readDiagnosticReport(runtime);
+
         if (!resolvedExtension) {
-          discoveryResult = await discoverActivationExtensionId([runtime]);
-          if (discoveryResult.kind === 'resolved') {
+          const reportedExtensionId = getReportedExtensionId(report);
+          if (reportedExtensionId) {
             resolvedExtension = {
-              extensionId: discoveryResult.extensionId,
-              source: discoveryResult.source,
+              extensionId: reportedExtensionId,
+              source: 'connected',
             };
-          } else if (discoveryResult.kind === 'ambiguous') {
-            throw new CliError({
-              code: 'INVALID_ARGUMENT',
-              message:
-                'Multiple Browser Bridge extension ids discovered. Provide --extension-id <id> to select one.',
-              retryable: false,
-              details: {
-                candidates: discoveryResult.candidates,
-                searchedPaths: discoveryResult.searchedPaths,
-              },
-            });
           }
         }
 
-        if (!resolvedExtension) {
-          throw new CliError({
-            code: 'INVALID_ARGUMENT',
-            message:
-              'Missing extension id. Provide --extension-id <id> or set BROWSER_BRIDGE_EXTENSION_ID.',
-            retryable: false,
-            details: {
-              searchedPaths:
-                discoveryResult && discoveryResult.kind !== 'resolved'
-                  ? discoveryResult.searchedPaths
-                  : undefined,
-            },
-          });
+        if (!inspectCapabilityReady(report, resolvedExtension?.extensionId)) {
+          throw buildInspectCapabilityError(runtime, report, resolvedExtension);
         }
-
-        await requestInspectEnablement(runtime, resolvedExtension.extensionId);
-        await waitForInspectEnablement(runtime, resolvedExtension.extensionId);
 
         return {
           ok: true,
           result: {
-            extensionId: resolvedExtension.extensionId,
-            extensionIdSource: resolvedExtension.source,
             host: runtime.host,
             port: runtime.port,
             inspectAlwaysEnabled: true,
+            checkedWithDiagnostics: true,
+            ...(resolvedExtension
+              ? {
+                  extensionId: resolvedExtension.extensionId,
+                  extensionIdSource: resolvedExtension.source,
+                }
+              : {}),
           },
         };
       });

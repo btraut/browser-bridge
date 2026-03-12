@@ -10,7 +10,7 @@ Make Browser Bridge development boring in the good way: one runtime, one port, p
 
 - Normal users can run Browser Bridge without activation on `127.0.0.1:3210`.
 - Core/CLI/MCP all point at the same default runtime unless the caller explicitly overrides host or port.
-- Debugger-based inspect has a narrow setup command that does not change runtime routing.
+- Debugger-based inspect is always on in current builds, and the compatibility helper only verifies that the running runtime still agrees.
 - Every process writes verbose local logs inside the current worktree.
 
 ## Decisions
@@ -21,7 +21,7 @@ Make Browser Bridge development boring in the good way: one runtime, one port, p
 - Logs are JSONL in `.context/logs/browser-bridge/`.
 - Log policy: verbose to file, concise stdout.
 - Rotation policy: 10 MB max file size, keep 20 files per stream.
-- Inspect setup is explicit via `browser-bridge dev enable-inspect`.
+- Inspect verification is available via `browser-bridge dev enable-inspect`.
 
 ## Scope
 
@@ -38,13 +38,12 @@ Make Browser Bridge development boring in the good way: one runtime, one port, p
 1. Enter the target worktree.
 2. Run `browser-bridge dev info` and read resolved runtime (`host`, `port`, `metadataPath`, `logDir`).
 3. Run CLI/MCP directly against the default runtime (`127.0.0.1:3210`).
-4. If you need debugger-based inspect, run `browser-bridge dev enable-inspect [--extension-id <id>]`.
+4. If you want to verify debugger-based inspect, run `browser-bridge dev enable-inspect [--extension-id <id>]`.
 5. Inspect `.context/logs/browser-bridge/` per stream before deeper debugging.
 
 ## Troubleshooting Playbook
 
-- Extension id missing while enabling inspect: run `browser-bridge dev enable-inspect --extension-id <id>`, or set `BROWSER_BRIDGE_EXTENSION_ID`.
-- Options page does not open in Chrome: run `browser-bridge dev enable-inspect --json`, copy `result.optionsUrl`, open it directly in Chrome.
+- Inspect capability unavailable: restart the Browser Bridge core daemon, then reload or update the extension and rerun `browser-bridge dev enable-inspect`.
 - Logs: use `.context/logs/browser-bridge/` and inspect `cli.jsonl`, `core.jsonl`, `mcp-adapter.jsonl` (plus rotated `*.1.jsonl`, etc.).
 - Port assumptions: default runtime is `127.0.0.1:3210`. Verify with `browser-bridge dev info` if you have env overrides in play.
 
@@ -58,7 +57,7 @@ Make Browser Bridge development boring in the good way: one runtime, one port, p
 
 1. Normal usage works without activation on default `127.0.0.1:3210`.
 2. Explicit host/port overrides still win when a caller intentionally needs them.
-3. `browser-bridge dev enable-inspect` enables debugger-based inspect without changing runtime routing.
+3. `browser-bridge dev enable-inspect` verifies debugger-based inspect without changing runtime routing.
 4. Core/CLI/MCP write verbose structured logs under `.context/logs/browser-bridge/`.
 5. Rotation enforces 10 MB max file size and 20-file retention per stream.
 6. Docs consistently describe one default runtime instead of a split default-vs-isolated model.

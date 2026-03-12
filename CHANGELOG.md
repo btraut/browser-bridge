@@ -8,6 +8,7 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 
 ### Fixed
 
+- `dev enable-inspect` is now a diagnostics-backed compatibility probe instead of a dead setup flow, so current builds verify `inspect.capability` without POSTing to the stale `/diagnostics/enable_inspect` route.
 - The CLI entrypoint now keeps exactly one Node shebang from source through the built bundle, so packaged installs stay runnable and `node packages/cli/dist/index.js ...` no longer dies on a duplicated shebang line.
 - CLI core transport now turns empty or non-JSON responses into structured `UNAVAILABLE` errors with actionable details, so commands like `dev enable-inspect` stop leaking raw JSON parse failures when the runtime returns HTML or nothing at all.
 - Inspect service regression coverage now proves that an expanded trigger and its visible menu items survive the interactive AX snapshot pipeline together, which locks the overlay/menu behavior to the ManaVault-style case that motivated the fix.

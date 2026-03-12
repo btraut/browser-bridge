@@ -436,12 +436,9 @@ Input validation contract:
 - Runtime config resolution uses shared precedence rules.
 - `drive navigate` no longer performs CLI-owned `session.create`; missing-session behavior is core-owned and shared with MCP.
 - CLI core-client auto-injects `caller` runtime/process metadata for `diagnostics.doctor` (parity with MCP adapter core-client behavior).
-- `dev enable-inspect` uses extension-id resolution priority:
-  - CLI flag
-  - `BROWSER_BRIDGE_EXTENSION_ID`
-  - stored metadata
-- when explicit sources are absent, `dev enable-inspect` probes the connected runtime and then scans common Chrome channel profile roots before failing
-- `dev enable-inspect` opens the extension options URL, waits for debugger capability, and may persist discovered extension-id metadata for later reuse.
+- `dev enable-inspect` is a compatibility probe that verifies `inspect.capability` through `diagnostics.doctor`; it no longer toggles inspect through core.
+- optional extension-id verification uses the CLI flag first and then `BROWSER_BRIDGE_EXTENSION_ID`; if neither is set, the command can fall back to the connected runtime id reported by diagnostics.
+- when inspect capability is unavailable, `dev enable-inspect` reports stale runtime drift remediation (restart core, reload/update extension) instead of opening a legacy options/toggle flow.
 
 ## 9. Extension Contract
 

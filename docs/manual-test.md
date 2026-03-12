@@ -20,7 +20,7 @@ This checklist validates the Drive + Inspect planes and artifact handling end-to
    - `node packages/cli/dist/index.js dev info --json`
 3. If you want a compatibility check for `inspect.*`, run:
    - `node packages/cli/dist/index.js dev enable-inspect --json`
-   - If auto-discovery is ambiguous, rerun with `--extension-id <id>`.
+   - This is a verification helper now. It checks diagnostics and reports stale runtime drift; it does not flip inspect on through core.
 4. Check logs before ad-hoc debugging:
    - `ls -1 .context/logs/browser-bridge`
    - `tail -n 80 .context/logs/browser-bridge/cli.jsonl`
@@ -29,8 +29,7 @@ This checklist validates the Drive + Inspect planes and artifact handling end-to
 
 ### Quick Troubleshooting
 
-- Missing extension id while verifying inspect: retry once first; `dev enable-inspect` probes the connected runtime and common Chrome channel profiles before giving up. If discovery is still ambiguous/unavailable, pass `--extension-id <id>` or set `BROWSER_BRIDGE_EXTENSION_ID`.
-- Inspect capability still unavailable: reload or update the Browser Bridge extension, then rerun diagnostics.
+- Inspect capability still unavailable: restart the Browser Bridge core daemon, reload or update the extension, then rerun diagnostics and `dev enable-inspect`.
 - Stream log files: per-stream JSONL files live in `.context/logs/browser-bridge/` with rotations like `core.1.jsonl`.
 - Routing assumptions: default runtime is always `127.0.0.1:3210` unless you explicitly pass host/port overrides.
 
@@ -77,13 +76,11 @@ This checklist validates the Drive + Inspect planes and artifact handling end-to
    - Revoke the site in the options page.
    - Run a drive action on that site again; it should prompt again.
 
-## Checklist (Inspect Capability Toggle)
+## Checklist (Inspect Capability Verification)
 
-1. Open extension options and ensure **Debugger-based inspect** is disabled.
-2. Run an inspect command (for example `inspect dom-snapshot`).
-3. Verify it fails with `ATTACH_DENIED` and guidance to enable debugger-based inspect.
-4. Enable **Debugger-based inspect** in options.
-5. Retry the inspect command and verify it succeeds.
+1. Run `node packages/cli/dist/index.js dev enable-inspect --json`.
+2. Verify it succeeds when `diagnostics doctor` reports `inspect.capability`.
+3. If it fails, verify the remediation points at restarting the core daemon and reloading/updating the extension instead of a legacy toggle flow.
 
 ## Checklist (Popup Connection Indicator)
 
