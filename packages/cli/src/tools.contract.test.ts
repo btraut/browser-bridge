@@ -1,3 +1,5 @@
+import fs from 'node:fs/promises';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   DRIVE_NAVIGATE_PARITY_CASES,
@@ -11,7 +13,24 @@ import {
   CLI_TOOL_FIXTURES,
 } from './tool-fixtures';
 
+const cliRoot = path.resolve(__dirname, '..');
+
 describe('cli tool fixtures (contract)', () => {
+  it('publishes a runnable bin target with a shebang', async () => {
+    const pkg = JSON.parse(
+      await fs.readFile(path.join(cliRoot, 'package.json'), 'utf8')
+    ) as { bin?: Record<string, string> };
+    const binTarget = pkg.bin?.['browser-bridge'];
+
+    expect(binTarget).toBe('dist/index.js');
+    if (!binTarget) {
+      throw new Error('browser-bridge bin target is missing');
+    }
+
+    const script = await fs.readFile(path.join(cliRoot, binTarget), 'utf8');
+    expect(script.startsWith('#!/usr/bin/env node\n')).toBe(true);
+  });
+
   it('uses unique fixture names', () => {
     const names = CLI_TOOL_FIXTURES.map((fixture) => fixture.name);
     expect(new Set(names).size).toBe(names.length);

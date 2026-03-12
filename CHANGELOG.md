@@ -8,6 +8,7 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 
 ### Fixed
 
+- The CLI source entrypoint now carries a Node shebang and contract coverage checks the published bin target, so `tsc`-built installs no longer ship a `browser-bridge` command that zsh tries to execute as raw JavaScript.
 - CLI core transport now turns empty or non-JSON responses into structured `UNAVAILABLE` errors with actionable details, so commands like `dev enable-inspect` stop leaking raw JSON parse failures when the runtime returns HTML or nothing at all.
 - Inspect service regression coverage now proves that an expanded trigger and its visible menu items survive the interactive AX snapshot pipeline together, which locks the overlay/menu behavior to the ManaVault-style case that motivated the fix.
 - Inspect is now always enabled in the extension; the options page no longer asks users to separately allow debugger-based inspect, and diagnostics/CLI messaging now treat missing inspect capability as a stale runtime problem instead of a permissions toggle.
