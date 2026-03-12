@@ -114,6 +114,34 @@ describe('content drive actions', () => {
     }
   });
 
+  it('returns popup trigger state with locator coordinates', async () => {
+    const target = document.createElement('button');
+    target.id = 'menu-trigger';
+    target.setAttribute('aria-haspopup', 'menu');
+    target.setAttribute('aria-expanded', 'false');
+    target.setAttribute('data-state', 'closed');
+    document.body.appendChild(target);
+    setRect(target, new DOMRect(10, 20, 30, 40));
+
+    const result = await runDriveAction('drive.locator_point', {
+      locator: { css: '#menu-trigger' },
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.result).toEqual({
+        x: 25,
+        y: 40,
+        target_state: {
+          kind: 'popup_trigger',
+          ariaHasPopup: 'menu',
+          ariaExpanded: 'false',
+          dataState: 'closed',
+        },
+      });
+    }
+  });
+
   it('returns html snapshot payload', async () => {
     const target = document.createElement('div');
     target.id = 'snapshot-me';

@@ -1,3 +1,8 @@
+import {
+  popupTriggerStateChanged,
+  readPopupTriggerState,
+} from './popup-trigger-state.js';
+
 type DriveErrorInfo = {
   code: string;
   message: string;
@@ -72,14 +77,6 @@ export const runDriveAction = async (
   const normalizeText = (value: string): string =>
     value.replace(/\s+/g, ' ').trim();
 
-  const normalizeAttr = (value: string | null): string | undefined => {
-    if (typeof value !== 'string') {
-      return undefined;
-    }
-    const trimmed = value.trim();
-    return trimmed.length > 0 ? trimmed : undefined;
-  };
-
   const isClickable = (element: Element): boolean =>
     element instanceof HTMLElement &&
     element.matches(
@@ -131,67 +128,6 @@ export const runDriveAction = async (
       current = current.parentElement;
     }
     return true;
-  };
-
-  const readPopupTriggerState = (
-    target: Element
-  ): {
-    kind: 'popup_trigger';
-    ariaHasPopup?: string;
-    ariaExpanded?: string;
-    dataState?: string;
-    open?: boolean;
-  } | null => {
-    if (!(target instanceof HTMLElement)) {
-      return null;
-    }
-    const ariaHasPopup = normalizeAttr(target.getAttribute('aria-haspopup'));
-    const ariaExpanded = normalizeAttr(target.getAttribute('aria-expanded'));
-    const dataState = normalizeAttr(target.getAttribute('data-state'));
-    const open =
-      'open' in target &&
-      typeof (target as { open?: unknown }).open === 'boolean'
-        ? ((target as { open: boolean }).open ?? false)
-        : undefined;
-    if (
-      !ariaHasPopup &&
-      ariaExpanded === undefined &&
-      dataState === undefined &&
-      open === undefined
-    ) {
-      return null;
-    }
-    return {
-      kind: 'popup_trigger',
-      ariaHasPopup,
-      ariaExpanded,
-      dataState,
-      open,
-    };
-  };
-
-  const popupTriggerStateChanged = (
-    before: {
-      kind: 'popup_trigger';
-      ariaExpanded?: string;
-      dataState?: string;
-      open?: boolean;
-    } | null,
-    after: {
-      kind: 'popup_trigger';
-      ariaExpanded?: string;
-      dataState?: string;
-      open?: boolean;
-    } | null
-  ): boolean => {
-    if (!before || !after) {
-      return before !== after;
-    }
-    return (
-      before.ariaExpanded !== after.ariaExpanded ||
-      before.dataState !== after.dataState ||
-      before.open !== after.open
-    );
   };
 
   const collectVisibleText = (node: Node): string => {
@@ -838,9 +774,11 @@ export const runDriveAction = async (
           return buildError('LOCATOR_NOT_FOUND', 'Failed to resolve locator.');
         }
         const rect = target.getBoundingClientRect();
+        const targetState = readPopupTriggerState(target);
         return ok({
           x: rect.left + rect.width / 2,
           y: rect.top + rect.height / 2,
+          ...(targetState ? { target_state: targetState } : {}),
         });
       }
       case 'drive.snapshot_html': {

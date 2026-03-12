@@ -16,6 +16,11 @@ import { DRIVE_WS_PROTOCOL_VERSION } from '@btraut/browser-bridge-shared/dist/co
 import { sanitizeDriveErrorInfo } from './error-sanitizer.js';
 import { PermissionPromptController } from './permission-prompt.js';
 import {
+  verifyPopupTriggerClick,
+  type LocatorPoint,
+} from './popup-click-verification.js';
+import { coercePopupTriggerState } from './popup-trigger-state.js';
+import {
   getTabChannelRetryDelayMs,
   isLikelyNavigationCommitted,
   isTransientTabChannelError,
@@ -66,6 +71,10 @@ type DebuggerSession = {
 type ScreenPoint = {
   x: number;
   y: number;
+};
+
+type LocatorPointResult = ScreenPoint & {
+  targetState?: LocatorPoint['targetState'];
 };
 
 type StorageChange = {
@@ -1870,7 +1879,39 @@ class DriveSocket {
             respondError(pointResult.error);
             return;
           }
-          const { x, y } = pointResult.point;
+          const { x, y, targetState } = pointResult.point;
+
+          if (targetState) {
+            const verified = await verifyPopupTriggerClick({
+              clickCount: count,
+              locator: params.locator,
+              point: pointResult.point,
+              resolveLocatorPoint: async (locator) =>
+                await this.resolveLocatorPoint(tabId as number, locator),
+              dispatchCdpClick: async (clickX, clickY, clickCount) =>
+                await this.dispatchCdpClick(
+                  tabId as number,
+                  clickX,
+                  clickY,
+                  clickCount
+                ),
+              mapDispatchError: (error) =>
+                mapDebuggerErrorMessage(
+                  error instanceof Error
+                    ? error.message
+                    : 'Click dispatch failed.'
+                ),
+              delayMs,
+            });
+            if (!verified.ok) {
+              respondError(verified.error);
+              return;
+            }
+            respondOk(
+              await withResolvedTabTarget(tabId as number, { ok: true })
+            );
+            return;
+          }
 
           // JS dialogs can block the tab event loop; dispatch click events on
           // the next tick so we can acknowledge the command immediately.
@@ -3002,7 +3043,8 @@ class DriveSocket {
     tabId: number,
     locator: unknown
   ): Promise<
-    { ok: true; point: ScreenPoint } | { ok: false; error: DriveErrorInfo }
+    | { ok: true; point: LocatorPointResult }
+    | { ok: false; error: DriveErrorInfo }
   > {
     const point = await sendToTab(tabId, 'drive.locator_point', {
       locator,
@@ -3039,7 +3081,15 @@ class DriveSocket {
         },
       };
     }
-    return { ok: true, point: { x, y } };
+    const targetState = coercePopupTriggerState(record.target_state);
+    return {
+      ok: true,
+      point: {
+        x,
+        y,
+        ...(targetState ? { targetState } : {}),
+      },
+    };
   }
 
   private async performCdpType(
