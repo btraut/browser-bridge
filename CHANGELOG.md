@@ -8,6 +8,7 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 
 ### Fixed
 
+- Inspect AX snapshots no longer warn when refs land on expected non-element or stale nodes, so successful `inspect.*` runs stop spamming bogus `Ref @e… could not be applied` noise.
 - Popup-style `drive.click` targets now carry popup state through `drive.locator_point`, and the background CDP click path verifies that menu/popover triggers actually open before reporting success.
 - Popup-style `drive.click` targets now fail when a click only focuses the trigger without changing its open state, so menu buttons stop returning false-positive success on focus-only no-ops.
 - `dev enable-inspect` is now a diagnostics-backed compatibility probe instead of a dead setup flow, so current builds verify `inspect.capability` without POSTing to the stale `/diagnostics/enable_inspect` route.

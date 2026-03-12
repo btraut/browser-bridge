@@ -371,6 +371,17 @@ describe('InspectService', () => {
         }
         if (method === 'DOM.describeNode') {
           const backendNodeId = params?.backendNodeId;
+          if (backendNodeId === 104) {
+            return {
+              ok: true,
+              result: {
+                node: {
+                  nodeId: Number(backendNodeId),
+                  nodeType: 3,
+                },
+              },
+            };
+          }
           return {
             ok: true,
             result: {
@@ -420,7 +431,101 @@ describe('InspectService', () => {
         { role: 'menuitem', name: 'My decks' },
       ]
     );
+    expect(result.warnings?.some((warning) => warning.includes('Ref @e'))).toBe(
+      false
+    );
     expect(nodes.every((node) => typeof node.ref === 'string')).toBe(true);
+  });
+
+  it('does not leak stale root ref warnings through inspect.find', async () => {
+    const registry = new SessionRegistry();
+    const session = registry.create();
+
+    const axNodes = [
+      {
+        nodeId: '1',
+        backendDOMNodeId: 101,
+        role: 'RootWebArea',
+        name: 'ManaVault',
+        childIds: ['2'],
+      },
+      {
+        nodeId: '2',
+        backendDOMNodeId: 102,
+        role: 'button',
+        name: 'Account menu',
+        childIds: [],
+      },
+    ];
+
+    const debuggerBridge = {
+      hasAttachments: () => true,
+      getLastError: () => undefined,
+      command: async (
+        _tabId: number,
+        method: string,
+        params?: Record<string, unknown>
+      ) => {
+        if (method === 'Accessibility.getFullAXTree') {
+          return { ok: true, result: { nodes: axNodes } };
+        }
+        if (method === 'DOM.describeNode' && params?.backendNodeId === 101) {
+          throw Object.assign(new Error('Could not find node with given id'), {
+            name: 'InspectError',
+          });
+        }
+        if (method === 'DOM.describeNode' && params?.backendNodeId === 102) {
+          return {
+            ok: true,
+            result: {
+              node: {
+                nodeId: 102,
+                nodeType: 1,
+              },
+            },
+          };
+        }
+        if (
+          method === 'Accessibility.enable' ||
+          method === 'DOM.enable' ||
+          method === 'Runtime.enable' ||
+          method === 'DOM.setAttributeValue' ||
+          method === 'Runtime.evaluate'
+        ) {
+          return { ok: true, result: {} };
+        }
+        return { ok: true, result: {} };
+      },
+    } as unknown as DebuggerBridge;
+
+    const service = new InspectService({
+      registry,
+      extensionBridge: {
+        isConnected: () => true,
+        getStatus: () => ({
+          tabs: [DEFAULT_TAB],
+        }),
+      },
+      debuggerBridge,
+    });
+
+    const result = await service.find({
+      sessionId: session.id,
+      kind: 'role',
+      role: 'button',
+      name: 'Account menu',
+    });
+
+    expect(result.matches).toEqual([
+      {
+        ref: '@e2',
+        role: 'button',
+        name: 'Account menu',
+      },
+    ]);
+    expect(result.warnings?.some((warning) => warning.includes('Ref @e'))).toBe(
+      false
+    );
   });
 
   it('writes a HAR artifact from buffered network events', async () => {

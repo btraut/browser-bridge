@@ -37,6 +37,18 @@ const isInspectError = (
     typeof (error as { message?: unknown }).message === 'string'
   );
 
+const isExpectedSnapshotRefMiss = (error: unknown): boolean => {
+  if (!isInspectError(error)) {
+    return false;
+  }
+  const message = error.message.toLowerCase();
+  return (
+    message.includes('could not find node') ||
+    message.includes('no node with given id') ||
+    message.includes('does not belong to the document')
+  );
+};
+
 export const assignRefsToAxSnapshot = (
   snapshot: unknown
 ): Map<number, SnapshotRefBinding> => {
@@ -139,9 +151,6 @@ export const applySnapshotRefs = async (
         described as { node?: { nodeId?: number; nodeType?: number } }
       ).node;
       if (!node || node.nodeType !== 1 || typeof node.nodeId !== 'number') {
-        if (warnings.length < MAX_REF_WARNINGS) {
-          warnings.push(`Ref ${ref} could not be applied to a DOM element.`);
-        }
         continue;
       }
       await debuggerCommand(tabId, 'DOM.setAttributeValue', {
@@ -152,7 +161,10 @@ export const applySnapshotRefs = async (
       applied += 1;
       appliedRefs.add(ref);
       appliedBindings.push(binding);
-    } catch {
+    } catch (error) {
+      if (isExpectedSnapshotRefMiss(error)) {
+        continue;
+      }
       if (warnings.length < MAX_REF_WARNINGS) {
         warnings.push(`Ref ${ref} could not be applied.`);
       }

@@ -94,4 +94,43 @@ describe('snapshot ref helpers', () => {
       nodes: [{}, { ref: '@e2' }, {}],
     });
   });
+
+  it('skips non-element AX nodes without warning', async () => {
+    const result = await applySnapshotRefs(
+      1,
+      new Map([[10, { ref: '@e1' }]]),
+      async (_tabId, method) => {
+        if (method === 'DOM.describeNode') {
+          return {
+            node: {
+              nodeId: 10,
+              nodeType: 3,
+            },
+          };
+        }
+        return {};
+      }
+    );
+
+    expect(result.warnings).toEqual([]);
+    expect(result.appliedRefs.size).toBe(0);
+  });
+
+  it('skips stale-node ref misses without warning', async () => {
+    const result = await applySnapshotRefs(
+      1,
+      new Map([[10, { ref: '@e1' }]]),
+      async (_tabId, method) => {
+        if (method === 'DOM.describeNode') {
+          throw Object.assign(new Error('Could not find node with given id'), {
+            name: 'InspectError',
+          });
+        }
+        return {};
+      }
+    );
+
+    expect(result.warnings).toEqual([]);
+    expect(result.appliedRefs.size).toBe(0);
+  });
 });
