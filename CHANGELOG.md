@@ -6,6 +6,10 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 
 ## [Unreleased]
 
+### Changed
+
+- Extension background request handling now routes tab resolution, permission gating, and debugger dispatch through focused helpers instead of keeping those branches inline in `background.ts`.
+
 ### Fixed
 
 - Operator docs and compatibility labels now tell one coherent inspect story: `dev enable-inspect` is a diagnostics probe, while `/diagnostics/enable_inspect` and `drive.set_debugger_capability` are explicitly compatibility-only scaffolding.

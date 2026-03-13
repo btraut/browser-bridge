@@ -15,6 +15,7 @@ import type {
 import { DRIVE_WS_PROTOCOL_VERSION } from '@btraut/browser-bridge-shared/dist/contract-version';
 import { sanitizeDriveErrorInfo } from './error-sanitizer.js';
 import { PermissionPromptController } from './permission-prompt.js';
+import { gateDriveAction } from './action-permissions.js';
 import {
   verifyPopupTriggerClick,
   type LocatorPoint,
@@ -27,14 +28,11 @@ import {
   shouldRetryTabChannelFailure,
 } from './drive-reliability.js';
 import {
-  allowSiteAlways,
-  isSiteAllowed,
-  readSitePermissionsMode,
-  siteKeyFromUrl,
   touchSiteLastUsed,
   writeDebuggerCapabilityEnabled,
 } from './site-permissions.js';
 import { ConnectionStateTracker } from './connection-state.js';
+import { dispatchDebuggerRequest } from './debugger-dispatch.js';
 import {
   isCaptureVisibleTabRateLimitedError,
   mapScreenshotCaptureError,
@@ -47,6 +45,11 @@ import {
   type CoreEndpointConfig,
 } from './core-endpoint-config.js';
 import { resolveTabActivationOutcome } from './tab-activation.js';
+import {
+  readRequiredTabId,
+  requireTab,
+  resolveOptionalTabId,
+} from './tab-resolution.js';
 
 type ContentResult =
   | { ok: true; result?: unknown }
@@ -1308,182 +1311,25 @@ class DriveSocket {
 
       driveMessage = message as DriveRequest;
 
-      const gatedActions = new Set<string>([
-        'drive.navigate',
-        'drive.go_back',
-        'drive.go_forward',
-        'drive.click',
-        'drive.hover',
-        'drive.select',
-        'drive.type',
-        'drive.fill_form',
-        'drive.drag',
-        'drive.handle_dialog',
-        'drive.key',
-        'drive.key_press',
-        'drive.scroll',
-        'drive.screenshot',
-        'drive.wait_for',
-      ]);
-
-      const gateDriveAction = async (): Promise<
-        | { ok: true; siteKey: string | null; touchOnSuccess: boolean }
-        | { ok: false; error: DriveErrorInfo }
-      > => {
-        const action = message.action;
-        if (!gatedActions.has(action)) {
-          return { ok: true, siteKey: null, touchOnSuccess: false };
-        }
-
-        const params = (message.params ?? {}) as Record<string, unknown>;
-        let siteKey: string | null = null;
-
-        if (action === 'drive.navigate') {
-          const url = params.url;
-          if (typeof url !== 'string' || url.length === 0) {
-            // Let the switch handle INVALID_ARGUMENT for missing url.
-            return { ok: true, siteKey: null, touchOnSuccess: false };
-          }
-          if (isRestrictedUrl(url)) {
-            return {
-              ok: false,
-              error: buildRestrictedUrlError({
-                url,
-                operation: 'navigate',
-                action,
-              }),
-            };
-          }
-          siteKey = siteKeyFromUrl(url);
-          if (!siteKey) {
-            return {
-              ok: false,
-              error: {
-                code: 'INVALID_ARGUMENT',
-                message: 'Unable to resolve site permission key for url.',
-                retryable: false,
-                details: { url },
-              },
-            };
-          }
-        } else {
-          const tabId = params.tab_id;
-          if (tabId !== undefined && typeof tabId !== 'number') {
-            // Let the switch handle INVALID_ARGUMENT for tab_id shape.
-            return { ok: true, siteKey: null, touchOnSuccess: false };
-          }
-          // IMPORTANT: Drive actions default to operating on the dedicated
-          // agent tab (getDefaultTabId) when tab_id is omitted. Permission
-          // gating must resolve the same tab, otherwise we might gate/prompt
-          // for the wrong site.
-          const resolvedTabId =
-            typeof tabId === 'number' ? tabId : await getDefaultTabId();
-          const tab = await getTab(resolvedTabId);
-          const url = tab.url;
-          if (typeof url !== 'string' || url.length === 0) {
-            return {
-              ok: false,
-              error: {
-                code: 'FAILED_PRECONDITION',
-                message: 'Active tab URL is unavailable for permission gating.',
-                retryable: false,
-                details: { tab_id: resolvedTabId },
-              },
-            };
-          }
-          if (isRestrictedUrl(url)) {
-            return {
-              ok: false,
-              error: buildRestrictedUrlError({
-                url,
-                operation:
-                  action === 'drive.screenshot' ? 'screenshot' : 'action',
-                action,
-              }),
-            };
-          }
-          siteKey = siteKeyFromUrl(url);
-          if (!siteKey) {
-            return {
-              ok: false,
-              error: {
-                code: 'FAILED_PRECONDITION',
-                message:
-                  'Unable to resolve site permission key for active tab.',
-                retryable: false,
-                details: { url, tab_id: resolvedTabId },
-              },
-            };
-          }
-        }
-
-        if ((await readSitePermissionsMode()) === 'bypass') {
-          // Bypass mode skips the per-site allowlist and permission prompt.
-          // We still enforce restricted URL checks above.
-          return { ok: true, siteKey, touchOnSuccess: false };
-        }
-
-        if (await isSiteAllowed(siteKey)) {
-          return { ok: true, siteKey, touchOnSuccess: true };
-        }
-
-        const decision = await permissionPrompts.requestPermission({
-          siteKey,
-          action,
-        });
-
-        if (decision.kind === 'timed_out') {
-          return {
-            ok: false,
-            error: {
-              code: 'PERMISSION_PROMPT_TIMEOUT',
-              message: `Permission prompt timed out for ${siteKey}.`,
-              retryable: true,
-              details: {
-                reason: 'prompt_timed_out',
-                site: siteKey,
-                action,
-                wait_ms: decision.waitMs,
-              },
-            },
-          };
-        }
-
-        if (decision.kind === 'deny') {
-          return {
-            ok: false,
-            error: {
-              code: 'PERMISSION_DENIED',
-              message: `User denied Browser Bridge permission for ${siteKey}.`,
-              retryable: false,
-              details: {
-                reason: 'user_denied',
-                site: siteKey,
-                action,
-                next_step:
-                  'Ask the user to approve the permission prompt (Allow/Always allow) or allow the site in the extension options page, then retry the command.',
-              },
-            },
-          };
-        }
-
-        if (decision.kind === 'allow_always') {
-          // Ensure the allowlist is persisted even if the controller didn't (or couldn't).
-          await allowSiteAlways(siteKey);
-          return { ok: true, siteKey, touchOnSuccess: true };
-        }
-
-        // allow_once
-        return { ok: true, siteKey, touchOnSuccess: false };
-      };
-
-      const gated = await gateDriveAction();
+      const gated = await gateDriveAction({
+        action: message.action,
+        params: (message.params ?? {}) as Record<string, unknown>,
+        getDefaultTabId,
+        getTab,
+        permissionPrompts,
+      });
       if (!gated.ok) {
         respondError(gated.error);
         return;
       }
       gatedSiteKey = gated.siteKey;
       touchGatedSiteOnSuccess = gated.touchOnSuccess;
+
+      const resolveActionTabId = async (
+        params: Record<string, unknown>
+      ): Promise<
+        { ok: true; tabId: number } | { ok: false; error: DriveErrorInfo }
+      > => await resolveOptionalTabId(params, { getDefaultTabId });
 
       switch (message.action) {
         case 'drive.ping': {
@@ -1543,18 +1389,12 @@ class DriveSocket {
             });
             return;
           }
-          let tabId = params.tab_id;
-          if (tabId !== undefined && typeof tabId !== 'number') {
-            respondError({
-              code: 'INVALID_ARGUMENT',
-              message: 'tab_id must be a number when provided.',
-              retryable: false,
-            });
+          const tabTarget = await resolveActionTabId(params);
+          if (!tabTarget.ok) {
+            respondError(tabTarget.error);
             return;
           }
-          if (tabId === undefined) {
-            tabId = await getDefaultTabId();
-          }
+          const tabId = tabTarget.tabId;
           const requestedWaitMode = params.wait;
           if (
             requestedWaitMode !== undefined &&
@@ -1582,7 +1422,7 @@ class DriveSocket {
             requestedWaitMode === 'none' ? 'none' : 'domcontentloaded';
           const domContentLoadedSignal =
             waitMode === 'domcontentloaded'
-              ? waitForDomContentLoaded(tabId as number, 30000)
+              ? waitForDomContentLoaded(tabId, 30000)
               : null;
           const warnings: string[] = [];
           if (requestedWaitMode === 'networkidle') {
@@ -1591,14 +1431,14 @@ class DriveSocket {
             );
           }
           await wrapChromeVoid((callback) =>
-            chrome.tabs.update(tabId as number, { url }, () => callback())
+            chrome.tabs.update(tabId, { url }, () => callback())
           );
-          markTabActive(tabId as number);
+          markTabActive(tabId);
           if (domContentLoadedSignal) {
             try {
               await domContentLoadedSignal;
             } catch (error) {
-              const tab = await getTab(tabId as number).catch(() => undefined);
+              const tab = await getTab(tabId).catch(() => undefined);
               if (
                 tab &&
                 isLikelyNavigationCommitted(url, tab.url ?? undefined)
@@ -1620,10 +1460,10 @@ class DriveSocket {
             }
           }
           if (tabId === agentTabId) {
-            void refreshAgentTabBranding(tabId as number);
+            void refreshAgentTabBranding(tabId);
           }
           respondOk(
-            await withResolvedTabTarget(tabId as number, {
+            await withResolvedTabTarget(tabId, {
               ok: true,
               ...(warnings.length > 0 ? { warnings } : {}),
             })
@@ -1633,40 +1473,29 @@ class DriveSocket {
         case 'drive.go_back':
         case 'drive.go_forward': {
           const params = (message.params ?? {}) as Record<string, unknown>;
-          let tabId = params.tab_id;
-          if (tabId !== undefined && typeof tabId !== 'number') {
-            respondError({
-              code: 'INVALID_ARGUMENT',
-              message: 'tab_id must be a number when provided.',
-              retryable: false,
-            });
+          const tabTarget = await resolveActionTabId(params);
+          if (!tabTarget.ok) {
+            respondError(tabTarget.error);
             return;
           }
-          if (tabId === undefined) {
-            tabId = await getDefaultTabId();
-          }
+          const tabId = tabTarget.tabId;
           const navigationSignal = waitForHistoryNavigationSignal(
-            tabId as number,
+            tabId,
             HISTORY_NAVIGATION_SIGNAL_TIMEOUT_MS
           );
-          const result = await sendToTab(
-            tabId as number,
-            message.action,
-            undefined,
-            {
-              timeoutMs: HISTORY_DISPATCH_TIMEOUT_MS,
-            }
-          );
+          const result = await sendToTab(tabId, message.action, undefined, {
+            timeoutMs: HISTORY_DISPATCH_TIMEOUT_MS,
+          });
           if (!result.ok && result.error.code !== 'TIMEOUT') {
             respondError(result.error);
             return;
           }
-          markTabActive(tabId as number);
+          markTabActive(tabId);
           try {
             await navigationSignal;
             try {
               await waitForDomContentLoaded(
-                tabId as number,
+                tabId,
                 HISTORY_POST_NAV_DOM_GRACE_TIMEOUT_MS
               );
             } catch {
@@ -1682,10 +1511,10 @@ class DriveSocket {
             }
           }
           if (tabId === agentTabId) {
-            void refreshAgentTabBranding(tabId as number);
+            void refreshAgentTabBranding(tabId);
           }
           respondOk(
-            await withResolvedTabTarget(tabId as number, {
+            await withResolvedTabTarget(tabId, {
               ok: true,
             })
           );
@@ -1698,28 +1527,21 @@ class DriveSocket {
           return;
         }
         case 'drive.tab_activate': {
-          const tabId = (message.params as Record<string, unknown> | undefined)
-            ?.tab_id;
-          if (typeof tabId !== 'number') {
-            respondError({
-              code: 'INVALID_ARGUMENT',
-              message: 'tab_id must be a number.',
-              retryable: false,
-            });
+          const parsedTabId = readRequiredTabId(
+            ((message.params as Record<string, unknown> | undefined) ??
+              {}) as Record<string, unknown>
+          );
+          if (!parsedTabId.ok) {
+            respondError(parsedTabId.error);
             return;
           }
-          let tab: Record<string, unknown>;
-          try {
-            tab = await getTab(tabId);
-          } catch {
-            respondError({
-              code: 'TAB_NOT_FOUND',
-              message: `tab_id ${tabId} was not found.`,
-              retryable: false,
-              details: { tab_id: tabId },
-            });
+          const tabId = parsedTabId.tabId;
+          const tabLookup = await requireTab(tabId, getTab);
+          if (!tabLookup.ok) {
+            respondError(tabLookup.error);
             return;
           }
+          const tab = tabLookup.tab;
           await wrapChromeVoid((callback) =>
             chrome.tabs.update(tabId, { active: true }, () => callback())
           );
@@ -1763,16 +1585,15 @@ class DriveSocket {
           return;
         }
         case 'drive.tab_close': {
-          const tabId = (message.params as Record<string, unknown> | undefined)
-            ?.tab_id;
-          if (typeof tabId !== 'number') {
-            respondError({
-              code: 'INVALID_ARGUMENT',
-              message: 'tab_id must be a number.',
-              retryable: false,
-            });
+          const parsedTabId = readRequiredTabId(
+            ((message.params as Record<string, unknown> | undefined) ??
+              {}) as Record<string, unknown>
+          );
+          if (!parsedTabId.ok) {
+            respondError(parsedTabId.error);
             return;
           }
+          const tabId = parsedTabId.tabId;
           await wrapChromeVoid((callback) =>
             chrome.tabs.remove(tabId, () => callback())
           );
@@ -1804,20 +1625,14 @@ class DriveSocket {
             });
             return;
           }
-          let tabId = params.tab_id;
-          if (tabId !== undefined && typeof tabId !== 'number') {
-            respondError({
-              code: 'INVALID_ARGUMENT',
-              message: 'tab_id must be a number when provided.',
-              retryable: false,
-            });
+          const tabTarget = await resolveActionTabId(params);
+          if (!tabTarget.ok) {
+            respondError(tabTarget.error);
             return;
           }
-          if (tabId === undefined) {
-            tabId = await getDefaultTabId();
-          }
+          const tabId = tabTarget.tabId;
 
-          const error = await this.ensureDebuggerAttached(tabId as number);
+          const error = await this.ensureDebuggerAttached(tabId);
           if (error) {
             respondError(error);
             return;
@@ -1825,7 +1640,7 @@ class DriveSocket {
 
           try {
             await this.sendDebuggerCommand(
-              tabId as number,
+              tabId,
               'Page.handleJavaScriptDialog',
               {
                 accept: action === 'accept',
@@ -1833,10 +1648,8 @@ class DriveSocket {
               },
               DEFAULT_DEBUGGER_COMMAND_TIMEOUT_MS
             );
-            this.touchDebuggerSession(tabId as number);
-            respondOk(
-              await withResolvedTabTarget(tabId as number, { ok: true })
-            );
+            this.touchDebuggerSession(tabId);
+            respondOk(await withResolvedTabTarget(tabId, { ok: true }));
           } catch (error) {
             const info = mapDebuggerErrorMessage(
               error instanceof Error ? error.message : 'Dialog handling failed.'
@@ -1847,18 +1660,12 @@ class DriveSocket {
         }
         case 'drive.click': {
           const params = (message.params ?? {}) as Record<string, unknown>;
-          let tabId = params.tab_id;
-          if (tabId !== undefined && typeof tabId !== 'number') {
-            respondError({
-              code: 'INVALID_ARGUMENT',
-              message: 'tab_id must be a number when provided.',
-              retryable: false,
-            });
+          const tabTarget = await resolveActionTabId(params);
+          if (!tabTarget.ok) {
+            respondError(tabTarget.error);
             return;
           }
-          if (tabId === undefined) {
-            tabId = await getDefaultTabId();
-          }
+          const tabId = tabTarget.tabId;
 
           const clickCount = params.click_count;
           const count =
@@ -1866,14 +1673,14 @@ class DriveSocket {
               ? Math.max(1, Math.floor(clickCount))
               : 1;
 
-          const error = await this.ensureDebuggerAttached(tabId as number);
+          const error = await this.ensureDebuggerAttached(tabId);
           if (error) {
             respondError(error);
             return;
           }
 
           const pointResult = await this.resolveLocatorPoint(
-            tabId as number,
+            tabId,
             params.locator
           );
           if (!pointResult.ok) {
@@ -1888,16 +1695,11 @@ class DriveSocket {
               locator: params.locator,
               point: pointResult.point,
               prepareTarget: async () =>
-                await this.focusLocator(tabId as number, params.locator),
+                await this.focusLocator(tabId, params.locator),
               resolveLocatorPoint: async (locator) =>
-                await this.resolveLocatorPoint(tabId as number, locator),
+                await this.resolveLocatorPoint(tabId, locator),
               dispatchCdpClick: async (clickX, clickY, clickCount) =>
-                await this.dispatchCdpClick(
-                  tabId as number,
-                  clickX,
-                  clickY,
-                  clickCount
-                ),
+                await this.dispatchCdpClick(tabId, clickX, clickY, clickCount),
               mapDispatchError: (error) =>
                 mapDebuggerErrorMessage(
                   error instanceof Error
@@ -1910,14 +1712,12 @@ class DriveSocket {
               respondError(verified.error);
               return;
             }
-            respondOk(
-              await withResolvedTabTarget(tabId as number, { ok: true })
-            );
+            respondOk(await withResolvedTabTarget(tabId, { ok: true }));
             return;
           }
 
           try {
-            await this.dispatchCdpClick(tabId as number, x, y, count);
+            await this.dispatchCdpClick(tabId, x, y, count);
           } catch (error) {
             respondError(
               mapDebuggerErrorMessage(
@@ -1928,31 +1728,25 @@ class DriveSocket {
             );
             return;
           }
-          respondOk(await withResolvedTabTarget(tabId as number, { ok: true }));
+          respondOk(await withResolvedTabTarget(tabId, { ok: true }));
           return;
         }
         case 'drive.hover': {
           const params = (message.params ?? {}) as Record<string, unknown>;
-          let tabId = params.tab_id;
-          if (tabId !== undefined && typeof tabId !== 'number') {
-            respondError({
-              code: 'INVALID_ARGUMENT',
-              message: 'tab_id must be a number when provided.',
-              retryable: false,
-            });
+          const tabTarget = await resolveActionTabId(params);
+          if (!tabTarget.ok) {
+            respondError(tabTarget.error);
             return;
           }
-          if (tabId === undefined) {
-            tabId = await getDefaultTabId();
-          }
+          const tabId = tabTarget.tabId;
 
-          const error = await this.ensureDebuggerAttached(tabId as number);
+          const error = await this.ensureDebuggerAttached(tabId);
           if (error) {
             respondError(error);
             return;
           }
           const pointResult = await this.resolveLocatorPoint(
-            tabId as number,
+            tabId,
             params.locator
           );
           if (!pointResult.ok) {
@@ -1967,21 +1761,18 @@ class DriveSocket {
               ? Math.min(Math.max(params.delay_ms, 0), 10000)
               : 0;
           try {
-            await this.dispatchCdpMouseMove(tabId as number, x, y, 0);
+            await this.dispatchCdpMouseMove(tabId, x, y, 0);
             if (waitMs > 0) {
               await delayMs(waitMs);
             }
-            const snapshot = await sendToTab(
-              tabId as number,
-              'drive.snapshot_html'
-            );
+            const snapshot = await sendToTab(tabId, 'drive.snapshot_html');
             if (!snapshot.ok) {
               respondError(snapshot.error);
               return;
             }
             respondOk(
               await withResolvedTabTarget(
-                tabId as number,
+                tabId,
                 snapshot.result ?? { format: 'html', snapshot: '' }
               )
             );
@@ -1995,36 +1786,24 @@ class DriveSocket {
         }
         case 'drive.drag': {
           const params = (message.params ?? {}) as Record<string, unknown>;
-          let tabId = params.tab_id;
-          if (tabId !== undefined && typeof tabId !== 'number') {
-            respondError({
-              code: 'INVALID_ARGUMENT',
-              message: 'tab_id must be a number when provided.',
-              retryable: false,
-            });
+          const tabTarget = await resolveActionTabId(params);
+          if (!tabTarget.ok) {
+            respondError(tabTarget.error);
             return;
           }
-          if (tabId === undefined) {
-            tabId = await getDefaultTabId();
-          }
+          const tabId = tabTarget.tabId;
 
-          const error = await this.ensureDebuggerAttached(tabId as number);
+          const error = await this.ensureDebuggerAttached(tabId);
           if (error) {
             respondError(error);
             return;
           }
-          const fromResult = await this.resolveLocatorPoint(
-            tabId as number,
-            params.from
-          );
+          const fromResult = await this.resolveLocatorPoint(tabId, params.from);
           if (!fromResult.ok) {
             respondError(fromResult.error);
             return;
           }
-          const toResult = await this.resolveLocatorPoint(
-            tabId as number,
-            params.to
-          );
+          const toResult = await this.resolveLocatorPoint(tabId, params.to);
           if (!toResult.ok) {
             respondError(toResult.error);
             return;
@@ -2035,14 +1814,12 @@ class DriveSocket {
               : 12;
           try {
             await this.dispatchCdpDrag(
-              tabId as number,
+              tabId,
               fromResult.point,
               toResult.point,
               steps
             );
-            respondOk(
-              await withResolvedTabTarget(tabId as number, { ok: true })
-            );
+            respondOk(await withResolvedTabTarget(tabId, { ok: true }));
           } catch (error) {
             const info = mapDebuggerErrorMessage(
               error instanceof Error ? error.message : 'Drag dispatch failed.'
@@ -2062,33 +1839,21 @@ class DriveSocket {
             });
             return;
           }
-          let tabId = params.tab_id;
-          if (tabId !== undefined && typeof tabId !== 'number') {
-            respondError({
-              code: 'INVALID_ARGUMENT',
-              message: 'tab_id must be a number when provided.',
-              retryable: false,
-            });
+          const tabTarget = await resolveActionTabId(params);
+          if (!tabTarget.ok) {
+            respondError(tabTarget.error);
             return;
           }
-          if (tabId === undefined) {
-            tabId = await getDefaultTabId();
-          }
+          const tabId = tabTarget.tabId;
 
-          const error = await this.ensureDebuggerAttached(tabId as number);
+          const error = await this.ensureDebuggerAttached(tabId);
           if (error) {
             respondError(error);
             return;
           }
           try {
-            await this.dispatchCdpKeyPress(
-              tabId as number,
-              key,
-              params.modifiers
-            );
-            respondOk(
-              await withResolvedTabTarget(tabId as number, { ok: true })
-            );
+            await this.dispatchCdpKeyPress(tabId, key, params.modifiers);
+            respondOk(await withResolvedTabTarget(tabId, { ok: true }));
           } catch (error) {
             const info = mapDebuggerErrorMessage(
               error instanceof Error
@@ -2110,38 +1875,26 @@ class DriveSocket {
             });
             return;
           }
-          let tabId = params.tab_id;
-          if (tabId !== undefined && typeof tabId !== 'number') {
-            respondError({
-              code: 'INVALID_ARGUMENT',
-              message: 'tab_id must be a number when provided.',
-              retryable: false,
-            });
+          const tabTarget = await resolveActionTabId(params);
+          if (!tabTarget.ok) {
+            respondError(tabTarget.error);
             return;
           }
-          if (tabId === undefined) {
-            tabId = await getDefaultTabId();
-          }
+          const tabId = tabTarget.tabId;
           const count =
             typeof params.repeat === 'number' && Number.isFinite(params.repeat)
               ? Math.max(1, Math.min(50, Math.floor(params.repeat)))
               : 1;
-          const error = await this.ensureDebuggerAttached(tabId as number);
+          const error = await this.ensureDebuggerAttached(tabId);
           if (error) {
             respondError(error);
             return;
           }
           try {
             for (let i = 0; i < count; i += 1) {
-              await this.dispatchCdpKeyPress(
-                tabId as number,
-                key,
-                params.modifiers
-              );
+              await this.dispatchCdpKeyPress(tabId, key, params.modifiers);
             }
-            respondOk(
-              await withResolvedTabTarget(tabId as number, { ok: true })
-            );
+            respondOk(await withResolvedTabTarget(tabId, { ok: true }));
           } catch (error) {
             const info = mapDebuggerErrorMessage(
               error instanceof Error
@@ -2163,24 +1916,18 @@ class DriveSocket {
             });
             return;
           }
-          let tabId = params.tab_id;
-          if (tabId !== undefined && typeof tabId !== 'number') {
-            respondError({
-              code: 'INVALID_ARGUMENT',
-              message: 'tab_id must be a number when provided.',
-              retryable: false,
-            });
+          const tabTarget = await resolveActionTabId(params);
+          if (!tabTarget.ok) {
+            respondError(tabTarget.error);
             return;
           }
-          if (tabId === undefined) {
-            tabId = await getDefaultTabId();
-          }
-          const error = await this.ensureDebuggerAttached(tabId as number);
+          const tabId = tabTarget.tabId;
+          const error = await this.ensureDebuggerAttached(tabId);
           if (error) {
             respondError(error);
             return;
           }
-          const result = await this.performCdpType(tabId as number, {
+          const result = await this.performCdpType(tabId, {
             locator: params.locator,
             text,
             clear: Boolean(params.clear),
@@ -2190,30 +1937,24 @@ class DriveSocket {
             respondError(result.error);
             return;
           }
-          respondOk(await withResolvedTabTarget(tabId as number, { ok: true }));
+          respondOk(await withResolvedTabTarget(tabId, { ok: true }));
           return;
         }
         case 'drive.select': {
           const params = (message.params ?? {}) as Record<string, unknown>;
-          let tabId = params.tab_id;
-          if (tabId !== undefined && typeof tabId !== 'number') {
-            respondError({
-              code: 'INVALID_ARGUMENT',
-              message: 'tab_id must be a number when provided.',
-              retryable: false,
-            });
+          const tabTarget = await resolveActionTabId(params);
+          if (!tabTarget.ok) {
+            respondError(tabTarget.error);
             return;
           }
-          if (tabId === undefined) {
-            tabId = await getDefaultTabId();
-          }
-          const error = await this.ensureDebuggerAttached(tabId as number);
+          const tabId = tabTarget.tabId;
+          const error = await this.ensureDebuggerAttached(tabId);
           if (error) {
             respondError(error);
             return;
           }
           const pointResult = await this.resolveLocatorPoint(
-            tabId as number,
+            tabId,
             params.locator
           );
           if (!pointResult.ok) {
@@ -2222,7 +1963,7 @@ class DriveSocket {
           }
           try {
             await this.dispatchCdpClick(
-              tabId as number,
+              tabId,
               pointResult.point.x,
               pointResult.point.y,
               1
@@ -2236,18 +1977,14 @@ class DriveSocket {
           }
           // CDP has no direct "select option by value/text/index" primitive.
           // Fall back explicitly to the existing select helper after CDP focus.
-          const selectResult = await sendToTab(
-            tabId as number,
-            'drive.select',
-            params
-          );
+          const selectResult = await sendToTab(tabId, 'drive.select', params);
           if (!selectResult.ok) {
             respondError(selectResult.error);
             return;
           }
           respondOk(
             await withResolvedTabTarget(
-              tabId as number,
+              tabId,
               selectResult.result ?? { ok: true }
             )
           );
@@ -2264,19 +2001,13 @@ class DriveSocket {
             });
             return;
           }
-          let tabId = params.tab_id;
-          if (tabId !== undefined && typeof tabId !== 'number') {
-            respondError({
-              code: 'INVALID_ARGUMENT',
-              message: 'tab_id must be a number when provided.',
-              retryable: false,
-            });
+          const tabTarget = await resolveActionTabId(params);
+          if (!tabTarget.ok) {
+            respondError(tabTarget.error);
             return;
           }
-          if (tabId === undefined) {
-            tabId = await getDefaultTabId();
-          }
-          const error = await this.ensureDebuggerAttached(tabId as number);
+          const tabId = tabTarget.tabId;
+          const error = await this.ensureDebuggerAttached(tabId);
           if (error) {
             respondError(error);
             return;
@@ -2338,7 +2069,7 @@ class DriveSocket {
               (resolvedType === 'text' || resolvedType === 'contentEditable') &&
               locator
             ) {
-              const typed = await this.performCdpType(tabId as number, {
+              const typed = await this.performCdpType(tabId, {
                 locator,
                 text: String(value),
                 clear: true,
@@ -2355,13 +2086,9 @@ class DriveSocket {
             }
 
             // Explicit fallback for controls not yet modeled via CDP-first helper.
-            const fallback = await sendToTab(
-              tabId as number,
-              'drive.fill_form',
-              {
-                fields: [field],
-              }
-            );
+            const fallback = await sendToTab(tabId, 'drive.fill_form', {
+              fields: [field],
+            });
             if (!fallback.ok) {
               errors.push(
                 `Field ${index} could not be filled: ${fallback.error.message}`
@@ -2385,7 +2112,7 @@ class DriveSocket {
             errors.push(`Field ${index} could not be filled.`);
           }
           respondOk(
-            await withResolvedTabTarget(tabId as number, {
+            await withResolvedTabTarget(tabId, {
               filled,
               attempted: fields.length,
               errors: errors.length > 0 ? errors : [],
@@ -2396,38 +2123,24 @@ class DriveSocket {
         case 'drive.scroll':
         case 'drive.wait_for': {
           const params = (message.params ?? {}) as Record<string, unknown>;
-          let tabId = params.tab_id;
-          if (tabId !== undefined && typeof tabId !== 'number') {
-            respondError({
-              code: 'INVALID_ARGUMENT',
-              message: 'tab_id must be a number when provided.',
-              retryable: false,
-            });
+          const tabTarget = await resolveActionTabId(params);
+          if (!tabTarget.ok) {
+            respondError(tabTarget.error);
             return;
           }
-          if (tabId === undefined) {
-            tabId = await getDefaultTabId();
-          }
+          const tabId = tabTarget.tabId;
           const timeoutMs =
             message.action === 'drive.wait_for' &&
             typeof params.timeout_ms === 'number' &&
             Number.isFinite(params.timeout_ms)
               ? Math.max(1, Math.floor(params.timeout_ms) + 1000)
               : undefined;
-          const result = await sendToTab(
-            tabId as number,
-            message.action,
-            params,
-            {
-              timeoutMs,
-            }
-          );
+          const result = await sendToTab(tabId, message.action, params, {
+            timeoutMs,
+          });
           if (result.ok) {
             respondOk(
-              await withResolvedTabTarget(
-                tabId as number,
-                result.result ?? { ok: true }
-              )
+              await withResolvedTabTarget(tabId, result.result ?? { ok: true })
             );
           } else {
             respondError(result.error);
@@ -2436,18 +2149,12 @@ class DriveSocket {
         }
         case 'drive.screenshot': {
           const params = (message.params ?? {}) as Record<string, unknown>;
-          let tabId = params.tab_id;
-          if (tabId !== undefined && typeof tabId !== 'number') {
-            respondError({
-              code: 'INVALID_ARGUMENT',
-              message: 'tab_id must be a number when provided.',
-              retryable: false,
-            });
+          const tabTarget = await resolveActionTabId(params);
+          if (!tabTarget.ok) {
+            respondError(tabTarget.error);
             return;
           }
-          if (tabId === undefined) {
-            tabId = await getDefaultTabId();
-          }
+          const tabId = tabTarget.tabId;
 
           const mode =
             params.mode === 'full_page' ||
@@ -3319,136 +3026,25 @@ class DriveSocket {
       });
     };
 
-    try {
-      switch (message.action) {
-        case 'debugger.attach': {
-          const params = (message.params ?? {}) as { tab_id?: unknown };
-          const tabId = params.tab_id;
-          if (typeof tabId !== 'number') {
-            respondError({
-              code: 'INVALID_ARGUMENT',
-              message: 'tab_id must be a number.',
-              retryable: false,
-            });
-            return;
-          }
-
-          const error = await this.ensureDebuggerAttached(tabId);
-          if (error) {
-            respondError(error);
-            return;
-          }
-          respondAck({ ok: true });
-          return;
-        }
-        case 'debugger.detach': {
-          const params = (message.params ?? {}) as { tab_id?: unknown };
-          const tabId = params.tab_id;
-          if (typeof tabId !== 'number') {
-            respondError({
-              code: 'INVALID_ARGUMENT',
-              message: 'tab_id must be a number.',
-              retryable: false,
-            });
-            return;
-          }
-          const error = await this.detachDebugger(tabId);
-          if (error) {
-            respondError(error);
-            return;
-          }
-          respondAck({ ok: true });
-          return;
-        }
-        case 'debugger.command': {
-          const params = (message.params ?? {}) as DebuggerCommandParams;
-          const tabId = params.tab_id;
-          if (typeof tabId !== 'number') {
-            respondError({
-              code: 'INVALID_ARGUMENT',
-              message: 'tab_id must be a number.',
-              retryable: false,
-            });
-            return;
-          }
-          if (typeof params.method !== 'string' || params.method.length === 0) {
-            respondError({
-              code: 'INVALID_ARGUMENT',
-              message: 'method must be a non-empty string.',
-              retryable: false,
-            });
-            return;
-          }
-
-          const session = this.debuggerSessions.get(tabId);
-          if (session?.attachPromise) {
-            try {
-              await session.attachPromise;
-            } catch (error) {
-              const info = mapDebuggerErrorMessage(
-                error instanceof Error
-                  ? error.message
-                  : 'Debugger attach failed.'
-              );
-              this.clearDebuggerSession(tabId);
-              respondError(info);
-              return;
-            }
-          }
-
-          const attachedSession = this.debuggerSessions.get(tabId);
-          if (!attachedSession?.attached) {
-            respondError({
-              code: 'FAILED_PRECONDITION',
-              message: 'Debugger is not attached to the requested tab.',
-              retryable: false,
-            });
-            return;
-          }
-
-          try {
-            const result = await this.sendDebuggerCommand(
-              tabId,
-              params.method,
-              params.params,
-              DEFAULT_DEBUGGER_COMMAND_TIMEOUT_MS
-            );
-            this.touchDebuggerSession(tabId);
-            respondAck(result);
-          } catch (error) {
-            if (error instanceof DebuggerTimeoutError) {
-              respondError({
-                code: 'TIMEOUT',
-                message: error.message,
-                retryable: true,
-              });
-              return;
-            }
-            const info = mapDebuggerErrorMessage(
-              error instanceof Error
-                ? error.message
-                : 'Debugger command failed.'
-            );
-            respondError(info);
-          }
-          return;
-        }
-        default:
-          respondError({
-            code: 'NOT_IMPLEMENTED',
-            message: `${message.action} not implemented in extension yet.`,
-            retryable: false,
-          });
+    await dispatchDebuggerRequest(
+      message,
+      {
+        getSession: (tabId) => this.debuggerSessions.get(tabId),
+        ensureDebuggerAttached: async (tabId) =>
+          await this.ensureDebuggerAttached(tabId),
+        detachDebugger: async (tabId) => await this.detachDebugger(tabId),
+        sendDebuggerCommand: async (tabId, method, params, timeoutMs) =>
+          await this.sendDebuggerCommand(tabId, method, params, timeoutMs),
+        touchDebuggerSession: (tabId) => this.touchDebuggerSession(tabId),
+        clearDebuggerSession: (tabId) => this.clearDebuggerSession(tabId),
+        mapDebuggerErrorMessage,
+        debuggerCommandTimeoutMs: DEFAULT_DEBUGGER_COMMAND_TIMEOUT_MS,
+      },
+      {
+        respondAck,
+        respondError,
       }
-    } catch (error) {
-      const messageText =
-        error instanceof Error ? error.message : 'Unexpected debugger error.';
-      respondError({
-        code: 'INSPECT_UNAVAILABLE',
-        message: messageText,
-        retryable: false,
-      });
-    }
+    );
   }
 
   async handleDebuggerEvent(
