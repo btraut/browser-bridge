@@ -9,6 +9,7 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 ### Changed
 
 - Extension background request handling now routes tab resolution, permission gating, and debugger dispatch through focused helpers instead of keeping those branches inline in `background.ts`.
+- Content click handling now chooses explicit generic vs popup-trigger strategies, and locator ranking/hittable-point policy lives in dedicated helper modules instead of hiding inside `content.ts`.
 
 ### Fixed
 

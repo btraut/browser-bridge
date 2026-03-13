@@ -1,7 +1,16 @@
+import { readPopupTriggerState } from './popup-trigger-state.js';
+import { selectClickStrategy } from './click-strategies/index.js';
+import { executeGenericClick } from './click-strategies/generic-click.js';
+import { executePopupTriggerClick } from './click-strategies/popup-trigger-click.js';
+import { getHittablePoint } from './locator-point.js';
 import {
-  popupTriggerStateChanged,
-  readPopupTriggerState,
-} from './popup-trigger-state.js';
+  findByText,
+  getRenderedText,
+  getRoleAccessibleName,
+  isVisible,
+  normalizeText,
+  scoreCandidates,
+} from './locator-ranking.js';
 
 type DriveErrorInfo = {
   code: string;
@@ -73,152 +82,6 @@ export const runDriveAction = async (
     }
     return value.replace(/[\\"']/g, '\\$&');
   };
-
-  const normalizeText = (value: string): string =>
-    value.replace(/\s+/g, ' ').trim();
-
-  const isClickable = (element: Element): boolean =>
-    element instanceof HTMLElement &&
-    element.matches(
-      'a,button,input,textarea,select,summary,label,[role="button"],[tabindex]'
-    );
-
-  const getNodeDepth = (element: Element): number => {
-    let depth = 0;
-    let current: Element | null = element;
-    while (current) {
-      depth += 1;
-      current = current.parentElement;
-    }
-    return depth;
-  };
-
-  const isVisible = (element: Element): boolean => {
-    if (!(element instanceof HTMLElement)) {
-      return false;
-    }
-    const style = window.getComputedStyle(element);
-    if (style.visibility === 'hidden' || style.display === 'none') {
-      return false;
-    }
-    const rect = element.getBoundingClientRect();
-    if (rect.width === 0 && rect.height === 0) {
-      return false;
-    }
-    if (
-      element.offsetWidth === 0 &&
-      element.offsetHeight === 0 &&
-      element.getClientRects().length === 0
-    ) {
-      return false;
-    }
-    let current: HTMLElement | null = element;
-    while (current) {
-      const style = window.getComputedStyle(current);
-      if (style.display === 'none') {
-        return false;
-      }
-      if (style.visibility === 'hidden' || style.visibility === 'collapse') {
-        return false;
-      }
-      const opacity = Number.parseFloat(style.opacity ?? '1');
-      if (Number.isFinite(opacity) && opacity <= 0) {
-        return false;
-      }
-      current = current.parentElement;
-    }
-    return true;
-  };
-
-  const isOnScreen = (element: Element): boolean => {
-    if (!(element instanceof HTMLElement) || !isVisible(element)) {
-      return false;
-    }
-    const rect = element.getBoundingClientRect();
-    return (
-      rect.right > 0 &&
-      rect.bottom > 0 &&
-      rect.left < window.innerWidth &&
-      rect.top < window.innerHeight
-    );
-  };
-
-  const pointHitsTarget = (
-    target: Element,
-    x: number,
-    y: number,
-    options?: { directOnly?: boolean }
-  ): boolean => {
-    if (typeof document.elementFromPoint !== 'function') {
-      return true;
-    }
-    const hit = document.elementFromPoint(x, y);
-    if (!hit) {
-      return false;
-    }
-    if (options?.directOnly) {
-      return target === hit;
-    }
-    return target === hit || target.contains(hit);
-  };
-
-  const getHittablePoint = (
-    target: Element,
-    options?: { preferDirectHit?: boolean }
-  ): { x: number; y: number } => {
-    const rect = target.getBoundingClientRect();
-    const insetX = Math.min(Math.max(rect.width * 0.25, 1), rect.width / 2);
-    const insetY = Math.min(Math.max(rect.height * 0.25, 1), rect.height / 2);
-    const candidatePoints = [
-      { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 },
-      { x: rect.left + insetX, y: rect.top + insetY },
-      { x: rect.right - insetX, y: rect.top + insetY },
-      { x: rect.left + insetX, y: rect.bottom - insetY },
-      { x: rect.right - insetX, y: rect.bottom - insetY },
-      { x: rect.left + rect.width / 2, y: rect.top + insetY },
-      { x: rect.left + rect.width / 2, y: rect.bottom - insetY },
-      { x: rect.left + insetX, y: rect.top + rect.height / 2 },
-      { x: rect.right - insetX, y: rect.top + rect.height / 2 },
-    ];
-    if (options?.preferDirectHit) {
-      for (const point of candidatePoints) {
-        if (pointHitsTarget(target, point.x, point.y, { directOnly: true })) {
-          return point;
-        }
-      }
-    }
-    for (const point of candidatePoints) {
-      if (pointHitsTarget(target, point.x, point.y)) {
-        return point;
-      }
-    }
-    return candidatePoints[0] ?? { x: rect.left, y: rect.top };
-  };
-
-  const collectVisibleText = (node: Node): string => {
-    if (node.nodeType === Node.TEXT_NODE) {
-      return node.textContent || '';
-    }
-    if (!(node instanceof Element)) {
-      return '';
-    }
-    if (!isVisible(node)) {
-      return '';
-    }
-    if (node instanceof HTMLElement) {
-      const { innerText } = node;
-      if (typeof innerText === 'string' && innerText.length > 0) {
-        return innerText;
-      }
-    }
-    return Array.from(node.childNodes)
-      .map((child) => collectVisibleText(child))
-      .join('');
-  };
-
-  const getRenderedText = (element: Element): string =>
-    normalizeText(collectVisibleText(element));
-
   // Heuristic guard against unsafe regex patterns to avoid ReDoS in url_matches.
   const buildUrlMatcher = (
     pattern: string
@@ -255,109 +118,6 @@ export const runDriveAction = async (
     }
   };
 
-  const findByText = (text: string): Element | null => {
-    const query = normalizeText(text);
-    if (query.length === 0) {
-      return null;
-    }
-
-    const candidateMap = new Map<
-      Element,
-      {
-        exact: boolean;
-        onScreen: boolean;
-        clickable: boolean;
-        textLength: number;
-        depth: number;
-      }
-    >();
-    const tree = document.createTreeWalker(
-      document.body,
-      NodeFilter.SHOW_ELEMENT
-    );
-    let node = tree.nextNode();
-    while (node) {
-      const element = node as Element;
-      if (!isVisible(element)) {
-        node = tree.nextNode();
-        continue;
-      }
-      const elementText = getRenderedText(element);
-      if (!elementText.includes(query)) {
-        node = tree.nextNode();
-        continue;
-      }
-
-      let preferredTarget: Element = element;
-      let current: Element | null = element;
-      while (current) {
-        if (
-          current !== element &&
-          isVisible(current) &&
-          isClickable(current) &&
-          getRenderedText(current).includes(query)
-        ) {
-          preferredTarget = current;
-          break;
-        }
-        current = current.parentElement;
-      }
-
-      const preferredText = getRenderedText(preferredTarget);
-      const currentBest = candidateMap.get(preferredTarget);
-      const nextScore = {
-        exact: preferredText === query || elementText === query,
-        onScreen: isOnScreen(preferredTarget),
-        clickable: isClickable(preferredTarget),
-        textLength: preferredText.length || elementText.length,
-        depth: getNodeDepth(preferredTarget),
-      };
-
-      if (
-        !currentBest ||
-        Number(nextScore.exact) > Number(currentBest.exact) ||
-        (nextScore.exact === currentBest.exact &&
-          Number(nextScore.onScreen) > Number(currentBest.onScreen)) ||
-        (nextScore.exact === currentBest.exact &&
-          nextScore.onScreen === currentBest.onScreen &&
-          Number(nextScore.clickable) > Number(currentBest.clickable)) ||
-        (nextScore.exact === currentBest.exact &&
-          nextScore.onScreen === currentBest.onScreen &&
-          nextScore.clickable === currentBest.clickable &&
-          nextScore.textLength < currentBest.textLength) ||
-        (nextScore.exact === currentBest.exact &&
-          nextScore.onScreen === currentBest.onScreen &&
-          nextScore.clickable === currentBest.clickable &&
-          nextScore.textLength === currentBest.textLength &&
-          nextScore.depth > currentBest.depth)
-      ) {
-        candidateMap.set(preferredTarget, nextScore);
-      }
-
-      node = tree.nextNode();
-    }
-
-    const candidates = Array.from(candidateMap.entries()).sort((a, b) => {
-      const [, left] = a;
-      const [, right] = b;
-      if (left.exact !== right.exact) {
-        return left.exact ? -1 : 1;
-      }
-      if (left.onScreen !== right.onScreen) {
-        return left.onScreen ? -1 : 1;
-      }
-      if (left.clickable !== right.clickable) {
-        return left.clickable ? -1 : 1;
-      }
-      if (left.textLength !== right.textLength) {
-        return left.textLength - right.textLength;
-      }
-      return right.depth - left.depth;
-    });
-
-    return candidates[0]?.[0] ?? null;
-  };
-
   const getRoleCandidates = (roleName: string): Element[] => {
     const selectorMap: Record<string, string> = {
       button:
@@ -372,67 +132,6 @@ export const runDriveAction = async (
     const selector =
       selectorMap[roleName] ?? `[role="${escapeSelector(roleName)}"]`;
     return Array.from(document.querySelectorAll(selector)).filter(isVisible);
-  };
-
-  const getRoleAccessibleName = (element: Element): string =>
-    normalizeText(
-      element.getAttribute('aria-label') ??
-        element.getAttribute('title') ??
-        getRenderedText(element)
-    );
-
-  const scoreCandidates = (
-    candidates: Element[],
-    options?: {
-      exactText?: string;
-      exactHref?: string;
-    }
-  ): Element | null => {
-    const queryText = options?.exactText
-      ? normalizeText(options.exactText)
-      : '';
-    const queryHref = options?.exactHref ?? '';
-    if (candidates.length === 0) {
-      return null;
-    }
-    const scored = candidates
-      .filter(isVisible)
-      .map((candidate) => {
-        const text = getRenderedText(candidate);
-        const href = candidate.getAttribute('href') ?? '';
-        return {
-          candidate,
-          exactText: queryText.length > 0 && text === queryText,
-          exactHref:
-            queryHref.length > 0 &&
-            (href === queryHref ||
-              (candidate instanceof HTMLAnchorElement &&
-                candidate.href === queryHref)),
-          onScreen: isOnScreen(candidate),
-          clickable: isClickable(candidate),
-          textLength: text.length,
-          depth: getNodeDepth(candidate),
-        };
-      })
-      .sort((a, b) => {
-        if (a.exactHref !== b.exactHref) {
-          return a.exactHref ? -1 : 1;
-        }
-        if (a.exactText !== b.exactText) {
-          return a.exactText ? -1 : 1;
-        }
-        if (a.onScreen !== b.onScreen) {
-          return a.onScreen ? -1 : 1;
-        }
-        if (a.clickable !== b.clickable) {
-          return a.clickable ? -1 : 1;
-        }
-        if (a.textLength !== b.textLength) {
-          return a.textLength - b.textLength;
-        }
-        return b.depth - a.depth;
-      });
-    return scored[0]?.candidate ?? candidates[0] ?? null;
   };
 
   const readSnapshotRefRegistry = (): Map<
@@ -942,63 +641,20 @@ export const runDriveAction = async (
           typeof click_count === 'number' && Number.isFinite(click_count)
             ? Math.max(1, Math.floor(click_count))
             : 1;
-        const popupTriggerBefore = readPopupTriggerState(target);
-        const locationBefore = window.location.href;
-        if (popupTriggerBefore) {
-          const popupTarget = target as HTMLElement;
-          try {
-            popupTarget.focus({ preventScroll: true });
-          } catch {
-            popupTarget.focus();
-          }
-          for (let i = 0; i < count; i += 1) {
-            popupTarget.click();
-          }
-          await sleep(50);
-          if (window.location.href !== locationBefore || !target.isConnected) {
-            return ok();
-          }
-          const popupTriggerAfter = readPopupTriggerState(target);
-          if (
-            !popupTriggerStateChanged(popupTriggerBefore, popupTriggerAfter)
-          ) {
-            return buildError(
-              'FAILED_PRECONDITION',
-              'Click focused the popup trigger but did not change its open state.',
-              {
-                reason: 'click_state_unchanged',
-                control: popupTriggerBefore.kind,
-                aria_haspopup: popupTriggerBefore.ariaHasPopup,
-                aria_expanded_before: popupTriggerBefore.ariaExpanded,
-                aria_expanded_after: popupTriggerAfter?.ariaExpanded,
-                data_state_before: popupTriggerBefore.dataState,
-                data_state_after: popupTriggerAfter?.dataState,
-              }
-            );
-          }
-          return ok();
+        const strategy = selectClickStrategy(target);
+        if (strategy.kind === 'popup_trigger') {
+          return await executePopupTriggerClick({
+            target,
+            beforeState: strategy.state,
+            clickCount: count,
+            locationBefore: window.location.href,
+            sleep,
+          });
         }
-        // Clicking elements that trigger JS dialogs (alert/confirm/prompt) can
-        // block the renderer thread before we can reply to the background script,
-        // causing the caller to time out. Defer the click to the next tick so
-        // we can respond immediately.
-        window.setTimeout(() => {
-          try {
-            if (target instanceof HTMLElement) {
-              try {
-                target.focus({ preventScroll: true });
-              } catch {
-                target.focus();
-              }
-            }
-            for (let i = 0; i < count; i += 1) {
-              (target as HTMLElement).click();
-            }
-          } catch {
-            // Best-effort: the element may have disappeared or navigation occurred.
-          }
-        }, 0);
-        return ok();
+        return executeGenericClick({
+          target,
+          clickCount: count,
+        });
       }
       case 'drive.hover': {
         const { locator, delay_ms } = parseParams();
