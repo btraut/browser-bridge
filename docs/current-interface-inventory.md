@@ -228,6 +228,7 @@ Behavioral notes:
 - `/health/check`
 - `/health_check` (legacy compatibility alias)
 - `/diagnostics/doctor`
+- `/diagnostics/enable_inspect` (legacy compatibility route; transitional bridge shim only, not part of the operator-facing setup story)
 
 Diagnostics doctor returns a structured report with runtime/session/extension/debugger/recovery/artifact context.
 
@@ -439,6 +440,7 @@ Input validation contract:
 - `dev enable-inspect` is a compatibility probe that verifies `inspect.capability` through `diagnostics.doctor`; it no longer toggles inspect through core.
 - optional extension-id verification uses the CLI flag first and then `BROWSER_BRIDGE_EXTENSION_ID`; if neither is set, the command can fall back to the connected runtime id reported by diagnostics.
 - when inspect capability is unavailable, `dev enable-inspect` reports stale runtime drift remediation (restart core, reload/update extension) instead of opening a legacy options/toggle flow.
+- the old inspect-enablement bridge path remains compatibility-only plumbing; operators should treat it as deprecated internal scaffolding, not a supported setup flow.
 
 ## 9. Extension Contract
 
@@ -470,14 +472,14 @@ Key event/request actions emitted by extension background:
 - `drive.ping` (request handling path returns `{ ok: true }`)
 - `debugger.event` (event): includes tab id, method, params, timestamp
 
-Background currently only processes `drive.*` and `debugger.*` action namespaces. `debugger.*` requests are explicitly gated by extension options (`debuggerCapabilityEnabled`); when disabled they return deterministic `ATTACH_DENIED` guidance.
+Background currently only processes `drive.*` and `debugger.*` action namespaces. `debugger.*` requests still consult the legacy `debuggerCapabilityEnabled` storage key, but current builds self-heal that setting to enabled; operator-facing docs should treat inspect as always-on and any missing capability as stale runtime drift.
 
 ### 9.3 Runtime Message Action (`chrome.runtime.onMessage`) Contract
 
 Runtime message action exposed by background:
 
 - `{ action: 'drive.connection_status' }` -> returns connection state tracker status
-- `{ action: 'drive.refresh_capabilities' }` -> re-emits `drive.hello` with refreshed capability map (used by options UI after debugger-capability changes)
+- `{ action: 'drive.refresh_capabilities' }` -> re-emits `drive.hello` with refreshed capability map (legacy/internal refresh hook; no current operator flow depends on it)
 
 ### 9.4 Content Script Action Contract (`runDriveAction`)
 
@@ -521,7 +523,7 @@ Permission gating in background layer:
 - allowlist storage model exists (`allow_once`/`allow_always` flow)
 - site permissions mode supports `granular` and `bypass`
 - permission prompt timeout is configurable (default 30s)
-- debugger capability toggle (`debuggerCapabilityEnabled`) defaults to disabled and gates `debugger.*` inspect actions until explicitly enabled
+- the legacy `debuggerCapabilityEnabled` storage key is still read for compatibility, but current builds self-heal it to enabled and no longer present inspect as a separate operator toggle
 
 ### 9.6 Connection State Tracker Contract
 

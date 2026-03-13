@@ -96,6 +96,9 @@ export const registerDiagnosticsRoutes = (
   // Legacy compatibility route.
   router.post('/health_check', handleHealthCheck);
 
+  // Compatibility-only bridge shim for older inspect-enablement flows.
+  // Current operator guidance should use diagnostics.doctor / dev enable-inspect
+  // as a probe, not this route.
   router.post('/diagnostics/enable_inspect', async (req, res) => {
     const body = req.body ?? {};
     if (!isRecord(body)) {

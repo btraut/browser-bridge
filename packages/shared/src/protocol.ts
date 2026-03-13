@@ -203,6 +203,8 @@ export type DriveAction =
   | 'drive.tab_list'
   | 'drive.tab_activate'
   | 'drive.tab_close'
+  // Compatibility-only internal action used by transitional inspect-enablement
+  // flows. Current builds should treat inspect as always-on.
   | 'drive.set_debugger_capability'
   | 'drive.hello'
   | 'drive.tab_report'

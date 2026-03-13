@@ -112,7 +112,7 @@ See `docs/cdp-input-model.md` for details and smoke verification.
 
 ## 🔒 Site Permissions (Drive Actions)
 
-Browser Bridge is intentionally safe: **drive actions** (`drive.navigate`, click, type, etc.) require **per-site approval**. `inspect.*` is additionally guarded behind an explicit debugger-capability toggle in extension options.
+Browser Bridge is intentionally safe: **drive actions** (`drive.navigate`, click, type, etc.) require **per-site approval**. `inspect.*` is always available in current builds; if diagnostics reports missing inspect capability, that is stale runtime drift, not a separate permission toggle.
 
 <details>
 <summary>How approvals work (click to expand)</summary>
@@ -281,13 +281,13 @@ Optional status check:
 browser-bridge dev info --json
 ```
 
-Use `browser-bridge dev enable-inspect` only when you need debugger-based inspect:
+Use `browser-bridge dev enable-inspect` only as a quick diagnostics probe when you want to sanity-check debugger-backed inspect on the live runtime:
 
 ```bash
 browser-bridge dev enable-inspect
 ```
 
-The helper verifies inspect capability against the live runtime and can also sanity-check a specific connected extension via `--extension-id <id>`. The extension id may be cached in `.context/browser-bridge/dev.json` after a successful run, but that metadata is no longer a routing switch.
+The helper verifies inspect capability against the live runtime and can also sanity-check a specific connected extension via `--extension-id <id>`. It does not flip inspect on through Core. The extension id may be cached in `.context/browser-bridge/dev.json` after a successful run, but that metadata is no longer a routing switch.
 
 ## 🧯 Runtime Troubleshooting
 

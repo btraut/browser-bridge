@@ -20,7 +20,7 @@ This checklist validates the Drive + Inspect planes and artifact handling end-to
    - `node packages/cli/dist/index.js dev info --json`
 3. If you want a compatibility check for `inspect.*`, run:
    - `node packages/cli/dist/index.js dev enable-inspect --json`
-   - This is a verification helper now. It checks diagnostics and reports stale runtime drift; it does not flip inspect on through core.
+   - This is a verification helper now. It checks diagnostics and reports stale runtime drift; it does not flip inspect on through Core.
 4. Check logs before ad-hoc debugging:
    - `ls -1 .context/logs/browser-bridge`
    - `tail -n 80 .context/logs/browser-bridge/cli.jsonl`

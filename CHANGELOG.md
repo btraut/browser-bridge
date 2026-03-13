@@ -8,6 +8,7 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 
 ### Fixed
 
+- Operator docs and compatibility labels now tell one coherent inspect story: `dev enable-inspect` is a diagnostics probe, while `/diagnostics/enable_inspect` and `drive.set_debugger_capability` are explicitly compatibility-only scaffolding.
 - Inspect AX snapshots no longer warn when refs land on expected non-element or stale nodes, so successful `inspect.*` runs stop spamming bogus `Ref @e… could not be applied` noise.
 - Popup-style `drive.click` targets now carry popup state through `drive.locator_point`, and the background CDP click path verifies that menu/popover triggers actually open before reporting success.
 - Popup-trigger locator points now prefer coordinates that hit the trigger itself before settling for descendant hits, which avoids verified CDP clicks landing on child content like avatar images inside menu buttons.
