@@ -59,6 +59,91 @@ import type { TargetHint } from '../target-matching';
 const DEFAULT_MAX_SNAPSHOTS_PER_SESSION = 20;
 const DEFAULT_MAX_SNAPSHOT_HISTORY = 100;
 
+const normalizeExtractedText = (value: string): string =>
+  value.replace(/\s+/g, ' ').trim();
+
+const collapseRepeatedMarkdownBlocks = (markdown: string): string => {
+  const blocks = markdown
+    .split(/\n{2,}/)
+    .map((block) => block.trim())
+    .filter((block) => block.length > 0);
+  for (
+    let sequenceLength = Math.floor(blocks.length / 2);
+    sequenceLength >= 1;
+    sequenceLength -= 1
+  ) {
+    for (
+      let start = 0;
+      start + sequenceLength * 2 <= blocks.length;
+      start += 1
+    ) {
+      const first = blocks
+        .slice(start, start + sequenceLength)
+        .map((block) => normalizeExtractedText(block))
+        .join('\n');
+      const second = blocks
+        .slice(start + sequenceLength, start + sequenceLength * 2)
+        .map((block) => normalizeExtractedText(block))
+        .join('\n');
+      if (first.length === 0 || first !== second) {
+        continue;
+      }
+      blocks.splice(start + sequenceLength, sequenceLength);
+      sequenceLength = Math.min(
+        sequenceLength + 1,
+        Math.floor(blocks.length / 2)
+      );
+      start = Math.max(start - 1, -1);
+    }
+  }
+  return blocks.join('\n\n').trim();
+};
+
+const extractSemanticMainCandidate = (
+  document: JSDOM['window']['document']
+): { html: string; text: string; tagName: string } | null => {
+  const candidates = Array.from(
+    document.querySelectorAll('main, [role="main"], article')
+  );
+  let best = candidates[0] ?? null;
+  let bestLength = 0;
+  for (const candidate of candidates) {
+    const text = normalizeExtractedText(candidate.textContent ?? '');
+    if (text.length <= bestLength) {
+      continue;
+    }
+    best = candidate;
+    bestLength = text.length;
+  }
+  if (!best || bestLength === 0) {
+    return null;
+  }
+  return {
+    html: best.innerHTML,
+    text: normalizeExtractedText(best.textContent ?? ''),
+    tagName: best.tagName.toLowerCase(),
+  };
+};
+
+const shouldPreferSemanticMainCandidate = (options: {
+  articleText: string;
+  mainText: string;
+  mainTagName: string;
+}): boolean => {
+  const articleLength = normalizeExtractedText(options.articleText).length;
+  const mainLength = normalizeExtractedText(options.mainText).length;
+  if (mainLength === 0) {
+    return false;
+  }
+  if (articleLength === 0) {
+    return true;
+  }
+  if (options.mainTagName === 'article') {
+    return false;
+  }
+  return articleLength < 160 && mainLength > articleLength + 20;
+};
+
 export class InspectService {
   private readonly registry: SessionRegistry;
   private readonly debugger?: DebuggerBridge;
@@ -545,10 +630,16 @@ export class InspectService {
     });
     const url = selection.tab.url ?? 'about:blank';
     let article: ReturnType<Readability['parse']> | null = null;
+    let semanticMainCandidate: {
+      html: string;
+      text: string;
+      tagName: string;
+    } | null = null;
     try {
       const dom = new JSDOM(html, { url });
       const reader = new Readability(dom.window.document);
       article = reader.parse();
+      semanticMainCandidate = extractSemanticMainCandidate(dom.window.document);
     } catch {
       const err = new InspectError(
         'EVALUATION_FAILED',
@@ -573,10 +664,32 @@ export class InspectService {
     if (input.format === 'article_json') {
       content = JSON.stringify(article, null, 2);
     } else if (input.format === 'text') {
-      content = article.textContent ?? '';
+      const articleText = article.textContent ?? '';
+      if (
+        semanticMainCandidate &&
+        shouldPreferSemanticMainCandidate({
+          articleText,
+          mainText: semanticMainCandidate.text,
+          mainTagName: semanticMainCandidate.tagName,
+        })
+      ) {
+        content = semanticMainCandidate.text;
+      } else {
+        content = articleText;
+      }
     } else {
       const turndown = new TurndownService();
-      content = turndown.turndown(article.content ?? '');
+      const articleText = article.textContent ?? '';
+      const sourceHtml =
+        semanticMainCandidate &&
+        shouldPreferSemanticMainCandidate({
+          articleText,
+          mainText: semanticMainCandidate.text,
+          mainTagName: semanticMainCandidate.tagName,
+        })
+          ? semanticMainCandidate.html
+          : (article.content ?? '');
+      content = collapseRepeatedMarkdownBlocks(turndown.turndown(sourceHtml));
     }
 
     const warnings = selection.warnings ?? [];

@@ -1003,6 +1003,82 @@ describe('InspectService', () => {
     expect('title' in result).toBe(false);
   });
 
+  it('falls back to the semantic main region when Readability is too thin', async () => {
+    const registry = new SessionRegistry();
+    const session = registry.create();
+
+    const html = `<!doctype html><html><head><title>Deck</title></head><body><article><h2>Add cards</h2><p>Enter adds to main. Shift Enter adds to sideboard.</p></article><main><h1>Untitled deck</h1><ul><li>12 Jace, the Mind Sculptor</li><li>4 Brainstorm</li><li>4 Force of Will</li><li>4 Ponder</li><li>24 Island</li></ul></main></body></html>`;
+
+    const debuggerBridge = {
+      hasAttachments: () => true,
+      getLastError: () => undefined,
+      command: async (_tabId: number, method: string) => {
+        if (method === 'Runtime.evaluate') {
+          return { ok: true, result: { result: { value: html } } };
+        }
+        return { ok: true, result: {} };
+      },
+    } as unknown as DebuggerBridge;
+
+    const service = new InspectService({
+      registry,
+      extensionBridge: {
+        isConnected: () => true,
+        getStatus: () => ({ tabs: [DEFAULT_TAB] }),
+      },
+      debuggerBridge,
+    });
+
+    const result = await service.extractContent({
+      sessionId: session.id,
+      format: 'markdown',
+      includeMetadata: false,
+      targetHint: { url: DEFAULT_TAB.url },
+    });
+
+    expect(result.content).toContain('Untitled deck');
+    expect(result.content).toContain('12 Jace, the Mind Sculptor');
+    expect(result.content).not.toContain('Enter adds to main');
+  });
+
+  it('collapses adjacent repeated markdown blocks from extracted content', async () => {
+    const registry = new SessionRegistry();
+    const session = registry.create();
+
+    const html = `<!doctype html><html><head><title>Deck</title></head><body><article><section><h1>Untitled deck</h1><p>Planeswalkers (12)</p><p>Mana curve</p></section><section><h1>Untitled deck</h1><p>Planeswalkers (12)</p><p>Mana curve</p></section></article></body></html>`;
+
+    const debuggerBridge = {
+      hasAttachments: () => true,
+      getLastError: () => undefined,
+      command: async (_tabId: number, method: string) => {
+        if (method === 'Runtime.evaluate') {
+          return { ok: true, result: { result: { value: html } } };
+        }
+        return { ok: true, result: {} };
+      },
+    } as unknown as DebuggerBridge;
+
+    const service = new InspectService({
+      registry,
+      extensionBridge: {
+        isConnected: () => true,
+        getStatus: () => ({ tabs: [DEFAULT_TAB] }),
+      },
+      debuggerBridge,
+    });
+
+    const result = await service.extractContent({
+      sessionId: session.id,
+      format: 'markdown',
+      includeMetadata: false,
+      targetHint: { url: DEFAULT_TAB.url },
+    });
+
+    expect(result.content.match(/Untitled deck/g)).toHaveLength(1);
+    expect(result.content).toContain('Planeswalkers (12)');
+    expect(result.content).toContain('Mana curve');
+  });
+
   it('throws EVALUATION_FAILED when extractContent() cannot parse the configured URL', async () => {
     const registry = new SessionRegistry();
     const session = registry.create();

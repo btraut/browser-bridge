@@ -16,4 +16,4 @@ Some popup triggers wrap live child chrome that is "inside" the button but still
 
 ### extract_content falls apart on deck pages
 
-`inspect.extract_content` still duplicates large sections on deck view pages and can collapse to shallow helper text in edit mode. Check `browser-vision-d26.2` before trusting extract output on interactive SPA routes just because the DOM snapshot looks healthy.
+Readability can grab the wrong sliver of an app-shell page and then happily duplicate repeated deck sections into markdown. Check `browser-vision-d26.2`; the current fix path is to fall back to the semantic main region when Readability is too thin and to collapse adjacent repeated markdown sections before returning the extract.
