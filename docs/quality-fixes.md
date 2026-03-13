@@ -21,3 +21,7 @@ Locator resolution can still drift when the DOM keeps an off-screen twin ahead o
 ### Center-point clicks that lie
 
 A locator can resolve the right element while still producing a bad click point or reporting success before the CDP click finishes. Check `browser-vision-8hj.4`, the hittable locator-point regression, and the background click path before blaming the app for a no-op click.
+
+### Wait-for channel timeout drift
+
+`drive.wait_for` can fail because the content-script message round-trip died during route churn, not because the page condition was actually absent. Check `browser-vision-8hj.5` and the tab-channel retry helper before adding more DOM polling or bigger timeouts.

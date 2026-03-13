@@ -24,6 +24,7 @@ import {
   getTabChannelRetryDelayMs,
   isLikelyNavigationCommitted,
   isTransientTabChannelError,
+  shouldRetryTabChannelFailure,
 } from './drive-reliability.js';
 import {
   allowSiteAlways,
@@ -808,7 +809,7 @@ const sendToTab = async (
     if (result.ok) {
       return result;
     }
-    if (!isTransientTabChannelError(result.error?.message)) {
+    if (!shouldRetryTabChannelFailure(action, result.error)) {
       return result;
     }
     const retryDelayMs = getTabChannelRetryDelayMs(attempt);

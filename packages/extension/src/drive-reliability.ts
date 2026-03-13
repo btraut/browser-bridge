@@ -27,6 +27,31 @@ export const isTransientTabChannelError = (message: unknown): boolean => {
   );
 };
 
+type TabChannelError = {
+  code?: unknown;
+  message?: unknown;
+  retryable?: unknown;
+};
+
+export const shouldRetryTabChannelFailure = (
+  action: string,
+  error: TabChannelError | null | undefined
+): boolean => {
+  if (!error || typeof error !== 'object') {
+    return false;
+  }
+  if (isTransientTabChannelError(error.message)) {
+    return true;
+  }
+  return (
+    action === 'drive.wait_for' &&
+    error.code === 'TIMEOUT' &&
+    error.retryable === true &&
+    typeof error.message === 'string' &&
+    error.message.includes('Timed out waiting for content response')
+  );
+};
+
 export const getTabChannelRetryDelayMs = (
   attempt: number
 ): number | undefined => {

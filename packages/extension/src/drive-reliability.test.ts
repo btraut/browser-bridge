@@ -3,6 +3,7 @@ import {
   getTabChannelRetryDelayMs,
   isLikelyNavigationCommitted,
   isTransientTabChannelError,
+  shouldRetryTabChannelFailure,
 } from './drive-reliability';
 
 describe('drive reliability helpers', () => {
@@ -30,6 +31,30 @@ describe('drive reliability helpers', () => {
     expect(getTabChannelRetryDelayMs(4)).toBe(500);
     expect(getTabChannelRetryDelayMs(7)).toBe(1200);
     expect(getTabChannelRetryDelayMs(8)).toBeUndefined();
+  });
+
+  it('retries drive.wait_for when the content response itself times out', () => {
+    expect(
+      shouldRetryTabChannelFailure('drive.wait_for', {
+        code: 'TIMEOUT',
+        message: 'Timed out waiting for content response after 11000ms.',
+        retryable: true,
+      })
+    ).toBe(true);
+    expect(
+      shouldRetryTabChannelFailure('drive.click', {
+        code: 'TIMEOUT',
+        message: 'Timed out waiting for content response after 11000ms.',
+        retryable: true,
+      })
+    ).toBe(false);
+    expect(
+      shouldRetryTabChannelFailure('drive.wait_for', {
+        code: 'TIMEOUT',
+        message: 'wait_for timed out after 1000ms.',
+        retryable: false,
+      })
+    ).toBe(false);
   });
 
   it('matches likely successful navigation URLs', () => {

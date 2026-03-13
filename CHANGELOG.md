@@ -29,6 +29,7 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 - `drive.click` now waits briefly for deferred CDP click dispatch to land and retries one transient locator miss, which makes menu-trigger clicks and freshly opened overlay items less race-prone on live sites.
 - Popup verification now ignores styling-only `data-state` buttons unless they expose real popup semantics, so ordinary controls like `View list` stop tripping bogus `popup_trigger` failures.
 - Locator scoring now prefers on-screen exact matches and hittable click points over off-screen twins or dead-center guesses, which keeps live deck-editor controls ahead of parked duplicates.
+- Background tab messaging now retries `drive.wait_for` when the content response itself times out during route churn, instead of treating that transport timeout like a real page-state miss.
 - `inspect.dom_snapshot` no longer drops open-menu options like `menuitem` roles when `interactive=true`, so transient overlays stay visible to AX snapshot consumers instead of disappearing from the filtered result.
 - CI validate is green again after fixing a stray Prettier wrap in `packages/extension/src/content.ts`, an unused test callback arg, and two type regressions in inspect/tab-activation paths.
 - `dev enable-inspect` now opens `chrome-extension://...` URLs in Google Chrome on macOS instead of relying on the generic system opener, which could silently strand the inspect-enablement flow outside the live Chrome session.
