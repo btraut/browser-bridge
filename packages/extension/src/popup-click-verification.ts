@@ -15,6 +15,31 @@ type PointResult =
   | { ok: false; error: DriveErrorInfo };
 
 export const POPUP_TRIGGER_CLICK_SETTLE_MS = 50;
+export const POPUP_TRIGGER_RECHECK_MS = 125;
+
+const readPopupTriggerAfterClick = async (options: {
+  locator: unknown;
+  resolveLocatorPoint: (locator: unknown) => Promise<PointResult>;
+}): Promise<
+  { ok: true; point: LocatorPoint } | { ok: false; error: DriveErrorInfo }
+> => {
+  const after = await options.resolveLocatorPoint(options.locator);
+  if (!after.ok) {
+    if (shouldTreatPostClickReadErrorAsSuccess(after.error)) {
+      return {
+        ok: false,
+        error: {
+          code: 'NOT_FOUND',
+          message: 'Popup trigger disappeared after click.',
+          retryable: false,
+          details: { reason: 'popup_trigger_disappeared' },
+        },
+      };
+    }
+    return after;
+  }
+  return after;
+};
 
 export const shouldTreatPostClickReadErrorAsSuccess = (
   error: DriveErrorInfo
@@ -32,12 +57,17 @@ export const verifyPopupTriggerClick = async (options: {
   clickCount: number;
   locator: unknown;
   point: LocatorPoint;
+  prepareTarget?: () => Promise<void>;
   resolveLocatorPoint: (locator: unknown) => Promise<PointResult>;
   dispatchCdpClick: (x: number, y: number, clickCount: number) => Promise<void>;
   mapDispatchError: (error: unknown) => DriveErrorInfo;
   delayMs: (ms: number) => Promise<void>;
   settleMs?: number;
 }): Promise<{ ok: true } | { ok: false; error: DriveErrorInfo }> => {
+  if (options.prepareTarget) {
+    await options.prepareTarget();
+  }
+
   try {
     await options.dispatchCdpClick(
       options.point.x,
@@ -50,9 +80,9 @@ export const verifyPopupTriggerClick = async (options: {
 
   await options.delayMs(options.settleMs ?? POPUP_TRIGGER_CLICK_SETTLE_MS);
 
-  const after = await options.resolveLocatorPoint(options.locator);
+  const after = await readPopupTriggerAfterClick(options);
   if (!after.ok) {
-    if (shouldTreatPostClickReadErrorAsSuccess(after.error)) {
+    if (after.error.details?.reason === 'popup_trigger_disappeared') {
       return { ok: true };
     }
     return after;
@@ -65,6 +95,56 @@ export const verifyPopupTriggerClick = async (options: {
     )
   ) {
     return { ok: true };
+  }
+
+  if (options.clickCount === 1) {
+    await options.delayMs(POPUP_TRIGGER_RECHECK_MS);
+
+    const lateAfter = await readPopupTriggerAfterClick(options);
+    if (!lateAfter.ok) {
+      if (lateAfter.error.details?.reason === 'popup_trigger_disappeared') {
+        return { ok: true };
+      }
+      return lateAfter;
+    }
+
+    if (
+      popupTriggerStateChanged(
+        options.point.targetState ?? null,
+        lateAfter.point.targetState ?? null
+      )
+    ) {
+      return { ok: true };
+    }
+
+    try {
+      await options.dispatchCdpClick(
+        options.point.x,
+        options.point.y,
+        options.clickCount
+      );
+    } catch (error) {
+      return { ok: false, error: options.mapDispatchError(error) };
+    }
+
+    await options.delayMs(options.settleMs ?? POPUP_TRIGGER_CLICK_SETTLE_MS);
+
+    const retryAfter = await readPopupTriggerAfterClick(options);
+    if (!retryAfter.ok) {
+      if (retryAfter.error.details?.reason === 'popup_trigger_disappeared') {
+        return { ok: true };
+      }
+      return retryAfter;
+    }
+
+    if (
+      popupTriggerStateChanged(
+        options.point.targetState ?? null,
+        retryAfter.point.targetState ?? null
+      )
+    ) {
+      return { ok: true };
+    }
   }
 
   return {

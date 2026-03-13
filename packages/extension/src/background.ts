@@ -1887,6 +1887,8 @@ class DriveSocket {
               clickCount: count,
               locator: params.locator,
               point: pointResult.point,
+              prepareTarget: async () =>
+                await this.focusLocator(tabId as number, params.locator),
               resolveLocatorPoint: async (locator) =>
                 await this.resolveLocatorPoint(tabId as number, locator),
               dispatchCdpClick: async (clickX, clickY, clickCount) =>
@@ -3094,6 +3096,15 @@ class DriveSocket {
         ...(targetState ? { targetState } : {}),
       },
     };
+  }
+
+  private async focusLocator(tabId: number, locator: unknown): Promise<void> {
+    const focused = await sendToTab(tabId, 'drive.focus_locator', {
+      locator,
+    });
+    if (!focused.ok) {
+      throw new Error(focused.error.message);
+    }
   }
 
   private async performCdpType(

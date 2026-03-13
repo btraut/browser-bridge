@@ -842,6 +842,19 @@ export const runDriveAction = async (
           ...(targetState ? { target_state: targetState } : {}),
         });
       }
+      case 'drive.focus_locator': {
+        const { locator } = parseParams();
+        const target = resolveLocator(locator as Record<string, unknown>);
+        if (!target || !(target instanceof HTMLElement)) {
+          return buildError('LOCATOR_NOT_FOUND', 'Failed to resolve locator.');
+        }
+        try {
+          target.focus({ preventScroll: true });
+        } catch {
+          target.focus();
+        }
+        return ok();
+      }
       case 'drive.snapshot_html': {
         const html = document.documentElement?.outerHTML ?? '';
         return ok({ format: 'html', snapshot: html });

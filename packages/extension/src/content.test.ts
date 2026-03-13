@@ -142,6 +142,20 @@ describe('content drive actions', () => {
     }
   });
 
+  it('focuses a resolved locator without scrolling it', async () => {
+    const target = document.createElement('button');
+    target.id = 'focus-me';
+    document.body.appendChild(target);
+    setRect(target, new DOMRect(10, 20, 30, 40));
+
+    const result = await runDriveAction('drive.focus_locator', {
+      locator: { css: '#focus-me' },
+    });
+
+    expect(result).toEqual({ ok: true, result: undefined });
+    expect(document.activeElement).toBe(target);
+  });
+
   it('returns a hittable locator point when the center is occluded', async () => {
     const target = document.createElement('button');
     target.id = 'point-me';

@@ -12,7 +12,7 @@ When adding an entry:
 
 ### Popup trigger pointer-vs-keyboard mismatch
 
-`drive.click` can still leave a real popup trigger closed even when the same control opens immediately via keyboard activation. Check `browser-vision-d26.1`, plus the recent popup-click verification and click-targeting commits, before assuming a no-op pointer click is already solved.
+Some popup triggers open on `pointerdown` but collapse again if the first click also causes focus churn. Check `browser-vision-d26.1`; the current fix path is to focus the resolved trigger before dispatching the verified CDP click, not to relax the popup-open verification.
 
 ### extract_content falls apart on deck pages
 

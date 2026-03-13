@@ -31,6 +31,7 @@ describe('popup click verification', () => {
       clickCount: 1,
       locator: { css: '#menu' },
       point: popupPoint(),
+      prepareTarget: async () => {},
       resolveLocatorPoint,
       dispatchCdpClick,
       mapDispatchError: () => ({
@@ -60,6 +61,7 @@ describe('popup click verification', () => {
       clickCount: 1,
       locator: { css: '#menu' },
       point: popupPoint(),
+      prepareTarget: async () => {},
       resolveLocatorPoint: async () => ({
         ok: true,
         point: popupPoint({ ariaExpanded: 'true', dataState: 'open' }),
@@ -76,11 +78,78 @@ describe('popup click verification', () => {
     expect(result).toEqual({ ok: true });
   });
 
+  it('accepts a late state change before retrying the click', async () => {
+    const resolveLocatorPoint = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        point: popupPoint(),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        point: popupPoint({ ariaExpanded: 'true', dataState: 'open' }),
+      });
+    const dispatchCdpClick = vi.fn(async () => {});
+
+    const result = await verifyPopupTriggerClick({
+      clickCount: 1,
+      locator: { css: '#menu' },
+      point: popupPoint(),
+      resolveLocatorPoint,
+      dispatchCdpClick,
+      mapDispatchError: () => ({
+        code: 'INTERNAL',
+        message: 'boom',
+        retryable: false,
+      }),
+      delayMs: async () => {},
+    });
+
+    expect(result).toEqual({ ok: true });
+    expect(dispatchCdpClick).toHaveBeenCalledTimes(1);
+  });
+
+  it('retries one transient unchanged popup click for single-click triggers', async () => {
+    const resolveLocatorPoint = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        point: popupPoint(),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        point: popupPoint(),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        point: popupPoint({ ariaExpanded: 'true', dataState: 'open' }),
+      });
+    const dispatchCdpClick = vi.fn(async () => {});
+
+    const result = await verifyPopupTriggerClick({
+      clickCount: 1,
+      locator: { css: '#menu' },
+      point: popupPoint(),
+      resolveLocatorPoint,
+      dispatchCdpClick,
+      mapDispatchError: () => ({
+        code: 'INTERNAL',
+        message: 'boom',
+        retryable: false,
+      }),
+      delayMs: async () => {},
+    });
+
+    expect(result).toEqual({ ok: true });
+    expect(dispatchCdpClick).toHaveBeenCalledTimes(2);
+  });
+
   it('treats locator disappearance after click as success', async () => {
     const result = await verifyPopupTriggerClick({
       clickCount: 1,
       locator: { css: '#menu' },
       point: popupPoint(),
+      prepareTarget: async () => {},
       resolveLocatorPoint: async () => ({
         ok: false,
         error: {
@@ -106,6 +175,7 @@ describe('popup click verification', () => {
       clickCount: 2,
       locator: { css: '#menu' },
       point: popupPoint(),
+      prepareTarget: async () => {},
       resolveLocatorPoint: async () => ({
         ok: true,
         point: popupPoint({ ariaExpanded: 'true' }),
@@ -129,6 +199,38 @@ describe('popup click verification', () => {
         retryable: true,
       },
     });
+  });
+
+  it('prepares the target before dispatching the popup click', async () => {
+    const order: string[] = [];
+
+    const result = await verifyPopupTriggerClick({
+      clickCount: 1,
+      locator: { css: '#menu' },
+      point: popupPoint(),
+      prepareTarget: async () => {
+        order.push('prepare');
+      },
+      resolveLocatorPoint: async () => {
+        order.push('resolve');
+        return {
+          ok: true,
+          point: popupPoint({ ariaExpanded: 'true', dataState: 'open' }),
+        };
+      },
+      dispatchCdpClick: async () => {
+        order.push('dispatch');
+      },
+      mapDispatchError: () => ({
+        code: 'INTERNAL',
+        message: 'boom',
+        retryable: false,
+      }),
+      delayMs: async () => {},
+    });
+
+    expect(result).toEqual({ ok: true });
+    expect(order).toEqual(['prepare', 'dispatch', 'resolve']);
   });
 
   it('only swallows post-click read errors that imply page churn', () => {
