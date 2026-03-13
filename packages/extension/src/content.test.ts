@@ -142,6 +142,34 @@ describe('content drive actions', () => {
     }
   });
 
+  it('returns a hittable locator point when the center is occluded', async () => {
+    const target = document.createElement('button');
+    target.id = 'point-me';
+    document.body.appendChild(target);
+    setRect(target, new DOMRect(10, 20, 40, 40));
+    makeVisible(target, new DOMRect(10, 20, 40, 40));
+
+    (
+      document as unknown as {
+        elementFromPoint: (x: number, y: number) => Element | null;
+      }
+    ).elementFromPoint = (x: number, y: number) => {
+      if (x === 30 && y === 40) {
+        return document.body;
+      }
+      return target;
+    };
+
+    const result = await runDriveAction('drive.locator_point', {
+      locator: { css: '#point-me' },
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.result).toEqual({ x: 20, y: 30 });
+    }
+  });
+
   it('returns html snapshot payload', async () => {
     const target = document.createElement('div');
     target.id = 'snapshot-me';
@@ -608,6 +636,32 @@ describe('content drive actions', () => {
     }
   });
 
+  it('does not treat data-state-only buttons as popup triggers', async () => {
+    vi.useFakeTimers();
+    try {
+      const button = document.createElement('button');
+      button.textContent = 'View list';
+      button.setAttribute('data-state', 'closed');
+      document.body.appendChild(button);
+      makeVisible(button, new DOMRect(10, 10, 80, 24));
+
+      let clicks = 0;
+      button.addEventListener('click', () => {
+        clicks += 1;
+      });
+
+      const result = await runDriveAction('drive.click', {
+        locator: { role: { name: 'button', value: 'View list' } },
+      });
+
+      expect(result.ok).toBe(true);
+      await vi.runAllTimersAsync();
+      expect(clicks).toBe(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('prefers an exact native-role button name match over a longer substring match', async () => {
     vi.useFakeTimers();
     try {
@@ -636,6 +690,50 @@ describe('content drive actions', () => {
       await vi.runAllTimersAsync();
       expect(exactClicks).toBe(1);
       expect(longerClicks).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('prefers an on-screen role match over an off-screen duplicate', async () => {
+    vi.useFakeTimers();
+    try {
+      const offscreen = document.createElement('button');
+      offscreen.setAttribute(
+        'aria-label',
+        'Increase maindeck count for Jace, the Mind Sculptor'
+      );
+      const onscreen = document.createElement('button');
+      onscreen.setAttribute(
+        'aria-label',
+        'Increase maindeck count for Jace, the Mind Sculptor'
+      );
+      document.body.append(offscreen, onscreen);
+      makeVisible(offscreen, new DOMRect(-500, 40, 24, 24));
+      makeVisible(onscreen, new DOMRect(100, 40, 24, 24));
+
+      let offscreenClicks = 0;
+      let onscreenClicks = 0;
+      offscreen.addEventListener('click', () => {
+        offscreenClicks += 1;
+      });
+      onscreen.addEventListener('click', () => {
+        onscreenClicks += 1;
+      });
+
+      const result = await runDriveAction('drive.click', {
+        locator: {
+          role: {
+            name: 'button',
+            value: 'Increase maindeck count for Jace, the Mind Sculptor',
+          },
+        },
+      });
+
+      expect(result.ok).toBe(true);
+      await vi.runAllTimersAsync();
+      expect(onscreenClicks).toBe(1);
+      expect(offscreenClicks).toBe(0);
     } finally {
       vi.useRealTimers();
     }

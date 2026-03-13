@@ -130,6 +130,53 @@ export const runDriveAction = async (
     return true;
   };
 
+  const isOnScreen = (element: Element): boolean => {
+    if (!(element instanceof HTMLElement) || !isVisible(element)) {
+      return false;
+    }
+    const rect = element.getBoundingClientRect();
+    return (
+      rect.right > 0 &&
+      rect.bottom > 0 &&
+      rect.left < window.innerWidth &&
+      rect.top < window.innerHeight
+    );
+  };
+
+  const pointHitsTarget = (target: Element, x: number, y: number): boolean => {
+    if (typeof document.elementFromPoint !== 'function') {
+      return true;
+    }
+    const hit = document.elementFromPoint(x, y);
+    if (!hit) {
+      return false;
+    }
+    return target === hit || target.contains(hit);
+  };
+
+  const getHittablePoint = (target: Element): { x: number; y: number } => {
+    const rect = target.getBoundingClientRect();
+    const insetX = Math.min(Math.max(rect.width * 0.25, 1), rect.width / 2);
+    const insetY = Math.min(Math.max(rect.height * 0.25, 1), rect.height / 2);
+    const candidatePoints = [
+      { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 },
+      { x: rect.left + insetX, y: rect.top + insetY },
+      { x: rect.right - insetX, y: rect.top + insetY },
+      { x: rect.left + insetX, y: rect.bottom - insetY },
+      { x: rect.right - insetX, y: rect.bottom - insetY },
+      { x: rect.left + rect.width / 2, y: rect.top + insetY },
+      { x: rect.left + rect.width / 2, y: rect.bottom - insetY },
+      { x: rect.left + insetX, y: rect.top + rect.height / 2 },
+      { x: rect.right - insetX, y: rect.top + rect.height / 2 },
+    ];
+    for (const point of candidatePoints) {
+      if (pointHitsTarget(target, point.x, point.y)) {
+        return point;
+      }
+    }
+    return candidatePoints[0] ?? { x: rect.left, y: rect.top };
+  };
+
   const collectVisibleText = (node: Node): string => {
     if (node.nodeType === Node.TEXT_NODE) {
       return node.textContent || '';
@@ -200,6 +247,7 @@ export const runDriveAction = async (
       Element,
       {
         exact: boolean;
+        onScreen: boolean;
         clickable: boolean;
         textLength: number;
         depth: number;
@@ -241,6 +289,7 @@ export const runDriveAction = async (
       const currentBest = candidateMap.get(preferredTarget);
       const nextScore = {
         exact: preferredText === query || elementText === query,
+        onScreen: isOnScreen(preferredTarget),
         clickable: isClickable(preferredTarget),
         textLength: preferredText.length || elementText.length,
         depth: getNodeDepth(preferredTarget),
@@ -250,11 +299,16 @@ export const runDriveAction = async (
         !currentBest ||
         Number(nextScore.exact) > Number(currentBest.exact) ||
         (nextScore.exact === currentBest.exact &&
+          Number(nextScore.onScreen) > Number(currentBest.onScreen)) ||
+        (nextScore.exact === currentBest.exact &&
+          nextScore.onScreen === currentBest.onScreen &&
           Number(nextScore.clickable) > Number(currentBest.clickable)) ||
         (nextScore.exact === currentBest.exact &&
+          nextScore.onScreen === currentBest.onScreen &&
           nextScore.clickable === currentBest.clickable &&
           nextScore.textLength < currentBest.textLength) ||
         (nextScore.exact === currentBest.exact &&
+          nextScore.onScreen === currentBest.onScreen &&
           nextScore.clickable === currentBest.clickable &&
           nextScore.textLength === currentBest.textLength &&
           nextScore.depth > currentBest.depth)
@@ -270,6 +324,9 @@ export const runDriveAction = async (
       const [, right] = b;
       if (left.exact !== right.exact) {
         return left.exact ? -1 : 1;
+      }
+      if (left.onScreen !== right.onScreen) {
+        return left.onScreen ? -1 : 1;
       }
       if (left.clickable !== right.clickable) {
         return left.clickable ? -1 : 1;
@@ -333,6 +390,7 @@ export const runDriveAction = async (
             (href === queryHref ||
               (candidate instanceof HTMLAnchorElement &&
                 candidate.href === queryHref)),
+          onScreen: isOnScreen(candidate),
           clickable: isClickable(candidate),
           textLength: text.length,
           depth: getNodeDepth(candidate),
@@ -344,6 +402,9 @@ export const runDriveAction = async (
         }
         if (a.exactText !== b.exactText) {
           return a.exactText ? -1 : 1;
+        }
+        if (a.onScreen !== b.onScreen) {
+          return a.onScreen ? -1 : 1;
         }
         if (a.clickable !== b.clickable) {
           return a.clickable ? -1 : 1;
@@ -457,18 +518,18 @@ export const runDriveAction = async (
     }
 
     const query = normalizeText(roleValue);
-    const exact = candidates.find(
+    const matching = candidates.filter((candidate) =>
+      getRoleAccessibleName(candidate).includes(query)
+    );
+    if (matching.length === 0) {
+      return null;
+    }
+    const exactMatches = matching.filter(
       (candidate) => getRoleAccessibleName(candidate) === query
     );
-    if (exact) {
-      return exact;
-    }
-
-    return (
-      candidates.find((candidate) =>
-        getRoleAccessibleName(candidate).includes(query)
-      ) ?? null
-    );
+    return scoreCandidates(exactMatches.length > 0 ? exactMatches : matching, {
+      exactText: query,
+    });
   };
 
   const resolveLocator = (
@@ -773,11 +834,11 @@ export const runDriveAction = async (
         if (!target) {
           return buildError('LOCATOR_NOT_FOUND', 'Failed to resolve locator.');
         }
-        const rect = target.getBoundingClientRect();
+        const point = getHittablePoint(target);
         const targetState = readPopupTriggerState(target);
         return ok({
-          x: rect.left + rect.width / 2,
-          y: rect.top + rect.height / 2,
+          x: point.x,
+          y: point.y,
           ...(targetState ? { target_state: targetState } : {}),
         });
       }

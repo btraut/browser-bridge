@@ -1913,15 +1913,18 @@ class DriveSocket {
             return;
           }
 
-          // JS dialogs can block the tab event loop; dispatch click events on
-          // the next tick so we can acknowledge the command immediately.
-          self.setTimeout(() => {
-            void this.dispatchCdpClick(tabId as number, x, y, count).catch(
-              (error) => {
-                console.debug('Deferred CDP click failed.', error);
-              }
+          try {
+            await this.dispatchCdpClick(tabId as number, x, y, count);
+          } catch (error) {
+            respondError(
+              mapDebuggerErrorMessage(
+                error instanceof Error
+                  ? error.message
+                  : 'Click dispatch failed.'
+              )
             );
-          }, 0);
+            return;
+          }
           respondOk(await withResolvedTabTarget(tabId as number, { ok: true }));
           return;
         }

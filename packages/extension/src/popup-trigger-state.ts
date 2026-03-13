@@ -27,12 +27,12 @@ export const readPopupTriggerState = (
     'open' in target && typeof (target as { open?: unknown }).open === 'boolean'
       ? ((target as { open: boolean }).open ?? false)
       : undefined;
-  if (
-    !ariaHasPopup &&
-    ariaExpanded === undefined &&
-    dataState === undefined &&
-    open === undefined
-  ) {
+  const qualifiesAsPopupTrigger =
+    Boolean(ariaHasPopup) || ariaExpanded !== undefined || open !== undefined;
+  if (!qualifiesAsPopupTrigger && dataState === undefined) {
+    return null;
+  }
+  if (!qualifiesAsPopupTrigger) {
     return null;
   }
   return {
