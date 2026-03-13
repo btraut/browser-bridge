@@ -10,18 +10,10 @@ When adding an entry:
 
 ## 2026-03-13 ManaVault follow-up
 
-### Data-state popup misclassification
+### Popup trigger pointer-vs-keyboard mismatch
 
-Buttons with styling state like `data-state="closed"` can look popup-ish to Browser Bridge without actually controlling a menu. Check `browser-vision-8hj.2` and the `does not treat data-state-only buttons as popup triggers` regression before touching popup verification again.
+`drive.click` can still leave a real popup trigger closed even when the same control opens immediately via keyboard activation. Check `browser-vision-d26.1`, plus the recent popup-click verification and click-targeting commits, before assuming a no-op pointer click is already solved.
 
-### Off-screen duplicate target selection
+### extract_content falls apart on deck pages
 
-Locator resolution can still drift when the DOM keeps an off-screen twin ahead of the live on-screen control. Check `browser-vision-8hj.3` and the on-screen duplicate regressions before assuming a locator bug is in role matching alone.
-
-### Center-point clicks that lie
-
-A locator can resolve the right element while still producing a bad click point or reporting success before the CDP click finishes. Check `browser-vision-8hj.4`, the hittable locator-point regression, and the background click path before blaming the app for a no-op click.
-
-### Wait-for channel timeout drift
-
-`drive.wait_for` can fail because the content-script message round-trip died during route churn, not because the page condition was actually absent. Check `browser-vision-8hj.5` and the tab-channel retry helper before adding more DOM polling or bigger timeouts.
+`inspect.extract_content` still duplicates large sections on deck view pages and can collapse to shallow helper text in edit mode. Check `browser-vision-d26.2` before trusting extract output on interactive SPA routes just because the DOM snapshot looks healthy.
