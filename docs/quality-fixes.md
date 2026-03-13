@@ -12,8 +12,8 @@ When adding an entry:
 
 ### Popup trigger pointer-vs-keyboard mismatch
 
-Some popup triggers wrap live child chrome that is "inside" the button but still a lousy click surface for verified CDP clicks. Check `browser-vision-d26.1`; the fix is to prefer locator points that hit the popup trigger itself before falling back to descendant hits, not to weaken the popup-open verification.
+Some popup triggers wrap live child chrome that is "inside" the button but still a lousy click surface for verified CDP clicks. Check `browser-vision-d26.1`; the landed fixes are `7ec8d7c` (prefocus popup triggers before the verified click) and `e811021` (prefer hit points that land on the trigger itself before falling back to descendants), not weakening the popup-open verification.
 
 ### extract_content falls apart on deck pages
 
-Readability can grab the wrong sliver of an app-shell page and then happily duplicate repeated deck sections into markdown. Check `browser-vision-d26.2`; the current fix path is to fall back to the semantic main region when Readability is too thin and to collapse adjacent repeated markdown sections before returning the extract.
+Readability can grab the wrong sliver of an app-shell page and then happily duplicate repeated deck sections into markdown. Check `browser-vision-d26.2`; the landed fix is `9a0b507`, which falls back to the semantic main region when Readability is too thin and collapses adjacent repeated markdown sections before returning the extract.
