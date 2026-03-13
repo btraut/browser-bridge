@@ -12,7 +12,7 @@ When adding an entry:
 
 ### Popup trigger pointer-vs-keyboard mismatch
 
-Some popup triggers open on `pointerdown` but collapse again if the first click also causes focus churn. Check `browser-vision-d26.1`; the current fix path is to focus the resolved trigger before dispatching the verified CDP click, not to relax the popup-open verification.
+Some popup triggers wrap live child chrome that is "inside" the button but still a lousy click surface for verified CDP clicks. Check `browser-vision-d26.1`; the fix is to prefer locator points that hit the popup trigger itself before falling back to descendant hits, not to weaken the popup-open verification.
 
 ### extract_content falls apart on deck pages
 

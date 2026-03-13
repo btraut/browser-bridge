@@ -184,6 +184,49 @@ describe('content drive actions', () => {
     }
   });
 
+  it('prefers a popup-trigger point that hits the trigger itself', async () => {
+    const target = document.createElement('button');
+    target.id = 'menu-trigger';
+    target.setAttribute('aria-haspopup', 'menu');
+    target.setAttribute('aria-expanded', 'false');
+    target.setAttribute('data-state', 'closed');
+    document.body.appendChild(target);
+    makeVisible(target, new DOMRect(10, 20, 40, 40));
+
+    const child = document.createElement('img');
+    target.appendChild(child);
+    makeVisible(child, new DOMRect(20, 30, 20, 20));
+
+    (
+      document as unknown as {
+        elementFromPoint: (x: number, y: number) => Element | null;
+      }
+    ).elementFromPoint = (x: number, y: number) => {
+      if (x === 30 && y === 40) {
+        return child;
+      }
+      return target;
+    };
+
+    const result = await runDriveAction('drive.locator_point', {
+      locator: { css: '#menu-trigger' },
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.result).toEqual({
+        x: 20,
+        y: 30,
+        target_state: {
+          kind: 'popup_trigger',
+          ariaHasPopup: 'menu',
+          ariaExpanded: 'false',
+          dataState: 'closed',
+        },
+      });
+    }
+  });
+
   it('returns html snapshot payload', async () => {
     const target = document.createElement('div');
     target.id = 'snapshot-me';
