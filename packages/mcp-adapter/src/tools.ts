@@ -64,6 +64,16 @@ import {
   InspectNetworkHarOutputSchema,
   InspectPerformanceMetricsInputSchema,
   InspectPerformanceMetricsOutputSchema,
+  PermissionsGetModeInputSchema,
+  PermissionsGetModeOutputSchema,
+  PermissionsListInputSchema,
+  PermissionsListOutputSchema,
+  PermissionsListPendingRequestsInputSchema,
+  PermissionsListPendingRequestsOutputSchema,
+  PermissionsRequestAllowSiteInputSchema,
+  PermissionsRequestOutputSchema,
+  PermissionsRequestRevokeSiteInputSchema,
+  PermissionsRequestSetModeInputSchema,
   SessionCloseInputSchema,
   SessionCloseOutputSchema,
   SessionCreateInputSchema,
@@ -140,6 +150,16 @@ const readSessionId = (args: unknown): string | undefined => {
     ? sessionId
     : undefined;
 };
+
+const withPermissionsSource =
+  (source: 'mcp') =>
+  (args: unknown): unknown =>
+    isRecord(args)
+      ? {
+          ...args,
+          source,
+        }
+      : args;
 
 const supportsSessionMigration = (corePath: string): boolean =>
   corePath.startsWith('/drive/') ||
@@ -299,6 +319,73 @@ export const TOOL_DEFINITIONS: Array<{ name: string; config: ToolConfig }> = [
       inputSchema: SessionCloseInputSchema,
       outputSchema: envelope(SessionCloseOutputSchema),
       corePath: '/session/close',
+    },
+  },
+  {
+    name: 'permissions.list',
+    config: {
+      title: 'Permissions List',
+      description: 'List allowlisted Browser Bridge sites.',
+      inputSchema: PermissionsListInputSchema,
+      outputSchema: envelope(PermissionsListOutputSchema),
+      corePath: '/permissions/list',
+    },
+  },
+  {
+    name: 'permissions.get_mode',
+    config: {
+      title: 'Permissions Get Mode',
+      description: 'Read the current Browser Bridge permissions mode.',
+      inputSchema: PermissionsGetModeInputSchema,
+      outputSchema: envelope(PermissionsGetModeOutputSchema),
+      corePath: '/permissions/get_mode',
+    },
+  },
+  {
+    name: 'permissions.list_pending_requests',
+    config: {
+      title: 'Permissions List Pending Requests',
+      description:
+        'List pending external Browser Bridge permission-change requests.',
+      inputSchema: PermissionsListPendingRequestsInputSchema,
+      outputSchema: envelope(PermissionsListPendingRequestsOutputSchema),
+      corePath: '/permissions/list_pending_requests',
+    },
+  },
+  {
+    name: 'permissions.request_allow_site',
+    config: {
+      title: 'Permissions Request Allow Site',
+      description:
+        'Request allowlisting a site. A human must approve the change in Chrome before it applies.',
+      inputSchema: PermissionsRequestAllowSiteInputSchema,
+      outputSchema: envelope(PermissionsRequestOutputSchema),
+      corePath: '/permissions/request_allow_site',
+      transformInput: withPermissionsSource('mcp'),
+    },
+  },
+  {
+    name: 'permissions.request_revoke_site',
+    config: {
+      title: 'Permissions Request Revoke Site',
+      description:
+        'Request revoking a site from the allowlist. A human must approve the change in Chrome before it applies.',
+      inputSchema: PermissionsRequestRevokeSiteInputSchema,
+      outputSchema: envelope(PermissionsRequestOutputSchema),
+      corePath: '/permissions/request_revoke_site',
+      transformInput: withPermissionsSource('mcp'),
+    },
+  },
+  {
+    name: 'permissions.request_set_mode',
+    config: {
+      title: 'Permissions Request Set Mode',
+      description:
+        'Request changing Browser Bridge permission mode. A human must approve the change in Chrome before it applies.',
+      inputSchema: PermissionsRequestSetModeInputSchema,
+      outputSchema: envelope(PermissionsRequestOutputSchema),
+      corePath: '/permissions/request_set_mode',
+      transformInput: withPermissionsSource('mcp'),
     },
   },
   {

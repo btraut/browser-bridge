@@ -104,6 +104,54 @@ describe('mcp-adapter tools', () => {
     });
   });
 
+  it('injects source metadata for permissions request tools', async () => {
+    const envelope = {
+      ok: true as const,
+      result: {
+        request_id: 'perm-1',
+        kind: 'allow_site',
+        status: 'approved',
+        requested_at: '2026-03-13T00:00:00.000Z',
+        site: 'example.com',
+        source: 'mcp',
+      },
+    };
+    const client: CoreClient = {
+      baseUrl: 'http://core',
+      ensureReady: vi.fn().mockResolvedValue(undefined),
+      post: vi.fn().mockResolvedValue(envelope),
+    };
+
+    const tool = TOOL_DEFINITIONS.find(
+      (candidate) => candidate.name === 'permissions.request_allow_site'
+    );
+    expect(tool).toBeDefined();
+    if (!tool) {
+      throw new Error('permissions.request_allow_site tool is missing');
+    }
+
+    const handler = createToolHandler(
+      client,
+      tool.config.corePath,
+      tool.config.deprecationAlias,
+      tool.config.transformInput
+    );
+    const result = await handler(
+      { site: 'example.com', timeout_ms: 30000 },
+      {} as never
+    );
+
+    expect(client.post).toHaveBeenCalledWith(
+      '/permissions/request_allow_site',
+      {
+        site: 'example.com',
+        timeout_ms: 30000,
+        source: 'mcp',
+      }
+    );
+    expect(result.structuredContent).toEqual(envelope);
+  });
+
   it('auto-recreates stale sessions and retries session-bound tool calls', async () => {
     const client: CoreClient = {
       baseUrl: 'http://core',

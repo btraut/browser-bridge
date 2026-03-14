@@ -9,6 +9,7 @@ import { registerDriveCommands } from './drive';
 import { registerInspectCommands } from './inspect';
 import { registerMcpCommand } from './mcp';
 import { registerOpenArtifactsCommand } from './open-artifacts';
+import { registerPermissionsCommands } from './permissions';
 import { registerSessionCommands } from './session';
 import { registerSkillCommands } from './skill';
 import { registerInstallCommand } from './install';
@@ -30,6 +31,7 @@ const buildProgram = (): Command => {
     .option('--no-daemon');
 
   registerSessionCommands(program);
+  registerPermissionsCommands(program);
   registerDriveCommands(program);
   registerInspectCommands(program);
   registerArtifactsCommands(program);

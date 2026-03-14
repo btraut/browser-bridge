@@ -40,6 +40,24 @@ export const MCP_TOOL_DEFINITIONS: McpToolDefinition[] = [
   { name: 'session.status', corePath: '/session/status' },
   { name: 'session.recover', corePath: '/session/recover' },
   { name: 'session.close', corePath: '/session/close' },
+  { name: 'permissions.list', corePath: '/permissions/list' },
+  { name: 'permissions.get_mode', corePath: '/permissions/get_mode' },
+  {
+    name: 'permissions.list_pending_requests',
+    corePath: '/permissions/list_pending_requests',
+  },
+  {
+    name: 'permissions.request_allow_site',
+    corePath: '/permissions/request_allow_site',
+  },
+  {
+    name: 'permissions.request_revoke_site',
+    corePath: '/permissions/request_revoke_site',
+  },
+  {
+    name: 'permissions.request_set_mode',
+    corePath: '/permissions/request_set_mode',
+  },
   { name: 'drive.navigate', corePath: '/drive/navigate' },
   { name: 'drive.go_back', corePath: '/drive/go_back' },
   { name: 'drive.go_forward', corePath: '/drive/go_forward' },

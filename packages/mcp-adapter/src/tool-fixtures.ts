@@ -79,6 +79,119 @@ export const MCP_TOOL_FIXTURES: ToolFixture[] = [
     },
   },
   {
+    name: 'permissions.list',
+    corePath: '/permissions/list',
+    input: {},
+    successEnvelope: {
+      ok: true,
+      result: {
+        sites: [
+          {
+            site: 'example.com',
+            created_at: '2026-03-13T00:00:00.000Z',
+            last_used_at: '2026-03-13T01:00:00.000Z',
+          },
+        ],
+      },
+    },
+  },
+  {
+    name: 'permissions.get_mode',
+    corePath: '/permissions/get_mode',
+    input: {},
+    successEnvelope: {
+      ok: true,
+      result: {
+        mode: 'granular',
+      },
+    },
+  },
+  {
+    name: 'permissions.list_pending_requests',
+    corePath: '/permissions/list_pending_requests',
+    input: {},
+    successEnvelope: {
+      ok: true,
+      result: {
+        requests: [
+          {
+            request_id: 'perm-1',
+            kind: 'allow_site',
+            status: 'pending',
+            requested_at: '2026-03-13T00:00:00.000Z',
+            site: 'example.com',
+            source: 'mcp',
+          },
+        ],
+      },
+    },
+  },
+  {
+    name: 'permissions.request_allow_site',
+    corePath: '/permissions/request_allow_site',
+    input: {
+      site: 'example.com',
+      timeout_ms: 30000,
+      source: 'mcp',
+    },
+    successEnvelope: {
+      ok: true,
+      result: {
+        request_id: 'perm-1',
+        kind: 'allow_site',
+        status: 'approved',
+        requested_at: '2026-03-13T00:00:00.000Z',
+        site: 'example.com',
+        source: 'mcp',
+        message: 'Allow Browser Bridge actions on example.com.',
+      },
+    },
+  },
+  {
+    name: 'permissions.request_revoke_site',
+    corePath: '/permissions/request_revoke_site',
+    input: {
+      site: 'example.com',
+      timeout_ms: 30000,
+      source: 'mcp',
+    },
+    successEnvelope: {
+      ok: true,
+      result: {
+        request_id: 'perm-2',
+        kind: 'revoke_site',
+        status: 'denied',
+        requested_at: '2026-03-13T00:00:00.000Z',
+        site: 'example.com',
+        source: 'mcp',
+        message: 'Permission change request was denied.',
+      },
+    },
+  },
+  {
+    name: 'permissions.request_set_mode',
+    corePath: '/permissions/request_set_mode',
+    input: {
+      mode: 'bypass',
+      timeout_ms: 30000,
+      source: 'mcp',
+    },
+    successEnvelope: {
+      ok: true,
+      result: {
+        request_id: 'perm-3',
+        kind: 'set_mode',
+        status: 'timed_out',
+        requested_at: '2026-03-13T00:00:00.000Z',
+        mode: 'bypass',
+        source: 'mcp',
+        warning:
+          'Bypass mode lets the agent act on any website without asking first.',
+        message: 'Permission change request timed out waiting for approval.',
+      },
+    },
+  },
+  {
     name: 'drive.navigate',
     corePath: '/drive/navigate',
     input: {

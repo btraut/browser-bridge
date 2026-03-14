@@ -9,6 +9,7 @@ import { registerDriveCommands } from './commands/drive';
 import { registerInspectCommands } from './commands/inspect';
 import { registerMcpCommand } from './commands/mcp';
 import { registerOpenArtifactsCommand } from './commands/open-artifacts';
+import { registerPermissionsCommands } from './commands/permissions';
 import { registerSessionCommands } from './commands/session';
 import { registerSkillCommands } from './commands/skill';
 import { registerInstallCommand } from './commands/install';
@@ -39,6 +40,7 @@ const main = async (): Promise<void> => {
     .option('--no-daemon', 'Disable auto-starting Core');
 
   registerSessionCommands(program);
+  registerPermissionsCommands(program);
   registerDriveCommands(program);
   registerInspectCommands(program);
   registerArtifactsCommands(program);
