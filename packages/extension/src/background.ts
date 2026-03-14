@@ -1,5 +1,4 @@
 import type {
-  DebuggerCommandParams,
   DebuggerEvent,
   DebuggerRequest,
   DriveRequest,
