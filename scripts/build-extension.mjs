@@ -79,6 +79,11 @@ await buildClassicScript(
 );
 
 await buildClassicScript(
+  path.join(extensionRoot, 'src', 'permissions-request-ui.ts'),
+  path.join(outdir, 'permissions-request-ui.js')
+);
+
+await buildClassicScript(
   path.join(extensionRoot, 'src', 'options-ui.ts'),
   path.join(outdir, 'options-ui.js')
 );

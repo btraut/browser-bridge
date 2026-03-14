@@ -5,15 +5,16 @@ import type {
   DriveErrorInfo,
   DriveEvent,
   DriveHelloParams,
-  DriveResponse,
   DriveTabInfo,
   DriveTabListResult,
   ExtensionMessage,
   ExtensionRequest,
+  PermissionsRequest,
 } from './protocol.js';
 import { DRIVE_WS_PROTOCOL_VERSION } from '@btraut/browser-bridge-shared/dist/contract-version';
 import { sanitizeDriveErrorInfo } from './error-sanitizer.js';
 import { PermissionPromptController } from './permission-prompt.js';
+import { PermissionsRequestController } from './permissions-request.js';
 import { gateDriveAction } from './action-permissions.js';
 import {
   verifyPopupTriggerClick,
@@ -27,6 +28,8 @@ import {
   shouldRetryTabChannelFailure,
 } from './drive-reliability.js';
 import {
+  getAllowlistedSites,
+  readSitePermissionsMode,
   touchSiteLastUsed,
   writeDebuggerCapabilityEnabled,
 } from './site-permissions.js';
@@ -127,6 +130,12 @@ const BASE_NEGOTIATED_CAPABILITIES: Record<string, boolean> = Object.freeze({
   'drive.tab_close': true,
   'drive.set_debugger_capability': true,
   'drive.ping': true,
+  'permissions.list': true,
+  'permissions.get_mode': true,
+  'permissions.list_pending_requests': true,
+  'permissions.request_allow_site': true,
+  'permissions.request_revoke_site': true,
+  'permissions.request_set_mode': true,
 });
 
 const DEBUGGER_CAPABILITY_ACTIONS = [
@@ -1256,11 +1265,11 @@ class DriveSocket {
   }
 
   private async handleRequest(message: ExtensionRequest): Promise<void> {
-    let driveMessage: DriveRequest | null = null;
+    let requestMessage: DriveRequest | PermissionsRequest | null = null;
     let gatedSiteKey: string | null = null;
     let touchGatedSiteOnSuccess = false;
     const respondOk = (result?: unknown): void => {
-      if (!driveMessage) {
+      if (!requestMessage) {
         return;
       }
       if (touchGatedSiteOnSuccess && gatedSiteKey) {
@@ -1268,23 +1277,23 @@ class DriveSocket {
           console.error('Failed to touch site allowlist entry:', error);
         });
       }
-      const response: DriveResponse = {
-        id: driveMessage.id,
-        action: driveMessage.action,
-        status: 'ok',
+      const response = {
+        id: requestMessage.id,
+        action: requestMessage.action,
+        status: 'ok' as const,
         result,
       };
       this.sendMessage(response);
     };
 
     const respondError = (error: DriveErrorInfo): void => {
-      if (!driveMessage) {
+      if (!requestMessage) {
         return;
       }
-      const response: DriveResponse = {
-        id: driveMessage.id,
-        action: driveMessage.action,
-        status: 'error',
+      const response = {
+        id: requestMessage.id,
+        action: requestMessage.action,
+        status: 'error' as const,
         error: sanitizeDriveErrorInfo(error),
       };
       this.sendMessage(response);
@@ -1299,19 +1308,127 @@ class DriveSocket {
       ) {
         return;
       }
-      if (message.action.startsWith('debugger.')) {
+      const action = message.action as string;
+
+      if (action.startsWith('debugger.')) {
         await this.handleDebuggerRequest(message as DebuggerRequest);
         return;
       }
 
-      if (!message.action.startsWith('drive.')) {
+      requestMessage = message as DriveRequest | PermissionsRequest;
+
+      if (action.startsWith('permissions.')) {
+        const params = (message.params ?? {}) as Record<string, unknown>;
+        const rawTimeoutMs = params.timeout_ms;
+        const timeoutMs =
+          typeof rawTimeoutMs === 'number' &&
+          Number.isFinite(rawTimeoutMs) &&
+          rawTimeoutMs > 0
+            ? Math.floor(rawTimeoutMs)
+            : undefined;
+        const rawSource = params.source;
+        const source =
+          rawSource === 'cli' || rawSource === 'mcp' || rawSource === 'api'
+            ? rawSource
+            : undefined;
+
+        switch (action) {
+          case 'permissions.list': {
+            const allowlist = await getAllowlistedSites();
+            const sites = Object.entries(allowlist)
+              .map(([site, entry]) => ({
+                site,
+                created_at: entry.createdAt,
+                last_used_at: entry.lastUsedAt,
+              }))
+              .sort((a, b) => a.site.localeCompare(b.site));
+            respondOk({ sites });
+            return;
+          }
+          case 'permissions.get_mode': {
+            respondOk({
+              mode: await readSitePermissionsMode(),
+            });
+            return;
+          }
+          case 'permissions.list_pending_requests': {
+            respondOk({
+              requests: permissionsRequests.listPendingRequests(),
+            });
+            return;
+          }
+          case 'permissions.request_allow_site': {
+            const site = params.site;
+            if (typeof site !== 'string' || site.trim().length === 0) {
+              respondError({
+                code: 'INVALID_ARGUMENT',
+                message: 'site must be a non-empty string.',
+                retryable: false,
+                details: { field: 'site' },
+              });
+              return;
+            }
+            respondOk(
+              await permissionsRequests.requestChange({
+                kind: 'allow_site',
+                site,
+                timeoutMs,
+                source,
+              })
+            );
+            return;
+          }
+          case 'permissions.request_revoke_site': {
+            const site = params.site;
+            if (typeof site !== 'string' || site.trim().length === 0) {
+              respondError({
+                code: 'INVALID_ARGUMENT',
+                message: 'site must be a non-empty string.',
+                retryable: false,
+                details: { field: 'site' },
+              });
+              return;
+            }
+            respondOk(
+              await permissionsRequests.requestChange({
+                kind: 'revoke_site',
+                site,
+                timeoutMs,
+                source,
+              })
+            );
+            return;
+          }
+          case 'permissions.request_set_mode': {
+            const mode = params.mode;
+            if (mode !== 'granular' && mode !== 'bypass') {
+              respondError({
+                code: 'INVALID_ARGUMENT',
+                message: 'mode must be granular or bypass.',
+                retryable: false,
+                details: { field: 'mode' },
+              });
+              return;
+            }
+            respondOk(
+              await permissionsRequests.requestChange({
+                kind: 'set_mode',
+                mode,
+                timeoutMs,
+                source,
+              })
+            );
+            return;
+          }
+        }
+      }
+
+      if (!action.startsWith('drive.')) {
         return;
       }
 
-      driveMessage = message as DriveRequest;
-
       const gated = await gateDriveAction({
-        action: message.action,
+        action,
         params: (message.params ?? {}) as Record<string, unknown>,
         getDefaultTabId,
         getTab,
@@ -3331,13 +3448,16 @@ class DebuggerTimeoutError extends Error {
 
 const socket = new DriveSocket();
 const permissionPrompts = new PermissionPromptController();
+const permissionsRequests = new PermissionsRequestController();
 
 chrome.runtime.onConnect.addListener((port: unknown) => {
   permissionPrompts.handleConnect(port as Record<string, unknown>);
+  permissionsRequests.handleConnect(port as Record<string, unknown>);
 });
 
 chrome.windows.onRemoved.addListener((windowId: number) => {
   permissionPrompts.handleWindowRemoved(windowId);
+  permissionsRequests.handleWindowRemoved(windowId);
 });
 
 chrome.windows.onFocusChanged.addListener((windowId: number) => {

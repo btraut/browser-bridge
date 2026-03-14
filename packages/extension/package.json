@@ -13,6 +13,7 @@
     "manifest.json",
     "assets",
     "permission.html",
+    "permissions-request.html",
     "options.html",
     "popup.html",
     "agent-tab.html"

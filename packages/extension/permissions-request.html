@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Browser Bridge Permission Request</title>
+    <link rel="stylesheet" href="assets/ui.css" />
+  </head>
+  <body class="bb-page">
+    <main class="bb-card" role="main">
+      <header class="bb-header">
+        <div class="bb-eyebrow">Browser Bridge</div>
+        <h1 class="bb-title" id="bb-title">Approve permissions change</h1>
+      </header>
+
+      <section class="bb-body">
+        <p class="bb-lead" id="bb-summary">Permission change requested.</p>
+        <div class="bb-site" id="bb-details"></div>
+      </section>
+
+      <section class="bb-footnote" id="bb-warning" hidden>
+        <strong>Warning:</strong>
+        <span id="bb-warning-text"></span>
+      </section>
+
+      <section class="bb-footnote" id="bb-acknowledge-wrap" hidden>
+        <label>
+          <input id="bb-acknowledge" type="checkbox" />
+          I understand this change weakens Browser Bridge site protections.
+        </label>
+      </section>
+
+      <section class="bb-actions" aria-label="Permission actions">
+        <button
+          class="bb-button bb-button-primary"
+          id="bb-approve"
+          type="button"
+        >
+          Approve change
+        </button>
+        <button
+          class="bb-button bb-button-secondary"
+          id="bb-deny"
+          type="button"
+        >
+          Decline
+        </button>
+      </section>
+
+      <footer class="bb-footnote">
+        This request came from an external Browser Bridge surface and still
+        requires human approval here before storage changes land.
+      </footer>
+    </main>
+
+    <script type="module" src="dist/permissions-request-ui.js"></script>
+  </body>
+</html>
