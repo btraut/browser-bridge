@@ -8,54 +8,18 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 
 ### Changed
 
-- Extension background request handling now routes tab resolution, permission gating, and debugger dispatch through focused helpers instead of keeping those branches inline in `background.ts`.
-- Content click handling now chooses explicit generic vs popup-trigger strategies, and locator ranking/hittable-point policy lives in dedicated helper modules instead of hiding inside `content.ts`.
-- Inspect target selection and `extract_content` rendering now flow through dedicated helper modules instead of mixing tab choice, HTML parsing, and format policy inside `InspectService`.
-- Snapshot refs now have explicit assign/apply/persist/prune/recover stages, with the registry persistence contract and best-effort recovery path pulled into named helpers instead of living as scattered side effects.
+- Refactored the extension action path into smaller, clearer pieces: tab resolution, permission gating, debugger dispatch, click strategies, and locator scoring no longer all live inline in the same giant handlers.
+- Refactored inspect internals into explicit subsystems for target selection, content extraction policy, and snapshot-ref lifecycle management, which makes the core behavior easier to follow and safer to change.
 
 ### Fixed
 
-- CI validate is green again after removing an unused `DebuggerCommandParams` import from `packages/extension/src/background.ts`, which was tripping ESLint on main.
-- Operator docs and compatibility labels now tell one coherent inspect story: `dev enable-inspect` is a diagnostics probe, while `/diagnostics/enable_inspect` and `drive.set_debugger_capability` are explicitly compatibility-only scaffolding.
-- Inspect AX snapshots no longer warn when refs land on expected non-element or stale nodes, so successful `inspect.*` runs stop spamming bogus `Ref @e… could not be applied` noise.
-- Popup-style `drive.click` targets now carry popup state through `drive.locator_point`, and the background CDP click path verifies that menu/popover triggers actually open before reporting success.
-- Popup-trigger locator points now prefer coordinates that hit the trigger itself before settling for descendant hits, which avoids verified CDP clicks landing on child content like avatar images inside menu buttons.
-- `inspect.extract_content` now falls back to the semantic main region when Readability only grabs a thin helper panel, and it collapses adjacent repeated markdown sections so SPA deck pages stop returning duplicated or shallow summaries.
-- Verified popup-trigger clicks now focus the resolved trigger before dispatching the CDP mouse event, which fixes first-click menu failures where the popup briefly opens on `pointerdown` and then collapses during focus churn.
-- Popup-style `drive.click` targets now fail when a click only focuses the trigger without changing its open state, so menu buttons stop returning false-positive success on focus-only no-ops.
-- `dev enable-inspect` is now a diagnostics-backed compatibility probe instead of a dead setup flow, so current builds verify `inspect.capability` without POSTing to the stale `/diagnostics/enable_inspect` route.
-- The CLI entrypoint now keeps exactly one Node shebang from source through the built bundle, so packaged installs stay runnable and `node packages/cli/dist/index.js ...` no longer dies on a duplicated shebang line.
-- CLI core transport now turns empty or non-JSON responses into structured `UNAVAILABLE` errors with actionable details, so commands like `dev enable-inspect` stop leaking raw JSON parse failures when the runtime returns HTML or nothing at all.
-- Inspect service regression coverage now proves that an expanded trigger and its visible menu items survive the interactive AX snapshot pipeline together, which locks the overlay/menu behavior to the ManaVault-style case that motivated the fix.
-- Inspect is now always enabled in the extension; the options page no longer asks users to separately allow debugger-based inspect, and diagnostics/CLI messaging now treat missing inspect capability as a stale runtime problem instead of a permissions toggle.
-- Inspect APIs now default to the session's primary tab when no explicit target is provided, while still honoring explicit `target.tab_id` over session affinity and global tab heuristics.
-- Drive actions now report the concrete tab they resolved when `tab_id` is omitted, and core persists that tab as the session primary target so later unpinned actions stay on the same page instead of drifting across windows.
-- `inspect.*` routes now default to the session's pinned tab and still honor explicit `target.tab_id`, which keeps inspect reads aligned with the browser context drive already selected.
-- Exact `a[href="..."]` click locators now stay pinned to the visible anchor when hidden duplicates exist nearby, which keeps ordinary link targeting aligned with what inspect can actually see.
-- `Deck actions` role targeting now has regression coverage against nearby auth controls, which guards routine deck flows from misclicking into sign-in affordances.
-- `inspect.dom_snapshot` now strips refs that could not actually be rebound into the live DOM, and the snapshot ref registry only persists refs that were successfully applied.
-- `dev enable-inspect` now enables debugger capability through the live core-extension bridge instead of auto-opening the extension options page, and it returns a manual `optionsUrl` fallback only when the connected runtime cannot perform the change directly.
-- Browser Bridge targeting docs now explicitly steer repeated menu actions toward exact text/role locators, and regression coverage now proves `locator.text` can pick `Edit cards` without drifting into sibling actions like `Edit details`.
-- CSS/testid locator resolution now prefers visible candidates when multiple nodes match, which avoids no-op clicks on hidden duplicate controls like deck-editor quantity buttons while preserving raw-match fallback for simple pages.
-- Snapshot refs now carry fallback metadata for the current page, so a rerendered list row can still be re-resolved by `locator.ref` through the current visible link instead of failing immediately once `data-bv-ref` disappears.
-- `drive.click` now waits briefly for deferred CDP click dispatch to land and retries one transient locator miss, which makes menu-trigger clicks and freshly opened overlay items less race-prone on live sites.
-- Popup verification now ignores styling-only `data-state` buttons unless they expose real popup semantics, so ordinary controls like `View list` stop tripping bogus `popup_trigger` failures.
-- Locator scoring now prefers on-screen exact matches and hittable click points over off-screen twins or dead-center guesses, which keeps live deck-editor controls ahead of parked duplicates.
-- Background tab messaging now retries `drive.wait_for` when the content response itself times out during route churn, instead of treating that transport timeout like a real page-state miss.
-- `inspect.dom_snapshot` no longer drops open-menu options like `menuitem` roles when `interactive=true`, so transient overlays stay visible to AX snapshot consumers instead of disappearing from the filtered result.
-- CI validate is green again after fixing a stray Prettier wrap in `packages/extension/src/content.ts`, an unused test callback arg, and two type regressions in inspect/tab-activation paths.
-- `dev enable-inspect` now opens `chrome-extension://...` URLs in Google Chrome on macOS instead of relying on the generic system opener, which could silently strand the inspect-enablement flow outside the live Chrome session.
-- The built and packed CLI now preserves the executable bit on `dist/index.js`, and the README calls out the misleading zsh `permission denied` you get when you run `browser-bridge` from inside a same-named directory without the command on `PATH`.
-- Repo agent guidance no longer tells operators to run the removed `browser-bridge dev activate` command; it now points live tasks at `browser-bridge dev info`, `browser-bridge dev enable-inspect`, and the direct `optionsUrl` workaround when inspect bootstrap stalls.
-- Checked-in `.githooks/pre-commit` now matches the current beads CLI and uses `bd hooks run pre-commit` instead of the removed `bd hook pre-commit` command.
-- Shared git hooks now install cleanly with `npm run hooks:install`, and `.githooks/pre-push` no longer skips the repo's validate gate just because beads is present.
-- Active docs now describe one Browser Bridge runtime at `127.0.0.1:3210`, mark the old worktree-routing story as superseded, and point debugger-based inspect setup at `browser-bridge dev enable-inspect`.
-- `artifacts screenshot` now prefers extension-driven capture for viewport, full-page, and element targets instead of failing just because debugger-based inspect is disabled.
-- `drive.click` role matching now includes native interactive controls and exact accessible-name preference, so visible header buttons like `Sign in` and `Account menu` resolve without falling back to inspect/evaluate.
-- `inspect.*` commands now support explicit `--tab-id` targeting end-to-end, and `drive.tab_activate` treats OS-level window-focus failures as warnings once the requested tab is actually active.
-- `locator.text` now favors visible, clickable, exact matches over ancestor containers or hidden duplicates, and `drive.wait_for` now covers normalized visible text plus immediate or delayed `url_matches` transitions without false timeouts.
-- CLI `drive navigate --wait` help text now lists `networkidle`, keeping the operator-facing contract aligned with the shared schema and route validation.
-- `diagnostics.doctor` no longer carries an unused inspect-enable helper argument, and the live runtime follow-up files now satisfy the validate workflow's formatting checks.
+- Clicks and locator resolution are much more reliable on real sites, especially for popup/menu triggers, duplicate controls, exact text matches, and visible-vs-hidden targets.
+- Inspect is more stable and useful on dynamic pages: AX snapshots keep the right interactive nodes, `extract_content` handles SPA layouts better, and snapshot refs recover more cleanly after rerenders.
+- Drive and inspect targeting are more predictable: session tab affinity is preserved by default, explicit `tab_id` targeting works end-to-end, and tab-activation failures degrade more gracefully when the right tab is already active.
+- The inspect/setup story is much cleaner: current builds treat inspect as always-on, `dev enable-inspect` behaves like a diagnostics/remediation command, and the docs/runtime guidance now match reality.
+- CLI and runtime plumbing got tougher around packaging and failure handling, including cleaner startup errors, better executable/shebang preservation, and less debugger coupling for screenshots.
+- Repo tooling and validation were cleaned up too, including hook fixes, docs cleanup, and follow-up CI/lint/typecheck regressions on `main`.
+- Plus 35 other bug fixes and polish items across diagnostics, docs, test coverage, and developer tooling.
 
 ## [0.13.2] - 2026-02-18
 
