@@ -1,7 +1,7 @@
 import { InspectError, InspectService, createInspectService } from '../inspect';
-import { TargetHint } from '../target-matching';
 import { SessionRegistry } from '../session';
 import type { ExtensionBridge } from '../extension-bridge';
+import { resolveInspectTargetHint } from '../inspect/target-selection';
 import {
   InspectConsoleListInputSchema,
   InspectDomDiffInputSchema,
@@ -13,13 +13,7 @@ import {
   InspectPageStateInputSchema,
   InspectPerformanceMetricsInputSchema,
 } from '@btraut/browser-bridge-shared';
-import {
-  ResponseLike,
-  deriveHintFromTabs,
-  errorStatus,
-  sendError,
-  sendResult,
-} from './shared';
+import { ResponseLike, errorStatus, sendError, sendResult } from './shared';
 
 type RequestLike = {
   body?: unknown;
@@ -85,15 +79,6 @@ const sendInspectError = (
   });
 };
 
-type TargetHintInput = {
-  url?: string;
-  title?: string;
-  tab_id?: number;
-  tabId?: number;
-  last_active_at?: string;
-  lastActiveAt?: string;
-};
-
 const parseBody = <T>(
   schema: SchemaLike<T>,
   body: unknown
@@ -113,40 +98,6 @@ const parseBody = <T>(
       ...(details ? { details } : {}),
     },
   };
-};
-
-const readTargetHint = (target?: TargetHintInput): TargetHint | undefined => {
-  if (!target) {
-    return undefined;
-  }
-  const url = typeof target.url === 'string' ? target.url : undefined;
-  const title = typeof target.title === 'string' ? target.title : undefined;
-  const tabIdRaw = target.tab_id ?? target.tabId;
-  const tabId = typeof tabIdRaw === 'number' ? tabIdRaw : undefined;
-  const lastActiveAtRaw = target.last_active_at ?? target.lastActiveAt;
-  const lastActiveAt =
-    typeof lastActiveAtRaw === 'string' ? lastActiveAtRaw : undefined;
-  if (!url && !title && tabId === undefined && !lastActiveAt) {
-    return undefined;
-  }
-  return { url, title, tabId, lastActiveAt };
-};
-
-const resolveTargetHint = (
-  sessionId: string,
-  target: TargetHintInput | undefined,
-  options: InspectRoutesOptions
-): TargetHint | undefined => {
-  const explicit = readTargetHint(target);
-  if (explicit) {
-    return explicit;
-  }
-  const selectedTabId = options.registry.get(sessionId)?.selectedTabId;
-  if (typeof selectedTabId === 'number' && Number.isFinite(selectedTabId)) {
-    return { tabId: selectedTabId };
-  }
-  const tabs = options.extensionBridge?.getStatus().tabs ?? [];
-  return deriveHintFromTabs(tabs);
 };
 
 const makeHandler =
@@ -207,7 +158,12 @@ export const registerInspectRoutes = (
         compact: body.compact,
         maxNodes: body.max_nodes,
         selector: body.selector,
-        targetHint: resolveTargetHint(body.session_id, body.target, options),
+        targetHint: resolveInspectTargetHint({
+          sessionId: body.session_id,
+          target: body.target,
+          registry: options.registry,
+          extensionBridge: options.extensionBridge,
+        }),
       });
     })
   );
@@ -220,11 +176,12 @@ export const registerInspectRoutes = (
   router.post(
     '/inspect/find',
     makeHandler(InspectFindInputSchema, async (body) => {
-      const targetHint = resolveTargetHint(
-        body.session_id,
-        body.target,
-        options
-      );
+      const targetHint = resolveInspectTargetHint({
+        sessionId: body.session_id,
+        target: body.target,
+        registry: options.registry,
+        extensionBridge: options.extensionBridge,
+      });
       if (body.kind === 'role') {
         return await inspect.find({
           sessionId: body.session_id,
@@ -257,7 +214,12 @@ export const registerInspectRoutes = (
         sessionId: body.session_id,
         format: body.format,
         includeMetadata: body.include_metadata,
-        targetHint: resolveTargetHint(body.session_id, body.target, options),
+        targetHint: resolveInspectTargetHint({
+          sessionId: body.session_id,
+          target: body.target,
+          registry: options.registry,
+          extensionBridge: options.extensionBridge,
+        }),
       });
     })
   );
@@ -266,7 +228,12 @@ export const registerInspectRoutes = (
     makeHandler(InspectPageStateInputSchema, async (body) => {
       return await inspect.pageState({
         sessionId: body.session_id,
-        targetHint: resolveTargetHint(body.session_id, body.target, options),
+        targetHint: resolveInspectTargetHint({
+          sessionId: body.session_id,
+          target: body.target,
+          registry: options.registry,
+          extensionBridge: options.extensionBridge,
+        }),
       });
     })
   );
@@ -275,7 +242,12 @@ export const registerInspectRoutes = (
     makeHandler(InspectConsoleListInputSchema, async (body) => {
       return await inspect.consoleList({
         sessionId: body.session_id,
-        targetHint: resolveTargetHint(body.session_id, body.target, options),
+        targetHint: resolveInspectTargetHint({
+          sessionId: body.session_id,
+          target: body.target,
+          registry: options.registry,
+          extensionBridge: options.extensionBridge,
+        }),
       });
     })
   );
@@ -284,7 +256,12 @@ export const registerInspectRoutes = (
     makeHandler(InspectNetworkHarInputSchema, async (body) => {
       return await inspect.networkHar({
         sessionId: body.session_id,
-        targetHint: resolveTargetHint(body.session_id, body.target, options),
+        targetHint: resolveInspectTargetHint({
+          sessionId: body.session_id,
+          target: body.target,
+          registry: options.registry,
+          extensionBridge: options.extensionBridge,
+        }),
       });
     })
   );
@@ -294,7 +271,12 @@ export const registerInspectRoutes = (
       return await inspect.evaluate({
         sessionId: body.session_id,
         expression: body.expression,
-        targetHint: resolveTargetHint(body.session_id, body.target, options),
+        targetHint: resolveInspectTargetHint({
+          sessionId: body.session_id,
+          target: body.target,
+          registry: options.registry,
+          extensionBridge: options.extensionBridge,
+        }),
       });
     })
   );
@@ -303,7 +285,12 @@ export const registerInspectRoutes = (
     makeHandler(InspectPerformanceMetricsInputSchema, async (body) => {
       return await inspect.performanceMetrics({
         sessionId: body.session_id,
-        targetHint: resolveTargetHint(body.session_id, body.target, options),
+        targetHint: resolveInspectTargetHint({
+          sessionId: body.session_id,
+          target: body.target,
+          registry: options.registry,
+          extensionBridge: options.extensionBridge,
+        }),
       });
     })
   );

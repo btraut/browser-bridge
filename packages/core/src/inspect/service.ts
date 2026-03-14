@@ -1,9 +1,6 @@
 import { randomUUID } from 'crypto';
 import { writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { Readability } from '@mozilla/readability';
-import { JSDOM } from 'jsdom';
-import TurndownService from 'turndown';
 import { ensureArtifactRootDir } from '../artifacts';
 import { driveMutex } from '../drive';
 import type { DebuggerBridge } from '../debugger-bridge';
@@ -26,6 +23,10 @@ import {
   truncateAxSnapshot,
 } from './ax-snapshot';
 import { toConsoleEntry } from './console';
+import {
+  parseExtractContentSource,
+  renderExtractContent,
+} from './extract-content-policy';
 import { buildHar } from './har';
 import { captureHtml } from './html-snapshot';
 import { SnapshotHistory } from './snapshot-history';
@@ -36,6 +37,7 @@ import {
   resolveNodeIdForSelector,
 } from './snapshot-refs';
 import { InspectError } from './errors';
+import { selectInspectTab } from './target-selection';
 import type {
   ArtifactInfo,
   ConsoleEntry,
@@ -53,96 +55,10 @@ import type {
 import { PAGE_STATE_SCRIPT } from '../page-state-script';
 import { SessionError, SessionRegistry, SessionRecord } from '../session';
 import { SessionState } from '../state';
-import { pickBestTarget } from '../target-matching';
 import type { TargetHint } from '../target-matching';
 
 const DEFAULT_MAX_SNAPSHOTS_PER_SESSION = 20;
 const DEFAULT_MAX_SNAPSHOT_HISTORY = 100;
-
-const normalizeExtractedText = (value: string): string =>
-  value.replace(/\s+/g, ' ').trim();
-
-const collapseRepeatedMarkdownBlocks = (markdown: string): string => {
-  const blocks = markdown
-    .split(/\n{2,}/)
-    .map((block) => block.trim())
-    .filter((block) => block.length > 0);
-  for (
-    let sequenceLength = Math.floor(blocks.length / 2);
-    sequenceLength >= 1;
-    sequenceLength -= 1
-  ) {
-    for (
-      let start = 0;
-      start + sequenceLength * 2 <= blocks.length;
-      start += 1
-    ) {
-      const first = blocks
-        .slice(start, start + sequenceLength)
-        .map((block) => normalizeExtractedText(block))
-        .join('\n');
-      const second = blocks
-        .slice(start + sequenceLength, start + sequenceLength * 2)
-        .map((block) => normalizeExtractedText(block))
-        .join('\n');
-      if (first.length === 0 || first !== second) {
-        continue;
-      }
-      blocks.splice(start + sequenceLength, sequenceLength);
-      sequenceLength = Math.min(
-        sequenceLength + 1,
-        Math.floor(blocks.length / 2)
-      );
-      start = Math.max(start - 1, -1);
-    }
-  }
-  return blocks.join('\n\n').trim();
-};
-
-const extractSemanticMainCandidate = (
-  document: JSDOM['window']['document']
-): { html: string; text: string; tagName: string } | null => {
-  const candidates = Array.from(
-    document.querySelectorAll('main, [role="main"], article')
-  );
-  let best = candidates[0] ?? null;
-  let bestLength = 0;
-  for (const candidate of candidates) {
-    const text = normalizeExtractedText(candidate.textContent ?? '');
-    if (text.length <= bestLength) {
-      continue;
-    }
-    best = candidate;
-    bestLength = text.length;
-  }
-  if (!best || bestLength === 0) {
-    return null;
-  }
-  return {
-    html: best.innerHTML,
-    text: normalizeExtractedText(best.textContent ?? ''),
-    tagName: best.tagName.toLowerCase(),
-  };
-};
-
-const shouldPreferSemanticMainCandidate = (options: {
-  articleText: string;
-  mainText: string;
-  mainTagName: string;
-}): boolean => {
-  const articleLength = normalizeExtractedText(options.articleText).length;
-  const mainLength = normalizeExtractedText(options.mainText).length;
-  if (mainLength === 0) {
-    return false;
-  }
-  if (articleLength === 0) {
-    return true;
-  }
-  if (options.mainTagName === 'article') {
-    return false;
-  }
-  return articleLength < 160 && mainLength > articleLength + 20;
-};
 
 export class InspectService {
   private readonly registry: SessionRegistry;
@@ -629,86 +545,27 @@ export class InspectService {
       },
     });
     const url = selection.tab.url ?? 'about:blank';
-    let article: ReturnType<Readability['parse']> | null = null;
-    let semanticMainCandidate: {
-      html: string;
-      text: string;
-      tagName: string;
-    } | null = null;
     try {
-      const dom = new JSDOM(html, { url });
-      const reader = new Readability(dom.window.document);
-      article = reader.parse();
-      semanticMainCandidate = extractSemanticMainCandidate(dom.window.document);
-    } catch {
-      const err = new InspectError(
-        'EVALUATION_FAILED',
-        'Failed to parse page content.',
-        { retryable: false }
-      );
-      this.recordError(err);
-      throw err;
-    }
+      const { article, semanticMainCandidate } = parseExtractContentSource({
+        html,
+        url,
+      });
+      const output = renderExtractContent({
+        format: input.format,
+        article,
+        semanticMainCandidate,
+        includeMetadata: input.includeMetadata,
+        warnings: selection.warnings,
+      });
 
-    if (!article) {
-      const err = new InspectError(
-        'NOT_SUPPORTED',
-        'Readability could not extract content.',
-        { retryable: false }
-      );
-      this.recordError(err);
-      throw err;
-    }
-
-    let content = '';
-    if (input.format === 'article_json') {
-      content = JSON.stringify(article, null, 2);
-    } else if (input.format === 'text') {
-      const articleText = article.textContent ?? '';
-      if (
-        semanticMainCandidate &&
-        shouldPreferSemanticMainCandidate({
-          articleText,
-          mainText: semanticMainCandidate.text,
-          mainTagName: semanticMainCandidate.tagName,
-        })
-      ) {
-        content = semanticMainCandidate.text;
-      } else {
-        content = articleText;
+      this.markInspectConnected(input.sessionId);
+      return output;
+    } catch (error) {
+      if (error instanceof InspectError) {
+        this.recordError(error);
       }
-    } else {
-      const turndown = new TurndownService();
-      const articleText = article.textContent ?? '';
-      const sourceHtml =
-        semanticMainCandidate &&
-        shouldPreferSemanticMainCandidate({
-          articleText,
-          mainText: semanticMainCandidate.text,
-          mainTagName: semanticMainCandidate.tagName,
-        })
-          ? semanticMainCandidate.html
-          : (article.content ?? '');
-      content = collapseRepeatedMarkdownBlocks(turndown.turndown(sourceHtml));
+      throw error;
     }
-
-    const warnings = selection.warnings ?? [];
-    const includeMetadata = input.includeMetadata ?? true;
-    const output: ExtractContentResult = {
-      content,
-      ...(includeMetadata
-        ? {
-            title: article.title ?? undefined,
-            byline: article.byline ?? undefined,
-            excerpt: article.excerpt ?? undefined,
-            siteName: (article as { siteName?: string }).siteName ?? undefined,
-          }
-        : {}),
-      ...(warnings.length > 0 ? { warnings } : {}),
-    };
-
-    this.markInspectConnected(input.sessionId);
-    return output;
   }
 
   async pageState(input: {
@@ -1022,95 +879,19 @@ export class InspectService {
     sessionId?: string,
     hint?: TargetHint
   ): Promise<{ tabId: number; tab: DriveTabInfo; warnings?: string[] }> {
-    if (!this.extensionBridge || !this.extensionBridge.isConnected()) {
-      const error = new InspectError(
-        'EXTENSION_DISCONNECTED',
-        'Extension is not connected.',
-        { retryable: true }
-      );
-      this.recordError(error);
-      throw error;
-    }
-
-    const tabs = this.extensionBridge.getStatus().tabs ?? [];
-    if (!Array.isArray(tabs) || tabs.length === 0) {
-      const error = new InspectError(
-        'TAB_NOT_FOUND',
-        'No tabs available to inspect.'
-      );
-      this.recordError(error);
-      throw error;
-    }
-
-    const effectiveHint =
-      hint ??
-      (typeof sessionId === 'string'
-        ? this.readSessionTargetHint(sessionId)
-        : undefined);
-
-    if (
-      typeof effectiveHint?.tabId === 'number' &&
-      Number.isFinite(effectiveHint.tabId)
-    ) {
-      const tab = tabs.find((entry) => entry.tab_id === effectiveHint.tabId);
-      if (!tab) {
-        const error = new InspectError(
-          'TAB_NOT_FOUND',
-          `No matching tab found for tab_id ${effectiveHint.tabId}.`,
-          { details: { tab_id: effectiveHint.tabId } }
-        );
+    try {
+      return selectInspectTab({
+        sessionId,
+        targetHint: hint,
+        registry: this.registry,
+        extensionBridge: this.extensionBridge,
+      });
+    } catch (error) {
+      if (error instanceof InspectError) {
         this.recordError(error);
-        throw error;
       }
-      return { tabId: effectiveHint.tabId, tab };
-    }
-
-    const candidates = tabs.map((tab) => ({
-      id: String(tab.tab_id),
-      url: tab.url ?? '',
-      title: tab.title,
-      lastSeenAt: tab.last_active_at
-        ? Date.parse(tab.last_active_at)
-        : undefined,
-    }));
-
-    const ranked = pickBestTarget(candidates, effectiveHint);
-    if (!ranked) {
-      const error = new InspectError('TAB_NOT_FOUND', 'No matching tab found.');
-      this.recordError(error);
       throw error;
     }
-
-    const tabId = Number(ranked.candidate.id);
-    if (!Number.isFinite(tabId)) {
-      const error = new InspectError(
-        'TAB_NOT_FOUND',
-        'Resolved tab id is invalid.'
-      );
-      this.recordError(error);
-      throw error;
-    }
-
-    const tab = tabs.find((entry) => entry.tab_id === tabId) ?? tabs[0];
-    const warnings: string[] = [];
-    if (!effectiveHint) {
-      warnings.push('No target hint provided; using the most recent tab.');
-    } else if (ranked.score < 20) {
-      warnings.push('Weak target match; using best available tab.');
-    }
-
-    return {
-      tabId,
-      tab,
-      warnings: warnings.length > 0 ? warnings : undefined,
-    };
-  }
-
-  private readSessionTargetHint(sessionId: string): TargetHint | undefined {
-    const selectedTabId = this.registry.get(sessionId)?.selectedTabId;
-    return typeof selectedTabId === 'number' && Number.isFinite(selectedTabId)
-      ? { tabId: selectedTabId }
-      : undefined;
   }
 
   private async enableConsole(tabId: number): Promise<void> {
