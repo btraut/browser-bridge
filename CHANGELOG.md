@@ -6,6 +6,10 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 
 ## [Unreleased]
 
+### Changed
+
+- The repo-local `bump-version` release skill and release doc now require a fresh `npm install` and `npm run build` before any version bumping, so releases start from a clean build instead of wishful thinking.
+
 ## [0.14.0] - 2026-03-13
 
 ### Added

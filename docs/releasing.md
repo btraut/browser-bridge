@@ -16,12 +16,21 @@ This repo publishes the CLI package `@btraut/browser-bridge` to npm from `packag
 git pull --rebase
 ```
 
-2. Update `CHANGELOG.md`:
+2. Start from a clean install/build baseline:
+
+```bash
+npm install
+npm run build
+```
+
+If either command fails, stop there. Do not start a release from a dirty or half-built tree.
+
+3. Update `CHANGELOG.md`:
 
 - Move anything in `[Unreleased]` into a new version section with today's date.
 - Keep `[Unreleased]` at the top for ongoing work.
 
-3. Bump versions:
+4. Bump versions:
 
 ```bash
 npm run bump:patch  # or bump:minor / bump:major
@@ -29,7 +38,7 @@ npm run bump:patch  # or bump:minor / bump:major
 
 This updates `package.json` + all `packages/*/package.json` versions and refreshes `package-lock.json`.
 
-4. Run quality gates:
+5. Run quality gates:
 
 ```bash
 npm test
@@ -38,27 +47,27 @@ npm run typecheck
 npm run build
 ```
 
-5. Commit the release:
+6. Commit the release:
 
 ```bash
 git add -A
 git commit -m "release: vX.Y.Z"
 ```
 
-6. Create an annotated tag:
+7. Create an annotated tag:
 
 ```bash
 npm run tag:version
 ```
 
-7. Publish to npm (may require `--otp=<code>`):
+8. Publish to npm (may require `--otp=<code>`):
 
 ```bash
 cd packages/cli
 npm publish --access public --workspaces=false
 ```
 
-8. Push commit + tag:
+9. Push commit + tag:
 
 ```bash
 git push origin main --follow-tags
