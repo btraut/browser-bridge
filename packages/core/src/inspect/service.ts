@@ -31,8 +31,10 @@ import { buildHar } from './har';
 import { captureHtml } from './html-snapshot';
 import { SnapshotHistory } from './snapshot-history';
 import {
-  applySnapshotRefs,
+  applySnapshotRefAttributes,
   assignRefsToAxSnapshot,
+  clearSnapshotRefArtifacts,
+  persistSnapshotRefRegistry,
   pruneUnappliedRefsFromSnapshot,
   resolveNodeIdForSelector,
 } from './snapshot-refs';
@@ -204,18 +206,9 @@ export class InspectService {
           );
           selectorWarnings.push(...(resolved.warnings ?? []));
           if (!resolved.nodeId) {
-            let refWarnings: string[] = [];
-            try {
-              refWarnings = (
-                await applySnapshotRefs(
-                  selection.tabId,
-                  new Map(),
-                  debuggerCommand
-                )
-              ).warnings;
-            } catch {
-              refWarnings = ['Failed to clear prior snapshot refs.'];
-            }
+            const refWarnings = (
+              await clearSnapshotRefArtifacts(selection.tabId, debuggerCommand)
+            ).warnings;
             const warnings = [
               ...(selection.warnings ?? []),
               ...selectorWarnings,
@@ -259,17 +252,31 @@ export class InspectService {
           }
         }
         const refMap = assignRefsToAxSnapshot(snapshot);
-        const refResult = await applySnapshotRefs(
+        const clearResult = await clearSnapshotRefArtifacts(
+          selection.tabId,
+          debuggerCommand
+        );
+        const refResult = await applySnapshotRefAttributes(
           selection.tabId,
           refMap,
           debuggerCommand
         );
+        const persistResult =
+          refMap.size === 0
+            ? { warnings: [] as string[] }
+            : await persistSnapshotRefRegistry(
+                selection.tabId,
+                refResult.appliedBindings,
+                debuggerCommand
+              );
         pruneUnappliedRefsFromSnapshot(snapshot, refResult.appliedRefs);
         const warnings = [
           ...(selection.warnings ?? []),
           ...selectorWarnings,
           ...truncationWarnings,
+          ...clearResult.warnings,
           ...refResult.warnings,
+          ...persistResult.warnings,
         ];
         return {
           format: 'ax',

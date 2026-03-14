@@ -22,8 +22,25 @@ export type ApplySnapshotRefsResult = {
   appliedRefs: Set<string>;
 };
 
+export type ApplySnapshotRefAttributesResult = ApplySnapshotRefsResult & {
+  appliedBindings: SnapshotRefBinding[];
+};
+
 const MAX_REF_ASSIGNMENTS = 500;
 const MAX_REF_WARNINGS = 5;
+
+// Snapshot refs are a staged best-effort subsystem:
+// 1. assign refs into the AX snapshot deterministically
+// 2. clear prior DOM/registry artifacts best-effort
+// 3. apply refs back onto live DOM elements best-effort
+// 4. persist recovery metadata only for refs that actually rebound
+// 5. prune unapplied refs from the AX snapshot so downstream callers never
+//    assume recovery is guaranteed for stale nodes
+//
+// Silent misses are part of the contract. Stale/missing/non-element DOM nodes
+// are expected under live rerenders, so they do not produce warnings. Only
+// stage-level failures that operators can act on (clear/persist failures, or
+// unexpected apply failures) surface warnings, and those remain capped.
 
 const isInspectError = (
   error: unknown
@@ -99,39 +116,38 @@ const extractUrl = (node: { properties?: unknown[] }): string | undefined => {
   return undefined;
 };
 
-export const clearSnapshotRefs = async (
+export const clearSnapshotRefArtifacts = async (
   tabId: number,
   debuggerCommand: DebuggerCommand
-): Promise<void> => {
-  await debuggerCommand(tabId, 'Runtime.evaluate', {
-    expression: `(() => {
-      document.querySelectorAll('[${SNAPSHOT_REF_ATTRIBUTE}]').forEach((el) => el.removeAttribute('${SNAPSHOT_REF_ATTRIBUTE}'));
-      document.getElementById('${SNAPSHOT_REF_REGISTRY_ID}')?.remove();
-    })()`,
-    returnByValue: true,
-    awaitPromise: true,
-  });
+): Promise<{ warnings: string[] }> => {
+  try {
+    await debuggerCommand(tabId, 'Runtime.evaluate', {
+      expression: `(() => {
+        document.querySelectorAll('[${SNAPSHOT_REF_ATTRIBUTE}]').forEach((el) => el.removeAttribute('${SNAPSHOT_REF_ATTRIBUTE}'));
+        document.getElementById('${SNAPSHOT_REF_REGISTRY_ID}')?.remove();
+      })()`,
+      returnByValue: true,
+      awaitPromise: true,
+    });
+    return { warnings: [] };
+  } catch {
+    return { warnings: ['Failed to clear prior snapshot refs.'] };
+  }
 };
 
-export const applySnapshotRefs = async (
+export const applySnapshotRefAttributes = async (
   tabId: number,
   refs: Map<number, SnapshotRefBinding>,
   debuggerCommand: DebuggerCommand
-): Promise<ApplySnapshotRefsResult> => {
+): Promise<ApplySnapshotRefAttributesResult> => {
   const warnings: string[] = [];
   const appliedRefs = new Set<string>();
   const appliedBindings: SnapshotRefBinding[] = [];
   await debuggerCommand(tabId, 'DOM.enable', {});
   await debuggerCommand(tabId, 'Runtime.enable', {});
 
-  try {
-    await clearSnapshotRefs(tabId, debuggerCommand);
-  } catch {
-    warnings.push('Failed to clear prior snapshot refs.');
-  }
-
   if (refs.size === 0) {
-    return { warnings, appliedRefs };
+    return { warnings, appliedRefs, appliedBindings };
   }
 
   let applied = 0;
@@ -171,8 +187,16 @@ export const applySnapshotRefs = async (
     }
   }
 
+  return { warnings, appliedRefs, appliedBindings };
+};
+
+export const persistSnapshotRefRegistry = async (
+  tabId: number,
+  bindings: SnapshotRefBinding[],
+  debuggerCommand: DebuggerCommand
+): Promise<{ warnings: string[] }> => {
   try {
-    const registry = JSON.stringify(appliedBindings);
+    const registry = JSON.stringify(bindings);
     await debuggerCommand(tabId, 'Runtime.evaluate', {
       expression: `(() => {
         const id = ${JSON.stringify(SNAPSHOT_REF_REGISTRY_ID)};
@@ -188,12 +212,39 @@ export const applySnapshotRefs = async (
       returnByValue: true,
       awaitPromise: true,
     });
+    return { warnings: [] };
   } catch {
-    if (warnings.length < MAX_REF_WARNINGS) {
-      warnings.push('Snapshot ref registry could not be applied.');
-    }
+    return { warnings: ['Snapshot ref registry could not be applied.'] };
   }
-  return { warnings, appliedRefs };
+};
+
+export const applySnapshotRefs = async (
+  tabId: number,
+  refs: Map<number, SnapshotRefBinding>,
+  debuggerCommand: DebuggerCommand
+): Promise<ApplySnapshotRefsResult> => {
+  const clearResult = await clearSnapshotRefArtifacts(tabId, debuggerCommand);
+  const applyResult = await applySnapshotRefAttributes(
+    tabId,
+    refs,
+    debuggerCommand
+  );
+  const persistResult =
+    refs.size === 0
+      ? { warnings: [] as string[] }
+      : await persistSnapshotRefRegistry(
+          tabId,
+          applyResult.appliedBindings,
+          debuggerCommand
+        );
+  return {
+    warnings: [
+      ...clearResult.warnings,
+      ...applyResult.warnings,
+      ...persistResult.warnings,
+    ].slice(0, MAX_REF_WARNINGS),
+    appliedRefs: applyResult.appliedRefs,
+  };
 };
 
 export const pruneUnappliedRefsFromSnapshot = (

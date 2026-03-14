@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   applySnapshotRefs,
+  clearSnapshotRefArtifacts,
+  persistSnapshotRefRegistry,
   assignRefsToAxSnapshot,
   pruneUnappliedRefsFromSnapshot,
   resolveNodeIdForSelector,
@@ -83,6 +85,14 @@ describe('snapshot ref helpers', () => {
     expect(result.appliedRefs.size).toBe(0);
   });
 
+  it('clearSnapshotRefArtifacts reports clear failures without throwing', async () => {
+    const result = await clearSnapshotRefArtifacts(1, async () => {
+      throw Object.assign(new Error('boom'), { name: 'InspectError' });
+    });
+
+    expect(result.warnings).toEqual(['Failed to clear prior snapshot refs.']);
+  });
+
   it('prunes refs that were never applied to the DOM', () => {
     const snapshot = {
       nodes: [{ ref: '@e1' }, { ref: '@e2' }, {}],
@@ -132,5 +142,19 @@ describe('snapshot ref helpers', () => {
 
     expect(result.warnings).toEqual([]);
     expect(result.appliedRefs.size).toBe(0);
+  });
+
+  it('persistSnapshotRefRegistry reports registry write failures without throwing', async () => {
+    const result = await persistSnapshotRefRegistry(
+      1,
+      [{ ref: '@e1', role: 'link' }],
+      async () => {
+        throw Object.assign(new Error('boom'), { name: 'InspectError' });
+      }
+    );
+
+    expect(result.warnings).toEqual([
+      'Snapshot ref registry could not be applied.',
+    ]);
   });
 });

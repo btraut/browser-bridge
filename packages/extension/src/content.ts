@@ -11,6 +11,7 @@ import {
   normalizeText,
   scoreCandidates,
 } from './locator-ranking.js';
+import { recoverElementBySnapshotRef } from './snapshot-ref-recovery.js';
 
 type DriveErrorInfo = {
   code: string;
@@ -25,7 +26,6 @@ type ContentResult =
 
 const AGENT_TAB_BRANDING_ACTION = 'drive.agent_tab_branding';
 const AGENT_TAB_FAVICON_MARKER_ATTR = 'data-bb-agent-favicon';
-const SNAPSHOT_REF_REGISTRY_ID = '__bb_snapshot_ref_registry__';
 
 const applyAgentTabFavicon = (faviconUrl: string): void => {
   if (faviconUrl.length === 0) {
@@ -134,91 +134,6 @@ export const runDriveAction = async (
     return Array.from(document.querySelectorAll(selector)).filter(isVisible);
   };
 
-  const readSnapshotRefRegistry = (): Map<
-    string,
-    { role?: string; name?: string; url?: string }
-  > => {
-    const registry = new Map<
-      string,
-      { role?: string; name?: string; url?: string }
-    >();
-    const el = document.getElementById(SNAPSHOT_REF_REGISTRY_ID);
-    const raw = el?.textContent;
-    if (!raw) {
-      return registry;
-    }
-    try {
-      const parsed = JSON.parse(raw);
-      if (!Array.isArray(parsed)) {
-        return registry;
-      }
-      for (const entry of parsed) {
-        if (!entry || typeof entry !== 'object') {
-          continue;
-        }
-        const ref = (entry as { ref?: unknown }).ref;
-        if (typeof ref !== 'string' || ref.length === 0) {
-          continue;
-        }
-        registry.set(ref, {
-          role:
-            typeof (entry as { role?: unknown }).role === 'string'
-              ? ((entry as { role?: string }).role ?? undefined)
-              : undefined,
-          name:
-            typeof (entry as { name?: unknown }).name === 'string'
-              ? ((entry as { name?: string }).name ?? undefined)
-              : undefined,
-          url:
-            typeof (entry as { url?: unknown }).url === 'string'
-              ? ((entry as { url?: string }).url ?? undefined)
-              : undefined,
-        });
-      }
-    } catch {
-      return new Map();
-    }
-    return registry;
-  };
-
-  const findBySnapshotRefFallback = (ref: string): Element | null => {
-    const metadata = readSnapshotRefRegistry().get(ref);
-    if (!metadata) {
-      return null;
-    }
-
-    if (typeof metadata.url === 'string' && metadata.url.length > 0) {
-      const linkCandidates = Array.from(
-        document.querySelectorAll('a[href],[role="link"]')
-      );
-      const bestLink = scoreCandidates(linkCandidates, {
-        exactHref: metadata.url,
-        exactText: metadata.name,
-      });
-      if (bestLink) {
-        return bestLink;
-      }
-    }
-
-    if (typeof metadata.role === 'string' && metadata.role.length > 0) {
-      const roleMatch = findByRole({
-        role: {
-          name: metadata.role,
-          ...(metadata.name ? { value: metadata.name } : {}),
-        },
-      });
-      if (roleMatch) {
-        return roleMatch;
-      }
-    }
-
-    if (typeof metadata.name === 'string' && metadata.name.length > 0) {
-      return findByText(metadata.name);
-    }
-
-    return null;
-  };
-
   const findByRole = (locator: Record<string, unknown>): Element | null => {
     const role = locator.role;
     if (!role || typeof role !== 'object') {
@@ -263,7 +178,9 @@ export const runDriveAction = async (
       if (found) {
         return found;
       }
-      const fallback = findBySnapshotRefFallback(normalized);
+      const fallback = recoverElementBySnapshotRef(normalized, {
+        findByRole,
+      });
       if (fallback) {
         return fallback;
       }

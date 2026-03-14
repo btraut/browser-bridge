@@ -302,6 +302,8 @@ Inspect:
 - `inspect.dom_snapshot.consistency` default `best_effort`.
 - snapshot flags include `interactive`, `compact`, `max_nodes`, `selector`, `target`.
 - `inspect.extract_content.format` default `markdown`, `include_metadata` default true.
+- Snapshot refs are staged: core assigns refs into AX snapshots, best-effort rebinds them into the live DOM, persists recovery metadata only for successfully rebound refs, then prunes unapplied refs before returning the snapshot.
+- Snapshot-ref recovery is best-effort, not guaranteed. Expected stale/non-element misses stay silent; only clear/persist-stage failures surface warnings, and content-side recovery still tries exact url/text link match before role/name and plain text fallback.
 
 Artifacts/Diagnostics:
 
