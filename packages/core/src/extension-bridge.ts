@@ -16,6 +16,9 @@ import type {
   ExtensionRequest,
   ExtensionRequestAction,
   ExtensionResponse,
+  PermissionsAction,
+  PermissionsRequestAction,
+  PermissionsResponse,
 } from './drive-protocol';
 import { SessionRegistry } from './session';
 import { SessionState } from './state';
@@ -155,12 +158,12 @@ export class ExtensionBridge {
   }
 
   async request<T = unknown>(
-    action: DriveAction,
+    action: DriveAction | PermissionsAction,
     params?: Record<string, unknown>,
     timeoutMs = 30000
-  ): Promise<DriveResponse<T>> {
+  ): Promise<DriveResponse<T> | PermissionsResponse<T>> {
     const response = await this.requestInternal(action, params, timeoutMs);
-    return response as DriveResponse<T>;
+    return response as DriveResponse<T> | PermissionsResponse<T>;
   }
 
   async requestDebugger<T = unknown>(
@@ -234,7 +237,7 @@ export class ExtensionBridge {
     }
 
     const id = randomUUID();
-    const request: ExtensionRequest =
+    const request =
       typeof action === 'string' && action.startsWith('debugger.')
         ? {
             id,
@@ -244,10 +247,11 @@ export class ExtensionBridge {
           }
         : {
             id,
-            action: action as DriveAction,
+            action: action as DriveAction | PermissionsRequestAction,
             status: 'request',
             params,
           };
+    const envelope = request as ExtensionRequest;
 
     const response = await new Promise<ExtensionResponse>((resolve, reject) => {
       const timeout = setTimeout(() => {
@@ -268,7 +272,7 @@ export class ExtensionBridge {
         timeout,
       });
 
-      this.socket?.send(JSON.stringify(request));
+      this.socket?.send(JSON.stringify(envelope));
     });
 
     return response;

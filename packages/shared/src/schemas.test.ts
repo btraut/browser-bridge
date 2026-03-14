@@ -35,6 +35,10 @@ import {
   InspectPageStateInputSchema,
   LocatorSchema,
   OpResultSchema,
+  PermissionsGetModeOutputSchema,
+  PermissionsListOutputSchema,
+  PermissionsRequestAllowSiteInputSchema,
+  PermissionsRequestOutputSchema,
   SessionCreateInputSchema,
   SessionStatusSchema,
 } from './schemas';
@@ -52,6 +56,41 @@ describe('shared schemas', () => {
   it('parses session create with no input', () => {
     const parsed = SessionCreateInputSchema.parse({});
     expect(parsed).toEqual({});
+  });
+
+  it('parses permissions list output', () => {
+    const parsed = PermissionsListOutputSchema.parse({
+      sites: [
+        {
+          site: 'example.com',
+          created_at: '2026-03-13T00:00:00.000Z',
+          last_used_at: '2026-03-13T01:00:00.000Z',
+        },
+      ],
+    });
+    expect(parsed.sites[0]?.site).toBe('example.com');
+  });
+
+  it('parses permissions request input and result', () => {
+    const input = PermissionsRequestAllowSiteInputSchema.parse({
+      site: 'example.com',
+      timeout_ms: 30000,
+      source: 'cli',
+    });
+    const result = PermissionsRequestOutputSchema.parse({
+      request_id: 'perm-1',
+      kind: 'allow_site',
+      status: 'approved',
+      requested_at: '2026-03-13T00:00:00.000Z',
+      site: 'example.com',
+      source: 'cli',
+      message: 'Approved.',
+    });
+    const mode = PermissionsGetModeOutputSchema.parse({ mode: 'granular' });
+
+    expect(input.site).toBe('example.com');
+    expect(result.status).toBe('approved');
+    expect(mode.mode).toBe('granular');
   });
 
   it('parses drive navigate defaults', () => {

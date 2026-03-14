@@ -90,6 +90,22 @@ import {
   PageStateSchema,
   PerformanceMetricSchema,
   PerformanceMetricsSchema,
+  PermissionsGetModeInputSchema,
+  PermissionsGetModeOutputSchema,
+  PermissionsListInputSchema,
+  PermissionsListOutputSchema,
+  PermissionsListPendingRequestsInputSchema,
+  PermissionsListPendingRequestsOutputSchema,
+  PermissionsModeSchema,
+  PermissionsPendingRequestKindSchema,
+  PermissionsPendingRequestSchema,
+  PermissionsPendingRequestStatusSchema,
+  PermissionsRequestAllowSiteInputSchema,
+  PermissionsRequestOutputSchema,
+  PermissionsRequestRevokeSiteInputSchema,
+  PermissionsRequestSetModeInputSchema,
+  PermissionsRequestSourceSchema,
+  PermissionsSiteEntrySchema,
   RecoverResultSchema,
   SessionCloseInputSchema,
   SessionCloseOutputSchema,
@@ -134,6 +150,47 @@ export type SessionRecoverInput = z.infer<typeof SessionRecoverInputSchema>;
 export type SessionRecoverOutput = z.infer<typeof SessionRecoverOutputSchema>;
 export type SessionCloseInput = z.infer<typeof SessionCloseInputSchema>;
 export type SessionCloseOutput = z.infer<typeof SessionCloseOutputSchema>;
+
+export type PermissionsMode = z.infer<typeof PermissionsModeSchema>;
+export type PermissionsRequestSource = z.infer<
+  typeof PermissionsRequestSourceSchema
+>;
+export type PermissionsPendingRequestKind = z.infer<
+  typeof PermissionsPendingRequestKindSchema
+>;
+export type PermissionsPendingRequestStatus = z.infer<
+  typeof PermissionsPendingRequestStatusSchema
+>;
+export type PermissionsSiteEntry = z.infer<typeof PermissionsSiteEntrySchema>;
+export type PermissionsListInput = z.infer<typeof PermissionsListInputSchema>;
+export type PermissionsListOutput = z.infer<typeof PermissionsListOutputSchema>;
+export type PermissionsGetModeInput = z.infer<
+  typeof PermissionsGetModeInputSchema
+>;
+export type PermissionsGetModeOutput = z.infer<
+  typeof PermissionsGetModeOutputSchema
+>;
+export type PermissionsPendingRequest = z.infer<
+  typeof PermissionsPendingRequestSchema
+>;
+export type PermissionsListPendingRequestsInput = z.infer<
+  typeof PermissionsListPendingRequestsInputSchema
+>;
+export type PermissionsListPendingRequestsOutput = z.infer<
+  typeof PermissionsListPendingRequestsOutputSchema
+>;
+export type PermissionsRequestAllowSiteInput = z.infer<
+  typeof PermissionsRequestAllowSiteInputSchema
+>;
+export type PermissionsRequestRevokeSiteInput = z.infer<
+  typeof PermissionsRequestRevokeSiteInputSchema
+>;
+export type PermissionsRequestSetModeInput = z.infer<
+  typeof PermissionsRequestSetModeInputSchema
+>;
+export type PermissionsRequestOutput = z.infer<
+  typeof PermissionsRequestOutputSchema
+>;
 
 export type DriveWaitCondition = z.infer<typeof DriveWaitConditionSchema>;
 export type DriveNavigateInput = z.infer<typeof DriveNavigateInputSchema>;

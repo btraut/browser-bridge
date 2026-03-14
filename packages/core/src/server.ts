@@ -14,7 +14,11 @@ import {
 import { createSessionRouter } from './routes/session';
 import { registerArtifactsRoutes } from './routes/artifacts';
 import { registerDiagnosticsRoutes } from './routes/diagnostics';
-import { registerDriveRoutes, registerInspectRoutes } from './routes';
+import {
+  registerDriveRoutes,
+  registerInspectRoutes,
+  registerPermissionsRoutes,
+} from './routes';
 import { SessionRegistry } from './session';
 import { ExtensionBridge } from './extension-bridge';
 import { DriveController } from './drive';
@@ -116,6 +120,9 @@ export const createCoreServer = (
   );
 
   registerDriveRoutes(app, { drive, registry });
+  registerPermissionsRoutes(app, {
+    extensionBridge,
+  });
   registerInspectRoutes(app, {
     registry,
     extensionBridge,

@@ -202,6 +202,76 @@ export const SessionCloseOutputSchema = z.object({
   ok: z.boolean(),
 });
 
+export const PermissionsModeSchema = z.enum(['granular', 'bypass']);
+export const PermissionsRequestSourceSchema = z.enum(['cli', 'mcp', 'api']);
+export const PermissionsPendingRequestKindSchema = z.enum([
+  'allow_site',
+  'revoke_site',
+  'set_mode',
+]);
+export const PermissionsPendingRequestStatusSchema = z.enum([
+  'pending',
+  'approved',
+  'denied',
+  'timed_out',
+]);
+
+export const PermissionsSiteEntrySchema = z.object({
+  site: z.string().min(1),
+  created_at: z.string().datetime(),
+  last_used_at: z.string().datetime(),
+});
+
+export const PermissionsListInputSchema = z.object({}).strict().default({});
+export const PermissionsListOutputSchema = z.object({
+  sites: z.array(PermissionsSiteEntrySchema),
+});
+
+export const PermissionsGetModeInputSchema = z.object({}).strict().default({});
+export const PermissionsGetModeOutputSchema = z.object({
+  mode: PermissionsModeSchema,
+});
+
+export const PermissionsPendingRequestSchema = z.object({
+  request_id: z.string().min(1),
+  kind: PermissionsPendingRequestKindSchema,
+  status: PermissionsPendingRequestStatusSchema,
+  requested_at: z.string().datetime(),
+  site: z.string().min(1).optional(),
+  mode: PermissionsModeSchema.optional(),
+  source: PermissionsRequestSourceSchema.optional(),
+  warning: z.string().optional(),
+  message: z.string().optional(),
+});
+
+export const PermissionsListPendingRequestsInputSchema = z
+  .object({})
+  .strict()
+  .default({});
+export const PermissionsListPendingRequestsOutputSchema = z.object({
+  requests: z.array(PermissionsPendingRequestSchema),
+});
+
+export const PermissionsRequestAllowSiteInputSchema = z.object({
+  site: z.string().min(1),
+  timeout_ms: z.number().int().positive().max(300000).optional(),
+  source: PermissionsRequestSourceSchema.optional(),
+});
+
+export const PermissionsRequestRevokeSiteInputSchema = z.object({
+  site: z.string().min(1),
+  timeout_ms: z.number().int().positive().max(300000).optional(),
+  source: PermissionsRequestSourceSchema.optional(),
+});
+
+export const PermissionsRequestSetModeInputSchema = z.object({
+  mode: PermissionsModeSchema,
+  timeout_ms: z.number().int().positive().max(300000).optional(),
+  source: PermissionsRequestSourceSchema.optional(),
+});
+
+export const PermissionsRequestOutputSchema = PermissionsPendingRequestSchema;
+
 export const DriveWaitConditionSchema = z.object({
   kind: z.enum(['locator_visible', 'text_present', 'url_matches']),
   value: z.string().min(1),

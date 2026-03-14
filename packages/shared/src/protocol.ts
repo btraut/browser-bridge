@@ -166,6 +166,69 @@ export type DriveSetDebuggerCapabilityParams = {
   extension_id?: string;
 };
 
+export type PermissionsSiteEntry = {
+  site: string;
+  created_at: string;
+  last_used_at: string;
+};
+
+export type PermissionsMode = 'granular' | 'bypass';
+
+export type PermissionsPendingRequestKind =
+  | 'allow_site'
+  | 'revoke_site'
+  | 'set_mode';
+
+export type PermissionsPendingRequestStatus =
+  | 'pending'
+  | 'approved'
+  | 'denied'
+  | 'timed_out';
+
+export type PermissionsRequestSource = 'cli' | 'mcp' | 'api';
+
+export type PermissionsListResult = {
+  sites: PermissionsSiteEntry[];
+};
+
+export type PermissionsGetModeResult = {
+  mode: PermissionsMode;
+};
+
+export type PermissionsPendingRequest = {
+  request_id: string;
+  kind: PermissionsPendingRequestKind;
+  status: PermissionsPendingRequestStatus;
+  requested_at: string;
+  site?: string;
+  mode?: PermissionsMode;
+  source?: PermissionsRequestSource;
+  warning?: string;
+  message?: string;
+};
+
+export type PermissionsListPendingRequestsResult = {
+  requests: PermissionsPendingRequest[];
+};
+
+export type PermissionsRequestAllowSiteParams = {
+  site: string;
+  timeout_ms?: number;
+  source?: PermissionsRequestSource;
+};
+
+export type PermissionsRequestRevokeSiteParams = {
+  site: string;
+  timeout_ms?: number;
+  source?: PermissionsRequestSource;
+};
+
+export type PermissionsRequestSetModeParams = {
+  mode: PermissionsMode;
+  timeout_ms?: number;
+  source?: PermissionsRequestSource;
+};
+
 export type ExtensionCapabilityMap = Record<string, boolean>;
 
 export type DriveHelloParams = {
@@ -209,6 +272,20 @@ export type DriveAction =
   | 'drive.hello'
   | 'drive.tab_report'
   | 'drive.ping';
+
+export type PermissionsReadAction =
+  | 'permissions.list'
+  | 'permissions.get_mode'
+  | 'permissions.list_pending_requests';
+
+export type PermissionsRequestAction =
+  | 'permissions.request_allow_site'
+  | 'permissions.request_revoke_site'
+  | 'permissions.request_set_mode';
+
+export type PermissionsAction =
+  | PermissionsReadAction
+  | PermissionsRequestAction;
 
 export type DriveRequestStatus = 'request';
 export type DriveResponseStatus = 'ok' | 'error';
@@ -346,9 +423,32 @@ export type DebuggerMessage =
   | DebuggerResponse
   | DebuggerEvent;
 
-export type ExtensionRequestAction = DriveAction | DebuggerRequestAction;
-export type ExtensionAction = DriveAction | DebuggerAction;
-export type ExtensionRequest = DriveRequest | DebuggerRequest;
-export type ExtensionResponse = DriveResponse | DebuggerResponse;
+export type PermissionsRequest<TParams = Record<string, unknown>> =
+  DriveRequest<TParams> & {
+    action: PermissionsAction;
+  };
+
+export type PermissionsResponse<TResult = unknown> = DriveResponse<TResult> & {
+  action: PermissionsAction;
+};
+
+export type PermissionsMessage = PermissionsRequest | PermissionsResponse;
+
+export type ExtensionRequestAction =
+  | DriveAction
+  | DebuggerRequestAction
+  | PermissionsAction;
+export type ExtensionAction = DriveAction | DebuggerAction | PermissionsAction;
+export type ExtensionRequest =
+  | DriveRequest
+  | DebuggerRequest
+  | PermissionsRequest;
+export type ExtensionResponse =
+  | DriveResponse
+  | DebuggerResponse
+  | PermissionsResponse;
 export type ExtensionEvent = DriveEvent | DebuggerEvent;
-export type ExtensionMessage = DriveMessage | DebuggerMessage;
+export type ExtensionMessage =
+  | DriveMessage
+  | DebuggerMessage
+  | PermissionsMessage;
