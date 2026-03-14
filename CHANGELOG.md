@@ -6,6 +6,10 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 
 ## [Unreleased]
 
+### Added
+
+- Added a project-local `bump-version` skill that walks an agent through the repo's release flow: explicit SemVer bump selection, changelog move, release commit/tag push, GitHub release verification, npm publish, and the final extension-update reminder.
+
 ### Changed
 
 - Refactored the extension action path into smaller, clearer pieces: tab resolution, permission gating, debugger dispatch, click strategies, and locator scoring no longer all live inline in the same giant handlers.

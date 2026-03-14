@@ -74,7 +74,7 @@ const stagedSkillsRoot = path.join(cliRoot, 'skills');
 await rmrf(stagedSkillsRoot);
 await mkdirp(stagedSkillsRoot);
 
-const skillSrc = path.join(repoRoot, 'docs', 'skills', 'browser-bridge');
+const skillSrc = path.join(repoRoot, 'skills', 'browser-bridge');
 const skillDst = path.join(stagedSkillsRoot, 'browser-bridge');
 await fs.cp(skillSrc, skillDst, { recursive: true });
 

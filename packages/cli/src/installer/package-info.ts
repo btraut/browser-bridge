@@ -55,11 +55,11 @@ export const resolveSkillSourceDir = async (): Promise<string> => {
     return packaged;
   } catch {
     // In-repo dev usage: `npm run build` does not stage `packages/cli/skills/*`
-    // (that happens at npm pack time). Fall back to docs/skills.
+    // (that happens at npm pack time). Fall back to repo-root skills.
   }
 
   const repoRoot = path.resolve(rootDir, '..', '..');
-  const docsSkill = path.join(repoRoot, 'docs', 'skills', 'browser-bridge');
+  const docsSkill = path.join(repoRoot, 'skills', 'browser-bridge');
   try {
     await fs.stat(docsSkill);
     return docsSkill;

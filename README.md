@@ -212,8 +212,8 @@ Or copy the Browser Bridge skill into your agent skills directory (advanced):
 
 ```bash
 # From this repo:
-# cp -R docs/skills/browser-bridge ~/.agents/skills/browser-bridge
-# cp -R docs/skills/browser-bridge ~/.claude/skills/browser-bridge
+# cp -R skills/browser-bridge ~/.agents/skills/browser-bridge
+# cp -R skills/browser-bridge ~/.claude/skills/browser-bridge
 
 # From npm (global install):
 cp -R "$(npm root -g)/@btraut/browser-bridge/skills/browser-bridge" ~/.agents/skills/browser-bridge
