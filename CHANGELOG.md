@@ -6,6 +6,8 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-03-13
+
 ### Added
 
 - Added a project-local `bump-version` skill that walks an agent through the repo's release flow: explicit SemVer bump selection, changelog move, release commit/tag push, GitHub release verification, npm publish, and the final extension-update reminder.
