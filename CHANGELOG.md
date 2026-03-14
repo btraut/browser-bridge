@@ -6,9 +6,14 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 
 ## [Unreleased]
 
+### Added
+
+- Added first-class `permissions.*` support across Core, CLI, and MCP for reading allowlist/mode state and requesting allowlist/mode changes through a human approval flow in Chrome.
+
 ### Changed
 
 - The repo-local `bump-version` release skill and release doc now require a fresh `npm install` and `npm run build` before any version bumping, so releases start from a clean build instead of wishful thinking.
+- External permission changes are now approval-gated end to end: CLI/MCP can request them, but the extension applies them only after a human approves a dedicated prompt, with extra friction for bypass mode.
 
 ## [0.14.0] - 2026-03-13
 

@@ -130,6 +130,14 @@ Manage approvals (and bypass mode):
 - Switch **Permission mode** to **Bypass (dangerous)** to skip the allowlist and prompts entirely.
 - In bypass mode, the agent can take actions on any website without asking.
 - Restricted URLs (for example `chrome://` and `file://`) are still blocked.
+- CLI and MCP can also inspect or request permission changes:
+  - Reads: `browser-bridge permissions list`, `browser-bridge permissions mode`, `browser-bridge permissions pending`
+  - Requests: `browser-bridge permissions allow-site --site example.com`, `revoke-site --site example.com`, `set-mode --mode granular|bypass`
+  - Equivalent MCP tools exist under `permissions.*`
+- External permission-change requests are still human-gated:
+  - CLI/MCP request calls open a dedicated Chrome approval prompt.
+  - Nothing is mutated silently from CLI or MCP.
+  - If the request times out, the command/tool returns `status: "timed_out"`; if the prompt is still open, a later human approval still applies the change.
 - `inspect.*` should already be enabled in current builds. Use `browser-bridge dev enable-inspect` as a diagnostics probe; if it reports missing inspect capability, treat that as stale runtime drift and reload or update the Browser Bridge extension.
 
 </details>
@@ -147,6 +155,15 @@ The CLI mirrors the MCP tool surface.
 - `session.status`
 - `session.recover`
 - `session.close`
+
+**permissions**
+
+- `permissions.list`
+- `permissions.get_mode`
+- `permissions.list_pending_requests`
+- `permissions.request_allow_site`
+- `permissions.request_revoke_site`
+- `permissions.request_set_mode`
 
 **drive**
 

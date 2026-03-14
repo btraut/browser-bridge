@@ -101,6 +101,7 @@ Note: MCP still requires `browser-bridge` to be on PATH, since the client invoke
 ## Tool Groups (MCP)
 
 - `session.*` - Session lifecycle
+- `permissions.*` - Allowlist/mode inspection plus approval-gated permission-change requests
 - `drive.*` - Navigation and input
 - `inspect.*` - DOM snapshots and evaluation
 - `artifacts.*` - Screenshots
@@ -139,6 +140,14 @@ Manage approvals (and bypass mode):
 - Review/revoke sites under **Approved sites**.
 - Switch **Permission mode** to **Bypass (dangerous)** to skip prompts/allowlist entirely.
   - Restricted URLs (for example `chrome://` and `file://`) are still blocked.
+- CLI and MCP can also inspect or request permission changes:
+  - CLI reads: `browser-bridge permissions list`, `browser-bridge permissions mode`, `browser-bridge permissions pending`
+  - CLI requests: `browser-bridge permissions allow-site --site example.com`, `revoke-site --site example.com`, `set-mode --mode granular|bypass`
+  - MCP equivalents: `permissions.list`, `permissions.get_mode`, `permissions.list_pending_requests`, and `permissions.request_*`
+- External permission-change requests are still human-gated:
+  - Request tools/commands open a dedicated Chrome approval prompt.
+  - A request timeout returns `status: "timed_out"`; if the prompt stays open, a later human approval still applies the change.
+  - Nothing is silently mutated from CLI or MCP.
 
 ### Error Handling (Structured Envelopes)
 

@@ -76,6 +76,40 @@ This checklist validates the Drive + Inspect planes and artifact handling end-to
    - Revoke the site in the options page.
    - Run a drive action on that site again; it should prompt again.
 
+## Checklist (External Permissions Management)
+
+1. Start from granular mode with an empty allowlist.
+2. Verify CLI reads:
+   - `node packages/cli/dist/index.js permissions list --json`
+   - `node packages/cli/dist/index.js permissions mode --json`
+   - `node packages/cli/dist/index.js permissions pending --json`
+3. Request allowlisting a site from CLI:
+   - `node packages/cli/dist/index.js permissions allow-site --site example.com --timeout-ms 30000 --json`
+   - Verify Chrome opens the dedicated external approval prompt, not the normal drive-action prompt.
+4. Approve the request:
+   - Click **Approve change** in the external prompt.
+   - Verify the command returns `status: "approved"`.
+   - Verify `permissions list --json` now includes `example.com`.
+5. Verify denial:
+   - Run `permissions revoke-site --site example.com --timeout-ms 30000 --json`.
+   - Click **Decline** in the prompt.
+   - Verify the command returns `status: "denied"` and the site remains allowlisted.
+6. Verify timeout + pending behavior:
+   - Run `permissions revoke-site --site example.com --timeout-ms 1000 --json`.
+   - Do not click anything for >1 second.
+   - Verify the command returns `status: "timed_out"`.
+   - Verify `permissions pending --json` shows a pending revoke request.
+   - Approve the still-open prompt.
+   - Verify `permissions list --json` no longer includes `example.com`.
+7. Verify bypass mode gets extra friction:
+   - Run `node packages/cli/dist/index.js permissions set-mode --mode bypass --timeout-ms 30000 --json`.
+   - Verify the prompt shows a stronger warning and disables approval until the acknowledgement checkbox is checked.
+   - Approve the request and verify `permissions mode --json` returns `bypass`.
+8. Restore safe mode:
+   - Run `node packages/cli/dist/index.js permissions set-mode --mode granular --timeout-ms 30000 --json`.
+   - Approve the request.
+   - Verify `permissions mode --json` returns `granular`.
+
 ## Checklist (Inspect Capability Verification)
 
 1. Run `node packages/cli/dist/index.js dev enable-inspect --json`.
@@ -101,8 +135,10 @@ This optional script exercises every CLI tool against a deterministic fixture pa
 ## MCP Adapter Sanity Check
 
 1. Start the MCP adapter (stdio transport): `browser-bridge mcp`
-2. Connect with your MCP client and run `tools/list` to confirm `session.*`, `drive.*`, `inspect.*`, `artifacts.*`, `diagnostics.*`.
+2. Connect with your MCP client and run `tools/list` to confirm `session.*`, `permissions.*`, `drive.*`, `inspect.*`, `artifacts.*`, `diagnostics.*`.
 3. Run `session.create` to verify end-to-end Core routing.
+4. Run `permissions.get_mode` and `permissions.list` to verify read routing.
+5. Run `permissions.request_allow_site` to verify the dedicated approval prompt appears and the tool result reflects approve/deny/timeout status.
 
 ## Expected Results
 
