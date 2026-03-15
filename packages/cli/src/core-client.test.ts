@@ -135,6 +135,56 @@ describe('createCoreClient', () => {
     expect(result).toEqual({ ok: true, result: { ok: true } });
   });
 
+  it('restarts a daemon that predates the current build', async () => {
+    let healthy = true;
+    let healthChecks = 0;
+    const fetchImpl = vi.fn(async (url: string) => {
+      if (url.endsWith('/health')) {
+        return makeResponse({ ok: healthy });
+      }
+      if (url.endsWith('/health/check')) {
+        healthChecks += 1;
+        return makeResponse({
+          ok: true,
+          result: {
+            started_at:
+              healthChecks === 1
+                ? '2026-03-10T00:00:00.000Z'
+                : '2026-03-15T00:00:00.000Z',
+            pid: 4242,
+          },
+        });
+      }
+      return makeResponse({ ok: true, result: { ok: true } });
+    }) as unknown as typeof fetch;
+    const killProcess = vi.fn(() => {
+      healthy = false;
+    });
+    const spawnImpl = vi.fn(() => {
+      healthy = true;
+      return {
+        on: () => undefined,
+        unref: () => undefined,
+      };
+    }) as unknown as typeof import('node:child_process').spawn;
+
+    const client = createCoreClient({
+      host: '127.0.0.1',
+      port: 3210,
+      ensureDaemon: true,
+      fetchImpl,
+      spawnImpl,
+      currentBuildTimeMs: Date.parse('2026-03-14T12:00:00.000Z'),
+      killProcess,
+    });
+
+    const result = await client.post('/session/status', { session_id: 's1' });
+
+    expect(killProcess).toHaveBeenCalledWith(4242);
+    expect(spawnImpl).toHaveBeenCalledTimes(1);
+    expect(result).toEqual({ ok: true, result: { ok: true } });
+  });
+
   it('ignores persisted runtime routing metadata when options and env are absent', () => {
     const root = createGitRoot('cli-core-client-metadata-root-');
     const metadataDir = path.join(root, '.context', 'browser-bridge');

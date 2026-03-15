@@ -6,6 +6,7 @@ export const captureHtml = async (
     selector?: string;
     debuggerCommand: DebuggerCommand;
     onEvaluationFailed: () => never;
+    executionContextId?: number;
   }
 ): Promise<string> => {
   await options.debuggerCommand(tabId, 'Runtime.enable', {});
@@ -18,6 +19,9 @@ export const captureHtml = async (
     expression,
     returnByValue: true,
     awaitPromise: true,
+    ...(typeof options.executionContextId === 'number'
+      ? { contextId: options.executionContextId }
+      : {}),
   });
 
   if (result && typeof result === 'object' && 'exceptionDetails' in result) {

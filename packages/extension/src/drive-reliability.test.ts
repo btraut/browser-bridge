@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
+  canInjectContentScriptForUrl,
   getTabChannelRetryDelayMs,
   isLikelyNavigationCommitted,
+  shouldReinjectContentScript,
   isTransientTabChannelError,
   shouldRetryTabChannelFailure,
 } from './drive-reliability';
@@ -24,6 +26,38 @@ describe('drive reliability helpers', () => {
       )
     ).toBe(true);
     expect(isTransientTabChannelError('tab not found')).toBe(false);
+  });
+
+  it('only requests content-script reinjection when the receiver is missing', () => {
+    expect(
+      shouldReinjectContentScript(
+        'Could not establish connection. Receiving end does not exist.',
+        'https://example.com'
+      )
+    ).toBe(true);
+    expect(
+      shouldReinjectContentScript(
+        'The message port closed before a response was received.',
+        'https://example.com'
+      )
+    ).toBe(false);
+    expect(
+      shouldReinjectContentScript(
+        'Could not establish connection. Receiving end does not exist.',
+        'chrome://extensions'
+      )
+    ).toBe(false);
+  });
+
+  it('only injects content scripts into normal web pages', () => {
+    expect(canInjectContentScriptForUrl('https://example.com')).toBe(true);
+    expect(canInjectContentScriptForUrl('http://example.com')).toBe(true);
+    expect(canInjectContentScriptForUrl('chrome://extensions')).toBe(false);
+    expect(
+      canInjectContentScriptForUrl('chrome-extension://abcd/options.html')
+    ).toBe(false);
+    expect(canInjectContentScriptForUrl('file:///tmp/index.html')).toBe(false);
+    expect(canInjectContentScriptForUrl(undefined)).toBe(false);
   });
 
   it('returns bounded retry delays for sequential attempts', () => {

@@ -1,6 +1,7 @@
 import { randomUUID } from 'crypto';
 import { writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { PageStateSchema } from '@btraut/browser-bridge-shared';
 import { ensureArtifactRootDir } from '../artifacts';
 import { driveMutex } from '../drive';
 import type { DebuggerBridge } from '../debugger-bridge';
@@ -47,14 +48,12 @@ import type {
   DomSnapshotResult,
   EvaluateResult,
   ExtractContentResult,
-  FormInfo,
   InspectErrorCode,
   InspectServiceOptions,
   PageStateResult,
   PerformanceMetricsResult,
-  StorageEntry,
 } from './types';
-import { PAGE_STATE_SCRIPT } from '../page-state-script';
+import { buildPageStateScript } from '../page-state-script';
 import { SessionError, SessionRegistry, SessionRecord } from '../session';
 import { SessionState } from '../state';
 import type { TargetHint } from '../target-matching';
@@ -77,6 +76,7 @@ export class InspectService {
   private lastError?: InspectError;
   private lastErrorAt?: string;
   private readonly snapshots: SnapshotHistory;
+  private readonly consoleSinceBySessionTab = new Map<string, string>();
 
   constructor(options: InspectServiceOptions) {
     this.registry = options.registry;
@@ -156,12 +156,16 @@ export class InspectService {
     this.requireSession(input.sessionId);
     const selection = await this.resolveTab(input.sessionId, input.targetHint);
     const debuggerCommand = this.debuggerCommand.bind(this);
+    const executionContextId = await this.resolveMainFrameExecutionContextId(
+      selection.tabId
+    );
 
     const work = async (): Promise<DomSnapshotResult> => {
       if (input.format === 'html') {
         const html = await captureHtml(selection.tabId, {
           selector: input.selector,
           debuggerCommand,
+          executionContextId,
           onEvaluationFailed: () => {
             const error = new InspectError(
               'EVALUATION_FAILED',
@@ -297,6 +301,7 @@ export class InspectService {
           const html = await captureHtml(selection.tabId, {
             selector: input.selector,
             debuggerCommand,
+            executionContextId,
             onEvaluationFailed: () => {
               const error = new InspectError(
                 'EVALUATION_FAILED',
@@ -440,14 +445,36 @@ export class InspectService {
 
   async consoleList(input: {
     sessionId: string;
+    since?: string;
     targetHint?: TargetHint;
   }): Promise<ConsoleListResult> {
-    this.requireSession(input.sessionId);
+    const session = this.requireSession(input.sessionId);
+    const tabCount = this.extensionBridge?.getStatus().tabs.length ?? 0;
+    if (
+      !input.targetHint &&
+      typeof session.selectedTabId !== 'number' &&
+      tabCount > 1
+    ) {
+      const error = new InspectError(
+        'TAB_NOT_FOUND',
+        'Console inspection requires an explicit target or a session-selected tab.',
+        { retryable: false }
+      );
+      this.recordError(error);
+      throw error;
+    }
     const selection = await this.resolveTab(input.sessionId, input.targetHint);
     await this.enableConsole(selection.tabId);
 
+    const since = this.resolveConsoleSince({
+      session,
+      tabId: selection.tabId,
+      requestedSince: input.since,
+      tabLastActiveAt: selection.tab.last_active_at,
+    });
     const events = this.ensureDebugger().getConsoleEvents(selection.tabId);
     const entries = events
+      .filter((event) => this.isEventOnOrAfter(event.timestamp, since))
       .map((event) => toConsoleEntry(event))
       .filter((entry): entry is ConsoleEntry => entry !== null);
 
@@ -501,16 +528,7 @@ export class InspectService {
     const selection = await this.resolveTab(input.sessionId, input.targetHint);
     const expression = input.expression ?? 'undefined';
 
-    await this.debuggerCommand(selection.tabId, 'Runtime.enable', {});
-    const result = await this.debuggerCommand(
-      selection.tabId,
-      'Runtime.evaluate',
-      {
-        expression,
-        returnByValue: true,
-        awaitPromise: true,
-      }
-    );
+    const result = await this.evaluateInMainFrame(selection.tabId, expression);
 
     if (result && typeof result === 'object' && 'exceptionDetails' in result) {
       const output = {
@@ -532,67 +550,75 @@ export class InspectService {
   async extractContent(input: {
     sessionId: string;
     format: 'markdown' | 'text' | 'article_json';
+    consistency?: 'best_effort' | 'quiesce';
     includeMetadata?: boolean;
     targetHint?: TargetHint;
   }): Promise<ExtractContentResult> {
     this.requireSession(input.sessionId);
     const selection = await this.resolveTab(input.sessionId, input.targetHint);
+    const consistency = input.consistency ?? 'quiesce';
 
     const debuggerCommand = this.debuggerCommand.bind(this);
-    const html = await captureHtml(selection.tabId, {
-      debuggerCommand,
-      onEvaluationFailed: () => {
-        const error = new InspectError(
-          'EVALUATION_FAILED',
-          'Failed to evaluate HTML snapshot.',
-          { retryable: false }
-        );
-        this.recordError(error);
-        throw error;
-      },
-    });
+    const executionContextId = await this.resolveMainFrameExecutionContextId(
+      selection.tabId
+    );
     const url = selection.tab.url ?? 'about:blank';
-    try {
-      const { article, semanticMainCandidate } = parseExtractContentSource({
-        html,
-        url,
-      });
-      const output = renderExtractContent({
-        format: input.format,
-        article,
-        semanticMainCandidate,
-        includeMetadata: input.includeMetadata,
-        warnings: selection.warnings,
-      });
-
-      this.markInspectConnected(input.sessionId);
-      return output;
-    } catch (error) {
-      if (error instanceof InspectError) {
-        this.recordError(error);
+    const work = async (): Promise<ExtractContentResult> => {
+      if (consistency === 'quiesce') {
+        await this.waitForDomSettled(selection.tabId, executionContextId);
       }
-      throw error;
-    }
+      const html = await captureHtml(selection.tabId, {
+        debuggerCommand,
+        executionContextId,
+        onEvaluationFailed: () => {
+          const error = new InspectError(
+            'EVALUATION_FAILED',
+            'Failed to evaluate HTML snapshot.',
+            { retryable: false }
+          );
+          this.recordError(error);
+          throw error;
+        },
+      });
+      try {
+        const { article, semanticMainCandidate } = parseExtractContentSource({
+          html,
+          url,
+        });
+        return renderExtractContent({
+          format: input.format,
+          article,
+          semanticMainCandidate,
+          includeMetadata: input.includeMetadata,
+          warnings: selection.warnings,
+        });
+      } catch (error) {
+        if (error instanceof InspectError) {
+          this.recordError(error);
+        }
+        throw error;
+      }
+    };
+
+    const output =
+      consistency === 'quiesce'
+        ? await driveMutex.runExclusive(work)
+        : await work();
+    this.markInspectConnected(input.sessionId);
+    return output;
   }
 
   async pageState(input: {
     sessionId: string;
+    includeValues?: boolean;
     targetHint?: TargetHint;
   }): Promise<PageStateResult> {
     this.requireSession(input.sessionId);
     const selection = await this.resolveTab(input.sessionId, input.targetHint);
 
-    await this.debuggerCommand(selection.tabId, 'Runtime.enable', {});
-    const expression = PAGE_STATE_SCRIPT;
-
-    const result = await this.debuggerCommand(
+    const result = await this.evaluateInMainFrame(
       selection.tabId,
-      'Runtime.evaluate',
-      {
-        expression,
-        returnByValue: true,
-        awaitPromise: true,
-      }
+      buildPageStateScript({ includeValues: input.includeValues })
     );
 
     if (result && typeof result === 'object' && 'exceptionDetails' in result) {
@@ -606,25 +632,22 @@ export class InspectService {
     }
 
     const value = (result as { result?: { value?: unknown } })?.result?.value;
-    const raw =
-      value && typeof value === 'object'
-        ? (value as Partial<PageStateResult>)
-        : {};
+    const parsed = PageStateSchema.safeParse(value);
+    if (!parsed.success) {
+      const error = new InspectError(
+        'EVALUATION_FAILED',
+        'Captured page state did not match the expected schema.',
+        { retryable: false }
+      );
+      this.recordError(error);
+      throw error;
+    }
     const warnings = [
-      ...(Array.isArray(raw.warnings) ? raw.warnings : []),
+      ...(parsed.data.warnings ?? []),
       ...(selection.warnings ?? []),
     ];
     const output: PageStateResult = {
-      forms: Array.isArray(raw.forms) ? (raw.forms as FormInfo[]) : [],
-      localStorage: Array.isArray(raw.localStorage)
-        ? (raw.localStorage as StorageEntry[])
-        : [],
-      sessionStorage: Array.isArray(raw.sessionStorage)
-        ? (raw.sessionStorage as StorageEntry[])
-        : [],
-      cookies: Array.isArray(raw.cookies)
-        ? (raw.cookies as StorageEntry[])
-        : [],
+      ...parsed.data,
       ...(warnings.length > 0 ? { warnings } : {}),
     };
 
@@ -914,6 +937,133 @@ export class InspectService {
     await this.debuggerCommand(tabId, 'Accessibility.enable', {});
   }
 
+  private async waitForDomSettled(
+    tabId: number,
+    executionContextId?: number
+  ): Promise<void> {
+    const result = await this.debuggerCommand(tabId, 'Runtime.evaluate', {
+      expression: `(() => {
+        const quietMs = 100;
+        const timeoutMs = 2000;
+        return new Promise((resolve) => {
+          const doc = document;
+          const root = doc.documentElement || doc.body || doc;
+          let finished = false;
+          let quietTimer;
+          let timeoutTimer;
+          let raf1 = 0;
+          let raf2 = 0;
+          const finish = () => {
+            if (finished) {
+              return;
+            }
+            finished = true;
+            if (observer) {
+              observer.disconnect();
+            }
+            clearTimeout(quietTimer);
+            clearTimeout(timeoutTimer);
+            if (raf1) cancelAnimationFrame(raf1);
+            if (raf2) cancelAnimationFrame(raf2);
+            resolve(true);
+          };
+          const scheduleQuiet = () => {
+            clearTimeout(quietTimer);
+            quietTimer = setTimeout(() => {
+              raf1 = requestAnimationFrame(() => {
+                raf2 = requestAnimationFrame(finish);
+              });
+            }, quietMs);
+          };
+          const observer =
+            typeof MutationObserver === 'function'
+              ? new MutationObserver(() => {
+                  scheduleQuiet();
+                })
+              : null;
+          if (observer && root) {
+            observer.observe(root, {
+              subtree: true,
+              childList: true,
+              attributes: true,
+              characterData: true,
+            });
+          }
+          scheduleQuiet();
+          timeoutTimer = setTimeout(finish, timeoutMs);
+        });
+      })()`,
+      returnByValue: true,
+      awaitPromise: true,
+      ...(typeof executionContextId === 'number'
+        ? { contextId: executionContextId }
+        : {}),
+    });
+    if (result && typeof result === 'object' && 'exceptionDetails' in result) {
+      const error = new InspectError(
+        'EVALUATION_FAILED',
+        'Failed while waiting for the page to settle.',
+        { retryable: false }
+      );
+      this.recordError(error);
+      throw error;
+    }
+  }
+
+  private async evaluateInMainFrame(
+    tabId: number,
+    expression: string
+  ): Promise<unknown> {
+    await this.debuggerCommand(tabId, 'Runtime.enable', {});
+    const executionContextId =
+      await this.resolveMainFrameExecutionContextId(tabId);
+    return await this.debuggerCommand(tabId, 'Runtime.evaluate', {
+      expression,
+      returnByValue: true,
+      awaitPromise: true,
+      ...(typeof executionContextId === 'number'
+        ? { contextId: executionContextId }
+        : {}),
+    });
+  }
+
+  private async resolveMainFrameExecutionContextId(
+    tabId: number
+  ): Promise<number | undefined> {
+    const debuggerBridge = this.ensureDebugger();
+    const runOptional = async (
+      method: string,
+      params?: Record<string, unknown>
+    ): Promise<unknown | undefined> => {
+      const result = await debuggerBridge.command(tabId, method, params);
+      if (!result.ok) {
+        return undefined;
+      }
+      return result.result;
+    };
+
+    await runOptional('Page.enable', {});
+    const frameTree = await runOptional('Page.getFrameTree', {});
+    const frameId = (
+      frameTree as {
+        frameTree?: { frame?: { id?: unknown } };
+      }
+    )?.frameTree?.frame?.id;
+
+    if (typeof frameId !== 'string' || frameId.length === 0) {
+      return undefined;
+    }
+
+    const isolatedWorld = await runOptional('Page.createIsolatedWorld', {
+      frameId,
+      worldName: 'browser_bridge_inspect',
+    });
+    const contextId = (
+      isolatedWorld as { executionContextId?: unknown } | undefined
+    )?.executionContextId;
+    return typeof contextId === 'number' ? contextId : undefined;
+  }
+
   private async debuggerCommand(
     tabId: number,
     method: string,
@@ -1012,6 +1162,42 @@ export class InspectService {
       this.recordError(wrapped);
       throw wrapped;
     }
+  }
+
+  private resolveConsoleSince(options: {
+    session: SessionRecord;
+    tabId: number;
+    requestedSince?: string;
+    tabLastActiveAt?: string;
+  }): string {
+    if (typeof options.requestedSince === 'string') {
+      return options.requestedSince;
+    }
+    const key = `${options.session.id}:${options.tabId}`;
+    const existing = this.consoleSinceBySessionTab.get(key);
+    if (existing) {
+      return existing;
+    }
+    const candidates = [options.session.createdAt.toISOString()];
+    if (typeof options.tabLastActiveAt === 'string') {
+      candidates.push(options.tabLastActiveAt);
+    }
+    const baseline = candidates
+      .map((value) => ({ value, time: Date.parse(value) }))
+      .filter((entry) => Number.isFinite(entry.time))
+      .sort((a, b) => b.time - a.time)[0]?.value;
+    const resolved = baseline ?? options.session.createdAt.toISOString();
+    this.consoleSinceBySessionTab.set(key, resolved);
+    return resolved;
+  }
+
+  private isEventOnOrAfter(timestamp: string, since: string): boolean {
+    const eventTime = Date.parse(timestamp);
+    const sinceTime = Date.parse(since);
+    if (!Number.isFinite(eventTime) || !Number.isFinite(sinceTime)) {
+      return true;
+    }
+    return eventTime >= sinceTime;
   }
 }
 

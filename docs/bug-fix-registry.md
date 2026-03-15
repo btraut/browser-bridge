@@ -2,6 +2,7 @@
 
 Short index of notable bug fixes. Keep entries symptom-first: bug label, one-line fix summary, and PR/commit reference.
 
+- `inspect-stale-noisy-reads` - `inspect.extract_content` now waits for DOM quiescence, `inspect.page_state` defaults to redacted summary data, and `inspect.console_list` filters stale pre-session tab history by default. Ref: pending commit
 - `activate-missing-extension-id` - `dev activate` can now discover a connected Browser Bridge extension id and wait for a confirmed bind instead of failing before metadata exists. Ref: PR #45, `a619da3`
 - `activate-enable-inspect` - `dev activate --enable-inspect` now provides an automatable path to enable debugger-based inspect and exposes remediation metadata in diagnostics. Ref: PR #45, `a619da3`
 - `screenshot-permission-remediation` - Screenshot capture failures now classify `captureVisibleTab` permission and rate-limit problems with actionable remediation instead of generic errors. Ref: PR #45, `a619da3`
@@ -36,6 +37,9 @@ Short index of notable bug fixes. Keep entries symptom-first: bug label, one-lin
 - `onscreen-role-target-preference` - Locator scoring now prefers on-screen exact matches over off-screen twins for role/text/css targeting, keeping live controls ahead of parked duplicates in deck-style UIs. Ref: pending commit
 - `hittable-locator-points` - `drive.locator_point` now samples for a hittable in-bounds click point instead of blindly using the geometric center, which avoids false-success clicks when the center lands on the wrong surface. Ref: pending commit
 - `wait-for-content-timeout-retry` - Background tab messaging now retries `drive.wait_for` when the content round-trip itself times out during route churn, instead of treating that transport timeout as a final page-state result. Ref: pending commit
+- `repo-local-skill-path` - Repo-local skills now live under `.agents/skills`, and the CLI install/prepack flow reads from that canonical path instead of the stale repo `skills/` directory. Ref: pending commit
+- `existing-tab-content-reinjection` - Background tab messaging now re-injects the content script into already-open web tabs when the receiver is missing, so updated extensions can still drive tabs that predate the current build. Ref: pending commit
+- `inspect-main-frame-isolated-world` - Inspect read paths now evaluate in a top-frame isolated world when available, which avoids auth/passkey extension surfaces hijacking `Runtime.evaluate` on pages like Google sign-in. Ref: pending commit
 - `text-targeting-visible-match` - `locator.text` now prefers normalized visible exact/clickable matches over ancestor containers, longer substrings, and hidden duplicates. Ref: `c81d5a5`
 - `wait-for-visible-text` - `drive.wait_for` now matches normalized visible text and covers immediate or delayed `url_matches` transitions, including split labels and delayed status updates. Ref: pending commit
 - `navigate-wait-help-parity` - CLI `drive navigate --wait` help text now includes `networkidle`, matching the shared schema and route validation instead of underselling the supported modes. Ref: pending commit

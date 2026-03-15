@@ -125,6 +125,7 @@ describe('InspectService', () => {
   it('includes exception details + stack frames in console output', async () => {
     const registry = new SessionRegistry();
     const session = registry.create();
+    session.createdAt = new Date('2026-02-04T00:00:00.000Z');
 
     const service = new InspectService({
       registry,
@@ -1079,6 +1080,75 @@ describe('InspectService', () => {
     expect(result.content).toContain('Mana curve');
   });
 
+  it('waits for DOM quiescence before extracting content', async () => {
+    const registry = new SessionRegistry();
+    const session = registry.create();
+    const html =
+      '<!doctype html><html><body><main><h1>Hello</h1></main></body></html>';
+    const command = vi.fn(
+      async (
+        _tabId: number,
+        method: string,
+        params?: { expression?: string }
+      ) => {
+        if (method === 'Runtime.evaluate') {
+          if (
+            typeof params?.expression === 'string' &&
+            params.expression.includes('MutationObserver')
+          ) {
+            return { ok: true, result: { result: { value: true } } };
+          }
+          return { ok: true, result: { result: { value: html } } };
+        }
+        if (method === 'Page.getFrameTree') {
+          return {
+            ok: true,
+            result: { frameTree: { frame: { id: 'frame-1' } } },
+          };
+        }
+        if (method === 'Page.createIsolatedWorld') {
+          return {
+            ok: true,
+            result: { executionContextId: 77 },
+          };
+        }
+        return { ok: true, result: {} };
+      }
+    );
+
+    const service = new InspectService({
+      registry,
+      extensionBridge: {
+        isConnected: () => true,
+        getStatus: () => ({ tabs: [DEFAULT_TAB] }),
+      },
+      debuggerBridge: {
+        hasAttachments: () => true,
+        getLastError: () => undefined,
+        command,
+      } as unknown as DebuggerBridge,
+    });
+
+    await service.extractContent({
+      sessionId: session.id,
+      format: 'markdown',
+      consistency: 'quiesce',
+      includeMetadata: false,
+      targetHint: { url: DEFAULT_TAB.url },
+    });
+
+    const runtimeExpressions = command.mock.calls
+      .filter((call) => call[1] === 'Runtime.evaluate')
+      .map((call) => call[2]?.expression);
+    expect(
+      runtimeExpressions.some(
+        (expression) =>
+          typeof expression === 'string' &&
+          expression.includes('MutationObserver')
+      )
+    ).toBe(true);
+  });
+
   it('throws EVALUATION_FAILED when extractContent() cannot parse the configured URL', async () => {
     const registry = new SessionRegistry();
     const session = registry.create();
@@ -1128,10 +1198,18 @@ describe('InspectService', () => {
             result: {
               result: {
                 value: {
-                  forms: [{ id: 'form-1' }],
-                  localStorage: [{ name: 'k', value: 'v' }],
+                  url: 'https://example.com',
+                  title: 'Example',
+                  readyState: 'complete',
+                  forms: [{ selector: 'form[name="search"]', fields: [] }],
+                  localStorage: [{ key: 'k', value: '[redacted]' }],
                   sessionStorage: [],
                   cookies: [],
+                  storageSummary: {
+                    localStorageCount: 1,
+                    sessionStorageCount: 0,
+                    cookieCount: 0,
+                  },
                   warnings: ['from-script'],
                 },
               },
@@ -1158,7 +1236,141 @@ describe('InspectService', () => {
 
     expect(result.forms).toHaveLength(1);
     expect(result.localStorage).toHaveLength(1);
+    expect(result.url).toBe('https://example.com');
+    expect(result.storageSummary?.localStorageCount).toBe(1);
     expect(result.warnings).toContain('from-script');
+  });
+
+  it('builds page-state scripts with redacted values by default', async () => {
+    const registry = new SessionRegistry();
+    const session = registry.create();
+    const command = vi.fn(
+      async (
+        _tabId: number,
+        method: string,
+        _params?: Record<string, unknown>
+      ) => {
+        void _params;
+        if (method === 'Runtime.evaluate') {
+          return {
+            ok: true,
+            result: {
+              result: {
+                value: {
+                  url: 'https://example.com',
+                  forms: [],
+                  localStorage: [],
+                  sessionStorage: [],
+                  cookies: [],
+                  storageSummary: {
+                    localStorageCount: 0,
+                    sessionStorageCount: 0,
+                    cookieCount: 0,
+                  },
+                },
+              },
+            },
+          };
+        }
+        return { ok: true, result: {} };
+      }
+    );
+
+    const service = new InspectService({
+      registry,
+      extensionBridge: {
+        isConnected: () => true,
+        getStatus: () => ({ tabs: [DEFAULT_TAB] }),
+      },
+      debuggerBridge: {
+        hasAttachments: () => true,
+        getLastError: () => undefined,
+        command,
+      } as unknown as DebuggerBridge,
+    });
+
+    await service.pageState({
+      sessionId: session.id,
+      targetHint: { url: DEFAULT_TAB.url },
+    });
+
+    const expression = command.mock.calls.find(
+      (call) => call[1] === 'Runtime.evaluate'
+    )?.[2]?.expression;
+    expect(expression).toContain('const includeValues = false;');
+  });
+
+  it('evaluates extractContent in an isolated world when the top frame is available', async () => {
+    const registry = new SessionRegistry();
+    const session = registry.create();
+    const html =
+      '<!doctype html><html><body><main><h1>Hello</h1></main></body></html>';
+
+    const command = vi.fn(
+      async (
+        _tabId: number,
+        method: string,
+        _params?: Record<string, unknown>
+      ) => {
+        void _params;
+        if (method === 'Page.getFrameTree') {
+          return {
+            ok: true,
+            result: { frameTree: { frame: { id: 'frame-1' } } },
+          };
+        }
+        if (method === 'Page.createIsolatedWorld') {
+          return {
+            ok: true,
+            result: { executionContextId: 77 },
+          };
+        }
+        if (method === 'Runtime.evaluate') {
+          return {
+            ok: true,
+            result: { result: { value: html } },
+          };
+        }
+        return { ok: true, result: {} };
+      }
+    );
+
+    const service = new InspectService({
+      registry,
+      extensionBridge: {
+        isConnected: () => true,
+        getStatus: () => ({ tabs: [DEFAULT_TAB] }),
+      },
+      debuggerBridge: {
+        hasAttachments: () => true,
+        getLastError: () => undefined,
+        command,
+      } as unknown as DebuggerBridge,
+    });
+
+    await service.extractContent({
+      sessionId: session.id,
+      format: 'markdown',
+      targetHint: { url: DEFAULT_TAB.url },
+    });
+
+    expect(
+      command.mock.calls.some(
+        (call) =>
+          call[0] === DEFAULT_TAB.tab_id &&
+          call[1] === 'Page.createIsolatedWorld' &&
+          call[2]?.frameId === 'frame-1' &&
+          call[2]?.worldName === 'browser_bridge_inspect'
+      )
+    ).toBe(true);
+    expect(
+      command.mock.calls.some(
+        (call) =>
+          call[0] === DEFAULT_TAB.tab_id &&
+          call[1] === 'Runtime.evaluate' &&
+          call[2]?.contextId === 77
+      )
+    ).toBe(true);
   });
 
   it('defaults inspect calls to the session-selected tab instead of active-tab heuristics', async () => {
@@ -1216,20 +1428,62 @@ describe('InspectService', () => {
       sessionId: session.id,
     });
 
-    expect(command).toHaveBeenNthCalledWith(
-      1,
-      desiredTab.tab_id,
-      'Runtime.enable',
-      {},
-      undefined
-    );
-    expect(command).toHaveBeenNthCalledWith(
-      2,
-      desiredTab.tab_id,
-      'Runtime.evaluate',
-      expect.any(Object),
-      undefined
-    );
+    expect(
+      command.mock.calls.some(
+        (call) =>
+          call[0] === desiredTab.tab_id && call[1] === 'Runtime.evaluate'
+      )
+    ).toBe(true);
+  });
+
+  it('filters console entries older than the session baseline', async () => {
+    const registry = new SessionRegistry();
+    const session = registry.create();
+    session.createdAt = new Date('2026-03-10T00:00:00.000Z');
+
+    const service = new InspectService({
+      registry,
+      extensionBridge: {
+        isConnected: () => true,
+        getStatus: () => ({ tabs: [DEFAULT_TAB] }),
+      },
+      debuggerBridge: {
+        hasAttachments: () => true,
+        getLastError: () => undefined,
+        command: async () => ({ ok: true, result: {} }),
+        getConsoleEvents: () => [
+          {
+            tab_id: 1,
+            method: 'Log.entryAdded',
+            timestamp: '2026-03-09T23:59:59.000Z',
+            params: {
+              entry: {
+                level: 'error',
+                text: 'old',
+              },
+            },
+          },
+          {
+            tab_id: 1,
+            method: 'Log.entryAdded',
+            timestamp: '2026-03-10T00:00:01.000Z',
+            params: {
+              entry: {
+                level: 'error',
+                text: 'fresh',
+              },
+            },
+          },
+        ],
+      } as unknown as DebuggerBridge,
+    });
+
+    const result = await service.consoleList({
+      sessionId: session.id,
+      targetHint: { url: DEFAULT_TAB.url },
+    });
+
+    expect(result.entries.map((entry) => entry.text)).toEqual(['fresh']);
   });
 
   it('uses explicit targetHint.tabId instead of the session-selected tab', async () => {
@@ -1288,20 +1542,12 @@ describe('InspectService', () => {
       targetHint: { tabId: desiredTab.tab_id },
     });
 
-    expect(command).toHaveBeenNthCalledWith(
-      1,
-      desiredTab.tab_id,
-      'Runtime.enable',
-      {},
-      undefined
-    );
-    expect(command).toHaveBeenNthCalledWith(
-      2,
-      desiredTab.tab_id,
-      'Runtime.evaluate',
-      expect.any(Object),
-      undefined
-    );
+    expect(
+      command.mock.calls.some(
+        (call) =>
+          call[0] === desiredTab.tab_id && call[1] === 'Runtime.evaluate'
+      )
+    ).toBe(true);
   });
 
   it('throws TAB_NOT_FOUND instead of drifting when the session-selected tab is gone', async () => {

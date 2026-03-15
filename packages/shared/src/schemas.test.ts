@@ -359,6 +359,7 @@ describe('shared schemas', () => {
       session_id: 'session-1',
     });
     expect(parsed.session_id).toBe('session-1');
+    expect(parsed.include_values).toBe(false);
   });
 
   it('parses inspect extract content defaults', () => {
@@ -366,6 +367,7 @@ describe('shared schemas', () => {
       session_id: 'session-1',
     });
     expect(parsed.format).toBe('markdown');
+    expect(parsed.consistency).toBe('quiesce');
     expect(parsed.include_metadata).toBe(true);
   });
 

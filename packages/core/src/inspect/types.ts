@@ -96,7 +96,34 @@ export type StorageEntry = {
   value: string;
 };
 
+export type FocusedElementInfo = {
+  selector?: string;
+  name?: string;
+  label?: string;
+  role?: string;
+  type?: string;
+  text?: string;
+};
+
+export type PageActionInfo = {
+  selector: string;
+  role: string;
+  name: string;
+};
+
+export type StorageSummary = {
+  localStorageCount: number;
+  sessionStorageCount: number;
+  cookieCount: number;
+};
+
 export type PageStateResult = {
+  url?: string;
+  title?: string;
+  readyState?: string;
+  focused?: FocusedElementInfo;
+  primaryActions?: PageActionInfo[];
+  storageSummary?: StorageSummary;
   forms: FormInfo[];
   localStorage: StorageEntry[];
   sessionStorage: StorageEntry[];

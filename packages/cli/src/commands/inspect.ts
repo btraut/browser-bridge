@@ -124,6 +124,10 @@ export const registerInspectCommands = (program: Command): void => {
     .description('Extract main content from the page')
     .requiredOption('--session-id <id>', 'Session identifier')
     .option('--format <format>', 'Output format (markdown, text, article_json)')
+    .option(
+      '--consistency <mode>',
+      'Capture consistency (best_effort, quiesce)'
+    )
     .option('--include-metadata', 'Include article metadata')
     .option('--no-include-metadata', 'Exclude article metadata')
     .option('--tab-id <id>', 'Explicit tab identifier')
@@ -132,6 +136,7 @@ export const registerInspectCommands = (program: Command): void => {
         const payload = parseInput(InspectExtractContentInputSchema, {
           session_id: options.sessionId,
           format: options.format,
+          consistency: options.consistency,
           include_metadata: options.includeMetadata,
           target: buildTargetHint(options),
         });
@@ -143,11 +148,13 @@ export const registerInspectCommands = (program: Command): void => {
     .command('page-state')
     .description('Capture form, storage, and cookie state')
     .requiredOption('--session-id <id>', 'Session identifier')
+    .option('--include-values', 'Include captured values instead of redacting')
     .option('--tab-id <id>', 'Explicit tab identifier')
     .action(async (options, command) => {
       await runCommand(command, (client) => {
         const payload = parseInput(InspectPageStateInputSchema, {
           session_id: options.sessionId,
+          include_values: options.includeValues,
           target: buildTargetHint(options),
         });
         return client.post('/inspect/page_state', payload);
@@ -158,11 +165,13 @@ export const registerInspectCommands = (program: Command): void => {
     .command('console-list')
     .description('Fetch console entries')
     .requiredOption('--session-id <id>', 'Session identifier')
+    .option('--since <iso>', 'Only include entries at or after this timestamp')
     .option('--tab-id <id>', 'Explicit tab identifier')
     .action(async (options, command) => {
       await runCommand(command, (client) => {
         const payload = parseInput(InspectConsoleListInputSchema, {
           session_id: options.sessionId,
+          since: options.since,
           target: buildTargetHint(options),
         });
         return client.post('/inspect/console_list', payload);

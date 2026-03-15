@@ -25,7 +25,7 @@
     "page": "options.html",
     "open_in_tab": true
   },
-  "permissions": ["tabs", "storage", "webNavigation", "debugger"],
+  "permissions": ["tabs", "storage", "webNavigation", "debugger", "scripting"],
   "host_permissions": ["http://*/*", "https://*/*", "<all_urls>"],
   "web_accessible_resources": [
     {

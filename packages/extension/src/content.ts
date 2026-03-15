@@ -26,6 +26,7 @@ type ContentResult =
 
 const AGENT_TAB_BRANDING_ACTION = 'drive.agent_tab_branding';
 const AGENT_TAB_FAVICON_MARKER_ATTR = 'data-bb-agent-favicon';
+const CONTENT_LISTENER_MARKER = '__browserBridgeContentListenerInstalled__';
 
 const applyAgentTabFavicon = (faviconUrl: string): void => {
   if (faviconUrl.length === 0) {
@@ -1110,7 +1111,22 @@ export const runDriveAction = async (
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
-if (typeof chrome !== 'undefined' && chrome.runtime?.onMessage) {
+const contentListenerInstalled = (() => {
+  const target = globalThis as typeof globalThis & {
+    [CONTENT_LISTENER_MARKER]?: boolean;
+  };
+  if (target[CONTENT_LISTENER_MARKER]) {
+    return true;
+  }
+  target[CONTENT_LISTENER_MARKER] = true;
+  return false;
+})();
+
+if (
+  typeof chrome !== 'undefined' &&
+  chrome.runtime?.onMessage &&
+  !contentListenerInstalled
+) {
   chrome.runtime.onMessage.addListener(
     (
       message: Record<string, unknown>,

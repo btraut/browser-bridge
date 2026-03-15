@@ -213,6 +213,7 @@ export const registerInspectRoutes = (
       return await inspect.extractContent({
         sessionId: body.session_id,
         format: body.format,
+        consistency: body.consistency,
         includeMetadata: body.include_metadata,
         targetHint: resolveInspectTargetHint({
           sessionId: body.session_id,
@@ -228,6 +229,7 @@ export const registerInspectRoutes = (
     makeHandler(InspectPageStateInputSchema, async (body) => {
       return await inspect.pageState({
         sessionId: body.session_id,
+        includeValues: body.include_values,
         targetHint: resolveInspectTargetHint({
           sessionId: body.session_id,
           target: body.target,
@@ -242,6 +244,7 @@ export const registerInspectRoutes = (
     makeHandler(InspectConsoleListInputSchema, async (body) => {
       return await inspect.consoleList({
         sessionId: body.session_id,
+        since: body.since,
         targetHint: resolveInspectTargetHint({
           sessionId: body.session_id,
           target: body.target,

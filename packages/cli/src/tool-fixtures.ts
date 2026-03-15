@@ -589,7 +589,9 @@ export const CLI_TOOL_FIXTURES: CliToolFixture[] = [
     payload: {
       session_id: 'session-1',
       format: 'markdown',
+      consistency: 'quiesce',
       include_metadata: true,
+      target: undefined,
     },
   },
   {
@@ -597,7 +599,11 @@ export const CLI_TOOL_FIXTURES: CliToolFixture[] = [
     kind: 'core',
     corePath: '/inspect/page_state',
     argv: ['inspect', 'page-state', '--session-id', 'session-1'],
-    payload: { session_id: 'session-1' },
+    payload: {
+      session_id: 'session-1',
+      include_values: false,
+      target: undefined,
+    },
   },
   {
     name: 'inspect.console_list',

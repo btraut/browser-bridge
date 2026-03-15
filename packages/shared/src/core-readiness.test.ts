@@ -149,6 +149,7 @@ describe('createCoreReadinessController', () => {
     expect(fetchImpl).toHaveBeenCalledTimes(3);
     await controller.ensureReady();
     expect(spawnDaemon).toHaveBeenCalledTimes(1);
+    expect(fetchImpl).toHaveBeenCalledTimes(4);
   });
 
   it('retries readiness after a failed startup attempt', async () => {

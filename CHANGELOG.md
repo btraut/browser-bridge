@@ -15,6 +15,13 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 - The repo-local `bump-version` release skill and release doc now require a fresh `npm install` and `npm run build` before any version bumping, so releases start from a clean build instead of wishful thinking.
 - External permission changes are now approval-gated end to end: CLI/MCP can request them, but the extension applies them only after a human approves a dedicated prompt, with extra friction for bypass mode.
 
+### Fixed
+
+- Repo-local Codex skills now live under `.agents/skills`, and the CLI install/prepack flow now reads from that canonical repo path instead of the dead `skills/` directory.
+- Existing tabs now recover their content script on demand after extension updates, so `drive.wait_for` and other tab actions stop dying with `Receiving end does not exist` just because the tab predates the current build.
+- Inspect now evaluates in an isolated world on the top frame when available, which makes auth/passkey pages less likely to derail `extract_content`, `page_state`, and `evaluate` with extension-surface debugger context errors.
+- Inspect reads are less flaky and less noisy: `extract_content` now defaults to quiesced capture, `page_state` is summary-first with redacted values by default, and `console_list` filters stale pre-session history unless you ask for older entries explicitly.
+
 ## [0.14.0] - 2026-03-13
 
 ### Added

@@ -8,6 +8,7 @@ import {
   createJsonlLogger,
 } from '@btraut/browser-bridge-shared';
 import { spawn } from 'node:child_process';
+import { statSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 type FetchLike = typeof fetch;
@@ -32,6 +33,8 @@ export type CoreClientOptions = {
   timeoutMs?: number;
   fetchImpl?: FetchLike;
   spawnImpl?: SpawnLike;
+  currentBuildTimeMs?: number;
+  killProcess?: (pid: number) => void;
   logger?: JsonlLogger;
 };
 
@@ -72,6 +75,7 @@ const durationMs = (startedAt: bigint): number =>
   Number((Number(process.hrtime.bigint() - startedAt) / 1_000_000).toFixed(3));
 
 const MAX_RESPONSE_PREVIEW_LENGTH = 200;
+const STALE_DAEMON_GRACE_MS = 1000;
 
 const normalizeResponsePreview = (raw: string): string => {
   const normalized = raw.replace(/\s+/g, ' ').trim();
@@ -146,6 +150,11 @@ const buildInvalidCoreResponseError = (options: {
   });
 };
 
+type HealthCheckPayload = {
+  started_at?: string;
+  pid?: number;
+};
+
 export const createCoreClient = (
   options: CoreClientOptions = {}
 ): CoreClient => {
@@ -161,6 +170,18 @@ export const createCoreClient = (
   const timeoutMs = resolveTimeoutMs(options.timeoutMs);
   const componentVersion =
     process.env.BROWSER_BRIDGE_VERSION ?? process.env.npm_package_version;
+  const coreEntry = resolve(__dirname, 'api.js');
+  const currentBuildTimeMs =
+    options.currentBuildTimeMs ??
+    (() => {
+      try {
+        return statSync(coreEntry).mtimeMs;
+      } catch {
+        return undefined;
+      }
+    })();
+  const killProcess =
+    options.killProcess ?? ((pid: number) => process.kill(pid));
 
   const readiness = createCoreReadinessController({
     host: options.host,
@@ -333,11 +354,73 @@ export const createCoreClient = (
     }
   };
 
+  const maybeRestartStaleDaemon = async (): Promise<void> => {
+    if (currentBuildTimeMs === undefined) {
+      return;
+    }
+
+    let payload: ApiEnvelope<HealthCheckPayload>;
+    try {
+      payload = await requestJson<ApiEnvelope<HealthCheckPayload>>(
+        'POST',
+        '/health/check',
+        {}
+      );
+    } catch {
+      return;
+    }
+
+    if (!payload.ok || !payload.result?.started_at) {
+      return;
+    }
+
+    const startedAtMs = Date.parse(payload.result.started_at);
+    if (!Number.isFinite(startedAtMs)) {
+      return;
+    }
+
+    if (startedAtMs + STALE_DAEMON_GRACE_MS >= currentBuildTimeMs) {
+      return;
+    }
+
+    const pidValue = payload.result.pid;
+    if (!Number.isInteger(pidValue) || pidValue === process.pid) {
+      return;
+    }
+    const pid = pidValue as number;
+
+    logger.warn('cli.core.ensure_ready.stale_daemon', {
+      base_url: readiness.baseUrl,
+      pid,
+      started_at: payload.result.started_at,
+      current_build_time_ms: currentBuildTimeMs,
+    });
+
+    try {
+      killProcess(pid);
+    } catch (error) {
+      logger.warn('cli.core.ensure_ready.stale_daemon_kill_failed', {
+        base_url: readiness.baseUrl,
+        pid,
+        error,
+      });
+      return;
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    await readiness.ensureReady();
+  };
+
+  const ensureReady = async (): Promise<void> => {
+    await readiness.ensureReady();
+    await maybeRestartStaleDaemon();
+  };
+
   const post = async <T>(
     path: string,
     body?: unknown
   ): Promise<ApiEnvelope<T>> => {
-    await readiness.ensureReady();
+    await ensureReady();
     readiness.refreshRuntime();
     const payload =
       path === '/diagnostics/doctor' &&
@@ -370,7 +453,7 @@ export const createCoreClient = (
     get baseUrl() {
       return readiness.baseUrl;
     },
-    ensureReady: readiness.ensureReady,
+    ensureReady,
     post,
   };
 };

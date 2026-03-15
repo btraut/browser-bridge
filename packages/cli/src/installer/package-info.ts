@@ -55,19 +55,19 @@ export const resolveSkillSourceDir = async (): Promise<string> => {
     return packaged;
   } catch {
     // In-repo dev usage: `npm run build` does not stage `packages/cli/skills/*`
-    // (that happens at npm pack time). Fall back to repo-root skills.
+    // (that happens at npm pack time). Fall back to the repo-local Codex skill.
   }
 
   const repoRoot = path.resolve(rootDir, '..', '..');
-  const docsSkill = path.join(repoRoot, 'skills', 'browser-bridge');
+  const repoSkill = path.join(repoRoot, '.agents', 'skills', 'browser-bridge');
   try {
-    await fs.stat(docsSkill);
-    return docsSkill;
+    await fs.stat(repoSkill);
+    return repoSkill;
   } catch {
     // ignore
   }
 
   throw new Error(
-    `Unable to locate packaged skill. Expected ${packaged} (npm install) or ${docsSkill} (repo dev).`
+    `Unable to locate packaged skill. Expected ${packaged} (npm install) or ${repoSkill} (repo dev).`
   );
 };

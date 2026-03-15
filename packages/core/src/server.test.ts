@@ -180,6 +180,7 @@ describe('core HTTP contract versioning', () => {
       expect(canonicalBody).toEqual({
         ok: true,
         result: expect.objectContaining({
+          pid: expect.any(Number),
           sessions: expect.objectContaining({ active: 0 }),
         }),
       });
@@ -191,6 +192,7 @@ describe('core HTTP contract versioning', () => {
       expect(legacyBody).toEqual({
         ok: true,
         result: expect.objectContaining({
+          pid: expect.any(Number),
           sessions: expect.objectContaining({ active: 0 }),
         }),
       });

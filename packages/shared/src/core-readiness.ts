@@ -301,9 +301,10 @@ export const createCoreReadinessController = (
       return;
     }
     if (!ensurePromise) {
-      ensurePromise = ensureCoreRunning().catch((error) => {
+      ensurePromise = (async () => {
+        await ensureCoreRunning();
+      })().finally(() => {
         ensurePromise = null;
-        throw error;
       });
     }
     await ensurePromise;

@@ -84,6 +84,7 @@ describe('registerInspectRoutes', () => {
     )[0]?.[0];
     expect(firstRequest).toEqual({
       sessionId: session.id,
+      includeValues: false,
       targetHint: { tabId: 77 },
     });
     expect(response.statusCode()).toBe(200);
@@ -122,7 +123,13 @@ describe('registerInspectRoutes', () => {
     )[0]?.[0];
     expect(firstRequest).toEqual({
       sessionId: 'session-1',
-      targetHint: { tabId: 42 },
+      includeValues: false,
+      targetHint: {
+        url: undefined,
+        title: undefined,
+        tabId: 42,
+        lastActiveAt: undefined,
+      },
     });
     expect(response.payload()).toEqual({
       ok: true,

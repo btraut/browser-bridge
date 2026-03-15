@@ -77,6 +77,7 @@ export const registerDiagnosticsRoutes = (
 
     sendResult(res, {
       started_at: PROCESS_STARTED_AT,
+      pid: process.pid,
       uptime_ms: Math.floor(process.uptime() * 1000),
       memory: process.memoryUsage(),
       sessions: { active: sessionsActive },

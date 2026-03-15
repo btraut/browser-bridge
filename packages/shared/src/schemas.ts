@@ -504,6 +504,12 @@ export const FormFieldInfoSchema = z.object({
   name: z.string(),
   type: z.string(),
   value: z.string(),
+  selector: z.string().optional(),
+  label: z.string().optional(),
+  placeholder: z.string().optional(),
+  checked: z.boolean().optional(),
+  disabled: z.boolean().optional(),
+  visible: z.boolean().optional(),
   options: z.array(z.string()).optional(),
 });
 
@@ -519,7 +525,34 @@ export const StorageEntrySchema = z.object({
   value: z.string(),
 });
 
+export const FocusedElementSchema = z.object({
+  selector: z.string().optional(),
+  name: z.string().optional(),
+  label: z.string().optional(),
+  role: z.string().optional(),
+  type: z.string().optional(),
+  text: z.string().optional(),
+});
+
+export const PageActionSchema = z.object({
+  selector: z.string(),
+  role: z.string(),
+  name: z.string(),
+});
+
+export const StorageSummarySchema = z.object({
+  localStorageCount: z.number().int().nonnegative(),
+  sessionStorageCount: z.number().int().nonnegative(),
+  cookieCount: z.number().int().nonnegative(),
+});
+
 export const PageStateSchema = z.object({
+  url: z.string().optional(),
+  title: z.string().optional(),
+  readyState: z.string().optional(),
+  focused: FocusedElementSchema.optional(),
+  primaryActions: z.array(PageActionSchema).optional(),
+  storageSummary: StorageSummarySchema.optional(),
   forms: z.array(FormInfoSchema),
   localStorage: z.array(StorageEntrySchema),
   sessionStorage: z.array(StorageEntrySchema),
@@ -595,6 +628,7 @@ export const InspectFindOutputSchema = z.object({
 });
 
 export const InspectPageStateInputSchema = SessionIdSchema.extend({
+  include_values: z.boolean().default(false),
   target: TargetHintSchema.optional(),
 });
 export const InspectPageStateOutputSchema = PageStateSchema;
@@ -607,6 +641,7 @@ export const InspectExtractContentFormatSchema = z.enum([
 
 export const InspectExtractContentInputSchema = SessionIdSchema.extend({
   format: InspectExtractContentFormatSchema.default('markdown'),
+  consistency: InspectConsistencySchema.default('quiesce'),
   include_metadata: z.boolean().default(true),
   target: TargetHintSchema.optional(),
 });
@@ -621,6 +656,7 @@ export const InspectExtractContentOutputSchema = z.object({
 });
 
 export const InspectConsoleListInputSchema = SessionIdSchema.extend({
+  since: z.string().optional(),
   target: TargetHintSchema.optional(),
 });
 // Console output may expand over time; include a stable core + allow passthrough.

@@ -22,9 +22,11 @@ import {
 } from './popup-click-verification.js';
 import { coercePopupTriggerState } from './popup-trigger-state.js';
 import {
+  canInjectContentScriptForUrl,
   getTabChannelRetryDelayMs,
   isLikelyNavigationCommitted,
   isTransientTabChannelError,
+  shouldReinjectContentScript,
   shouldRetryTabChannelFailure,
 } from './drive-reliability.js';
 import {
@@ -231,6 +233,29 @@ const delayMs = async (ms: number): Promise<void> => {
   await new Promise<void>((resolve) => {
     self.setTimeout(resolve, ms);
   });
+};
+
+const ensureTabContentScript = async (tabId: number): Promise<boolean> => {
+  try {
+    const tab = await getTab(tabId);
+    const url = typeof tab.url === 'string' ? tab.url : undefined;
+    if (!canInjectContentScriptForUrl(url)) {
+      return false;
+    }
+    await wrapChromeVoid((callback) =>
+      chrome.scripting.executeScript(
+        {
+          target: { tabId },
+          files: ['dist/content.js'],
+        },
+        () => callback()
+      )
+    );
+    return true;
+  } catch (error) {
+    console.debug('Failed to re-inject content script.', { tabId, error });
+    return false;
+  }
 };
 
 const CAPTURE_VISIBLE_TAB_MIN_INTERVAL_MS = 400;
@@ -815,10 +840,20 @@ const sendToTab = async (
 
   // After navigation, MV3 message channels can close briefly while the content
   // script reattaches (for example, BFCache/page lifecycle transitions).
+  let attemptedContentRecovery = false;
   for (let attempt = 1; ; attempt += 1) {
     const result = await attemptSend();
     if (result.ok) {
       return result;
+    }
+    if (
+      !attemptedContentRecovery &&
+      shouldReinjectContentScript(
+        result.error.message,
+        (await getTab(tabId).catch(() => undefined))?.url
+      )
+    ) {
+      attemptedContentRecovery = await ensureTabContentScript(tabId);
     }
     if (!shouldRetryTabChannelFailure(action, result.error)) {
       return result;

@@ -4,6 +4,9 @@ const TRANSIENT_TAB_CHANNEL_ERROR_PATTERNS = [
   'the message port closed before a response was received',
   'extension port is moved into back/forward cache',
 ] as const;
+const CONTENT_SCRIPT_RECOVERY_ERROR_PATTERNS = [
+  'receiving end does not exist',
+] as const;
 
 const TAB_CHANNEL_RETRY_DELAYS_MS = [120, 200, 320, 500, 750, 1000, 1200];
 
@@ -24,6 +27,39 @@ export const isTransientTabChannelError = (message: unknown): boolean => {
   const normalized = message.toLowerCase();
   return TRANSIENT_TAB_CHANNEL_ERROR_PATTERNS.some((pattern) =>
     normalized.includes(pattern)
+  );
+};
+
+export const canInjectContentScriptForUrl = (url: unknown): boolean => {
+  if (typeof url !== 'string' || url.trim().length === 0) {
+    return false;
+  }
+  const normalized = url.toLowerCase();
+  if (
+    normalized.startsWith('chrome://') ||
+    normalized.startsWith('chrome-extension://') ||
+    normalized.startsWith('devtools://') ||
+    normalized.startsWith('edge://') ||
+    normalized.startsWith('about:') ||
+    normalized.startsWith('file://')
+  ) {
+    return false;
+  }
+  return normalized.startsWith('http://') || normalized.startsWith('https://');
+};
+
+export const shouldReinjectContentScript = (
+  message: unknown,
+  tabUrl?: unknown
+): boolean => {
+  if (typeof message !== 'string') {
+    return false;
+  }
+  const normalized = message.toLowerCase();
+  return (
+    CONTENT_SCRIPT_RECOVERY_ERROR_PATTERNS.some((pattern) =>
+      normalized.includes(pattern)
+    ) && canInjectContentScriptForUrl(tabUrl)
   );
 };
 
