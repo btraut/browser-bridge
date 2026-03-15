@@ -9,6 +9,7 @@
   "scripts": {
     "start": "node -e \"require('@btraut/browser-bridge').startCoreServer().catch((err) => { console.error(err); process.exit(1); });\"",
     "build": "node scripts/build-cli.mjs && node scripts/build-extension.mjs",
+    "dev:loop": "node scripts/dev-loop.mjs",
     "hooks:install": "sh scripts/git-hooks/install.sh",
     "bump:patch": "node scripts/bump-version.mjs patch && npm install",
     "bump:minor": "node scripts/bump-version.mjs minor && npm install",

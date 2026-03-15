@@ -51,6 +51,14 @@ Then load the unpacked extension from `packages/extension/`.
 
 Repo contributors: run `npm run hooks:install` once after clone. This repo expects `core.hooksPath=.githooks` so local `pre-commit` and `pre-push` block the same format/lint/typecheck failures that CI enforces.
 
+Repo contributors who are iterating on the extension should stop doing the manual delete/reinstall routine. Use:
+
+```bash
+npm run dev:loop -- --open-options
+```
+
+That rebuilds the workspace, uses macOS UI scripting to open `chrome://extensions` in your existing Chrome profile, clicks **Update** to reload unpacked extensions, waits for Browser Bridge to reconnect, and requests bypass mode if Chrome is still granular. Add `--install` only when dependencies changed.
+
 4. Try it:
 
 ```text
