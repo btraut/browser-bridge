@@ -7,6 +7,7 @@ import {
   findByText,
   getRenderedText,
   getRoleAccessibleName,
+  isClickable,
   isVisible,
   normalizeText,
   scoreCandidates,
@@ -154,15 +155,45 @@ export const runDriveAction = async (
     const matching = candidates.filter((candidate) =>
       getRoleAccessibleName(candidate).includes(query)
     );
-    if (matching.length === 0) {
+    if (matching.length > 0) {
+      const exactMatches = matching.filter(
+        (candidate) => getRoleAccessibleName(candidate) === query
+      );
+      return scoreCandidates(
+        exactMatches.length > 0 ? exactMatches : matching,
+        {
+          exactText: query,
+        }
+      );
+    }
+
+    // Accessibility snapshots can expose actionable controls that do not line up
+    // cleanly with our narrow role selector map during hydration or custom UI rendering.
+    const fallbackCandidates = Array.from(
+      document.querySelectorAll('*')
+    ).filter((candidate) => {
+      if (!isVisible(candidate)) {
+        return false;
+      }
+      if (roleName === 'button' && !isClickable(candidate)) {
+        return false;
+      }
+      return getRoleAccessibleName(candidate).includes(query);
+    });
+    if (fallbackCandidates.length === 0) {
       return null;
     }
-    const exactMatches = matching.filter(
+    const exactFallbackMatches = fallbackCandidates.filter(
       (candidate) => getRoleAccessibleName(candidate) === query
     );
-    return scoreCandidates(exactMatches.length > 0 ? exactMatches : matching, {
-      exactText: query,
-    });
+    return scoreCandidates(
+      exactFallbackMatches.length > 0
+        ? exactFallbackMatches
+        : fallbackCandidates,
+      {
+        exactText: query,
+      }
+    );
   };
 
   const resolveLocator = (

@@ -4,6 +4,9 @@ Short index of notable bug fixes. Keep entries symptom-first: bug label, one-lin
 
 - `inspect-stale-noisy-reads` - `inspect.extract_content` now waits for DOM quiescence, `inspect.page_state` defaults to redacted summary data, and `inspect.console_list` filters stale pre-session tab history by default. Ref: pending commit
 - `interactive-ax-hidden-control-pruning` - Interactive AX snapshots now drop hover-hidden refs that fail live DOM visibility or pointer-event checks, so inspect stops surfacing inert controls like ManaVault's hidden quantity buttons as actionable. Ref: pending commit
+- `enable-inspect-stale-diagnostics-retry` - `dev enable-inspect` now retries stale disconnected or pre-negotiation diagnostics snapshots before declaring inspect unavailable. Ref: pending commit
+- `startup-attach-readiness` - Core now waits briefly for the extension handshake before failing drive and permissions requests, reducing bogus `EXTENSION_DISCONNECTED` misses during cold-start reconnects. Ref: pending commit
+- `multi-retry-click-locators` - `drive.click` now retries several transient locator misses instead of one, which makes live action toggles less likely to fail during rerenders. Ref: pending commit
 - `activate-missing-extension-id` - `dev activate` can now discover a connected Browser Bridge extension id and wait for a confirmed bind instead of failing before metadata exists. Ref: PR #45, `a619da3`
 - `activate-enable-inspect` - `dev activate --enable-inspect` now provides an automatable path to enable debugger-based inspect and exposes remediation metadata in diagnostics. Ref: PR #45, `a619da3`
 - `screenshot-permission-remediation` - Screenshot capture failures now classify `captureVisibleTab` permission and rate-limit problems with actionable remediation instead of generic errors. Ref: PR #45, `a619da3`
@@ -36,6 +39,7 @@ Short index of notable bug fixes. Keep entries symptom-first: bug label, one-lin
 - `deck-actions-auth-misclick-guard` - `Deck actions` role targeting now has regression coverage against nearby auth buttons so routine deck flows do not wander into sign-in controls. Ref: `54259fd`
 - `visible-css-locator-preference` - CSS/testid locator resolution now prefers visible matches before falling back to the first raw node, which avoids hidden duplicate quantity controls eating clicks in deck-builder UIs. Ref: `633bf89`
 - `onscreen-role-target-preference` - Locator scoring now prefers on-screen exact matches over off-screen twins for role/text/css targeting, keeping live controls ahead of parked duplicates in deck-style UIs. Ref: pending commit
+- `hittable-duplicate-control-targeting` - Locator scoring now prefers directly hittable exact matches over occluded duplicates, which keeps `drive.click` off inert twin controls in deck-builder UIs. Ref: pending commit
 - `hittable-locator-points` - `drive.locator_point` now samples for a hittable in-bounds click point instead of blindly using the geometric center, which avoids false-success clicks when the center lands on the wrong surface. Ref: pending commit
 - `wait-for-content-timeout-retry` - Background tab messaging now retries `drive.wait_for` when the content round-trip itself times out during route churn, instead of treating that transport timeout as a final page-state result. Ref: pending commit
 - `repo-local-skill-path` - Repo-local skills now live under `.agents/skills`, and the CLI install/prepack flow reads from that canonical path instead of the stale repo `skills/` directory. Ref: pending commit

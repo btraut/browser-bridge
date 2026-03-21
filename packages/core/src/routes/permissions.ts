@@ -33,6 +33,8 @@ type PermissionsRouteOptions = {
   extensionBridge?: ExtensionBridge;
 };
 
+const EXTENSION_READY_WAIT_MS = 1500;
+
 const parseBody = <T>(
   schema: SchemaLike<T>,
   body: unknown
@@ -66,6 +68,23 @@ const sendBridgeUnavailable = (res: ResponseLike): void => {
   });
 };
 
+const waitForExtensionReady = async (
+  extensionBridge: ExtensionBridge
+): Promise<boolean> => {
+  if (extensionBridge.isConnected()) {
+    return true;
+  }
+  const waitForReady = (
+    extensionBridge as ExtensionBridge & {
+      waitForReady?: (timeoutMs?: number) => Promise<boolean>;
+    }
+  ).waitForReady;
+  if (typeof waitForReady !== 'function') {
+    return extensionBridge.isConnected();
+  }
+  return await waitForReady.call(extensionBridge, EXTENSION_READY_WAIT_MS);
+};
+
 const makePermissionsHandler = <T>(
   schema: SchemaLike<T>,
   action:
@@ -93,9 +112,22 @@ const makePermissionsHandler = <T>(
       sendBridgeUnavailable(res);
       return;
     }
+    const extensionBridge = options.extensionBridge;
 
-    void options.extensionBridge
-      .request(action, parsed.data as Record<string, unknown>)
+    void waitForExtensionReady(extensionBridge)
+      .then(async (ready) => {
+        if (!ready) {
+          throw new ExtensionBridgeError(
+            'EXTENSION_DISCONNECTED',
+            'Extension is not connected.',
+            true
+          );
+        }
+        return await extensionBridge.request(
+          action,
+          parsed.data as Record<string, unknown>
+        );
+      })
       .then((envelope) => {
         if (envelope.status === 'error') {
           const error = envelope.error ?? {

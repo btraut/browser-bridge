@@ -51,6 +51,7 @@ describe('DriveController', () => {
     const session = registry.create();
     const bridge = {
       isConnected: () => false,
+      waitForReady: vi.fn().mockResolvedValue(false),
       request: vi.fn(),
     } as unknown as ExtensionBridge;
     const controller = new DriveController(bridge, registry);
@@ -63,6 +64,39 @@ describe('DriveController', () => {
       expect(result.error.message).toContain('Extension is not connected');
     }
     expect(bridge.request).not.toHaveBeenCalled();
+  });
+
+  it('waits briefly for the extension to become ready before failing', async () => {
+    vi.useFakeTimers();
+    try {
+      const registry = new SessionRegistry();
+      const session = registry.create();
+      let connected = false;
+      const bridge = {
+        isConnected: () => connected,
+        waitForReady: vi.fn().mockImplementation(async () => {
+          await new Promise((resolve) => setTimeout(resolve, 120));
+          connected = true;
+          return true;
+        }),
+        request: vi.fn().mockResolvedValue({
+          id: 'req-1',
+          action: 'drive.tab_list',
+          status: 'ok',
+          result: { tabs: [] },
+        }),
+      } as unknown as ExtensionBridge;
+      const controller = new DriveController(bridge, registry);
+
+      const promise = controller.execute(session.id, 'drive.tab_list', {});
+      await vi.advanceTimersByTimeAsync(200);
+      const result = await promise;
+
+      expect(result.ok).toBe(true);
+      expect(bridge.request).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('moves READY sessions to DEGRADED_DRIVE on disconnect errors', async () => {
@@ -267,7 +301,7 @@ describe('DriveController', () => {
     }
   });
 
-  it('retries one transient locator miss for drive.click', async () => {
+  it('retries multiple transient locator misses for drive.click', async () => {
     vi.useFakeTimers();
     try {
       const registry = new SessionRegistry();
@@ -294,6 +328,36 @@ describe('DriveController', () => {
           .mockResolvedValueOnce({
             id: 'req-2',
             action: 'drive.click',
+            status: 'error',
+            error: {
+              code: 'NOT_FOUND',
+              message: 'Failed to resolve locator.',
+              retryable: false,
+              details: {
+                legacy_code: 'LOCATOR_NOT_FOUND',
+                reason: 'locator_not_found',
+                resource: 'locator',
+              },
+            },
+          })
+          .mockResolvedValueOnce({
+            id: 'req-3',
+            action: 'drive.click',
+            status: 'error',
+            error: {
+              code: 'NOT_FOUND',
+              message: 'Failed to resolve locator.',
+              retryable: false,
+              details: {
+                legacy_code: 'LOCATOR_NOT_FOUND',
+                reason: 'locator_not_found',
+                resource: 'locator',
+              },
+            },
+          })
+          .mockResolvedValueOnce({
+            id: 'req-4',
+            action: 'drive.click',
             status: 'ok',
             result: { ok: true },
           }),
@@ -304,11 +368,11 @@ describe('DriveController', () => {
         locator: { text: 'My decks' },
       });
 
-      await vi.advanceTimersByTimeAsync(300);
+      await vi.advanceTimersByTimeAsync(1200);
       const result = await promise;
 
       expect(result.ok).toBe(true);
-      expect(bridge.request).toHaveBeenCalledTimes(2);
+      expect(bridge.request).toHaveBeenCalledTimes(4);
     } finally {
       vi.useRealTimers();
     }

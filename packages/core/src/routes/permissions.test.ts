@@ -39,6 +39,9 @@ const createResponse = () => {
 const flushAsync = async (): Promise<void> => {
   await Promise.resolve();
   await Promise.resolve();
+  await Promise.resolve();
+  await Promise.resolve();
+  await Promise.resolve();
 };
 
 describe('registerPermissionsRoutes', () => {
@@ -69,7 +72,11 @@ describe('registerPermissionsRoutes', () => {
     });
     const harness = createRouteHarness();
     registerPermissionsRoutes(harness.router, {
-      extensionBridge: { request } as never,
+      extensionBridge: {
+        isConnected: () => true,
+        waitForReady: vi.fn().mockResolvedValue(true),
+        request,
+      } as never,
     });
 
     const handler = harness.handlers.get('/permissions/request_allow_site');
@@ -110,7 +117,11 @@ describe('registerPermissionsRoutes', () => {
     const request = vi.fn();
     const harness = createRouteHarness();
     registerPermissionsRoutes(harness.router, {
-      extensionBridge: { request } as never,
+      extensionBridge: {
+        isConnected: () => true,
+        waitForReady: vi.fn().mockResolvedValue(true),
+        request,
+      } as never,
     });
 
     const handler = harness.handlers.get('/permissions/request_set_mode');
@@ -154,7 +165,11 @@ describe('registerPermissionsRoutes', () => {
       );
     const harness = createRouteHarness();
     registerPermissionsRoutes(harness.router, {
-      extensionBridge: { request } as never,
+      extensionBridge: {
+        isConnected: () => true,
+        waitForReady: vi.fn().mockResolvedValue(true),
+        request,
+      } as never,
     });
 
     const handler = harness.handlers.get('/permissions/list');
@@ -176,6 +191,50 @@ describe('registerPermissionsRoutes', () => {
           reason: 'extension_disconnected',
         },
       },
+    });
+  });
+
+  it('waits briefly for the extension before forwarding permissions requests', async () => {
+    let connected = false;
+    let releaseReady: (() => void) | undefined;
+    const request = vi.fn().mockResolvedValue({
+      status: 'ok',
+      result: { mode: 'bypass' },
+    });
+    const harness = createRouteHarness();
+    registerPermissionsRoutes(harness.router, {
+      extensionBridge: {
+        isConnected: () => connected,
+        waitForReady: vi.fn().mockImplementation(
+          () =>
+            new Promise<boolean>((resolve) => {
+              releaseReady = () => {
+                connected = true;
+                resolve(true);
+              };
+            })
+        ),
+        request,
+      } as never,
+    });
+
+    const handler = harness.handlers.get('/permissions/get_mode');
+    expect(handler).toBeDefined();
+
+    const response = createResponse();
+    handler?.({ body: {} }, response.res);
+    await flushAsync();
+
+    expect(request).not.toHaveBeenCalled();
+
+    releaseReady?.();
+    await flushAsync();
+
+    expect(request).toHaveBeenCalledWith('permissions.get_mode', {});
+    expect(response.statusCode()).toBe(200);
+    expect(response.payload()).toEqual({
+      ok: true,
+      result: { mode: 'bypass' },
     });
   });
 });

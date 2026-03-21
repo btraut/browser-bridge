@@ -10,6 +10,7 @@ import { createCoreClient } from '../core-client';
 import { runLocal } from '../cli-runtime';
 
 const ENV_EXTENSION_ID = 'BROWSER_BRIDGE_EXTENSION_ID';
+const INSPECT_PROBE_RETRY_DELAYS_MS = [150, 300, 600] as const;
 
 type ExtensionIdSource = 'flag' | 'env' | 'connected';
 
@@ -82,6 +83,35 @@ const inspectCapabilityReady = (
   return extensionIdMatch && hasPassingCheck(report, 'inspect.capability');
 };
 
+const sleep = async (ms: number): Promise<void> => {
+  await new Promise((resolve) => setTimeout(resolve, ms));
+};
+
+const shouldRetryInspectProbe = (
+  report: DiagnosticReport | undefined,
+  expectedExtensionId?: string
+): boolean => {
+  if (inspectCapabilityReady(report, expectedExtensionId)) {
+    return false;
+  }
+
+  const observedExtensionId = getReportedExtensionId(report);
+  if (
+    expectedExtensionId &&
+    observedExtensionId &&
+    observedExtensionId !== expectedExtensionId
+  ) {
+    return false;
+  }
+
+  const extensionConnected = report?.extension?.connected ?? false;
+  const capabilityNegotiated =
+    report?.runtime?.extension?.capability_negotiated === true ||
+    hasPassingCheck(report, 'runtime.extension.capability_negotiated');
+
+  return !extensionConnected || !capabilityNegotiated;
+};
+
 const readDiagnosticReport = async (
   runtime: ResolvedCoreRuntime
 ): Promise<DiagnosticReport | undefined> => {
@@ -95,6 +125,30 @@ const readDiagnosticReport = async (
     {}
   );
   return envelope.ok ? envelope.result : undefined;
+};
+
+const readDiagnosticReportWithRetry = async (
+  runtime: ResolvedCoreRuntime,
+  expectedExtensionId?: string
+): Promise<DiagnosticReport | undefined> => {
+  let report: DiagnosticReport | undefined;
+  for (
+    let attempt = 0;
+    attempt <= INSPECT_PROBE_RETRY_DELAYS_MS.length;
+    attempt += 1
+  ) {
+    if (attempt > 0) {
+      const delayMs = INSPECT_PROBE_RETRY_DELAYS_MS[attempt - 1] ?? 0;
+      if (delayMs > 0) {
+        await sleep(delayMs);
+      }
+    }
+    report = await readDiagnosticReport(runtime);
+    if (!shouldRetryInspectProbe(report, expectedExtensionId)) {
+      return report;
+    }
+  }
+  return report;
 };
 
 const buildInspectCapabilityError = (
@@ -183,7 +237,10 @@ export const registerDevCommands = (program: Command): void => {
           optionExtensionId: options.extensionId,
           envExtensionId: process.env[ENV_EXTENSION_ID],
         });
-        const report = await readDiagnosticReport(runtime);
+        const report = await readDiagnosticReportWithRetry(
+          runtime,
+          resolvedExtension?.extensionId
+        );
 
         if (!resolvedExtension) {
           const reportedExtensionId = getReportedExtensionId(report);

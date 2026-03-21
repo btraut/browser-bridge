@@ -18,7 +18,11 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 
 ### Fixed
 
+- Cold-start extension attach is less brittle: Core now waits briefly for the extension handshake before failing drive and permissions calls with `EXTENSION_DISCONNECTED`, which cuts down false startup misses right after Chrome/runtime reconnects.
+- `drive.click` now retries a few transient locator-resolution misses instead of giving up after one wobble, which makes toggle/action controls like ManaVault's `Edit list` less likely to fail during live rerenders.
 - Interactive AX snapshots now prune hover-hidden controls that fail live DOM visibility and pointer-event checks, so inspect stops advertising inert ManaVault-style quantity buttons as actionable.
+- `dev enable-inspect` now retries transient stale diagnostics before failing, which cuts down false "inspect unavailable" reports while the extension handshake and capability negotiation are still catching up.
+- Locator ranking now prefers directly hittable exact matches over merely visible duplicates, so drive clicks are less likely to land on ghost controls that share an `aria-label` but are occluded or inert.
 - Repo-local Codex skills now live under `.agents/skills`, and the CLI install/prepack flow now reads from that canonical repo path instead of the dead `skills/` directory.
 - Existing tabs now recover their content script on demand after extension updates, so `drive.wait_for` and other tab actions stop dying with `Receiving end does not exist` just because the tab predates the current build.
 - Inspect now evaluates in an isolated world on the top frame when available, which makes auth/passkey pages less likely to derail `extract_content`, `page_state`, and `evaluate` with extension-surface debugger context errors.

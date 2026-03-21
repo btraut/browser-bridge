@@ -796,6 +796,61 @@ describe('content drive actions', () => {
     }
   });
 
+  it('prefers the directly hittable role match over an occluded duplicate', async () => {
+    vi.useFakeTimers();
+    try {
+      const occluded = document.createElement('button');
+      occluded.setAttribute(
+        'aria-label',
+        'Increase maindeck count for Jace, the Mind Sculptor'
+      );
+      const visible = document.createElement('button');
+      visible.setAttribute(
+        'aria-label',
+        'Increase maindeck count for Jace, the Mind Sculptor'
+      );
+      document.body.append(occluded, visible);
+      makeVisible(occluded, new DOMRect(10, 10, 28, 28));
+      makeVisible(visible, new DOMRect(10, 50, 28, 28));
+
+      (
+        document as unknown as {
+          elementFromPoint: (x: number, y: number) => Element | null;
+        }
+      ).elementFromPoint = (_x: number, y: number) => {
+        if (y < 40) {
+          return document.body;
+        }
+        return visible;
+      };
+
+      let occludedClicks = 0;
+      let visibleClicks = 0;
+      occluded.addEventListener('click', () => {
+        occludedClicks += 1;
+      });
+      visible.addEventListener('click', () => {
+        visibleClicks += 1;
+      });
+
+      const result = await runDriveAction('drive.click', {
+        locator: {
+          role: {
+            name: 'button',
+            value: 'Increase maindeck count for Jace, the Mind Sculptor',
+          },
+        },
+      });
+
+      expect(result.ok).toBe(true);
+      await vi.runAllTimersAsync();
+      expect(visibleClicks).toBe(1);
+      expect(occludedClicks).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('targets deck actions without clicking a nearby auth button', async () => {
     vi.useFakeTimers();
     try {
@@ -948,6 +1003,58 @@ describe('content drive actions', () => {
       await vi.runAllTimersAsync();
       expect(visibleClicks).toBe(1);
       expect(hiddenClicks).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('prefers the directly hittable css match over an occluded duplicate', async () => {
+    vi.useFakeTimers();
+    try {
+      const occluded = document.createElement('button');
+      occluded.setAttribute(
+        'aria-label',
+        'Increase maindeck count for Jace, the Mind Sculptor'
+      );
+      const visible = document.createElement('button');
+      visible.setAttribute(
+        'aria-label',
+        'Increase maindeck count for Jace, the Mind Sculptor'
+      );
+      document.body.append(occluded, visible);
+      makeVisible(occluded, new DOMRect(10, 10, 28, 28));
+      makeVisible(visible, new DOMRect(10, 50, 28, 28));
+
+      (
+        document as unknown as {
+          elementFromPoint: (x: number, y: number) => Element | null;
+        }
+      ).elementFromPoint = (_x: number, y: number) => {
+        if (y < 40) {
+          return document.body;
+        }
+        return visible;
+      };
+
+      let occludedClicks = 0;
+      let visibleClicks = 0;
+      occluded.addEventListener('click', () => {
+        occludedClicks += 1;
+      });
+      visible.addEventListener('click', () => {
+        visibleClicks += 1;
+      });
+
+      const result = await runDriveAction('drive.click', {
+        locator: {
+          css: 'button[aria-label="Increase maindeck count for Jace, the Mind Sculptor"]',
+        },
+      });
+
+      expect(result.ok).toBe(true);
+      await vi.runAllTimersAsync();
+      expect(visibleClicks).toBe(1);
+      expect(occludedClicks).toBe(0);
     } finally {
       vi.useRealTimers();
     }

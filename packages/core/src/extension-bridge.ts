@@ -85,6 +85,7 @@ export class ExtensionBridge {
   private readonly wss: WebSocketServer;
   private socket: WebSocket | null = null;
   private pending = new Map<string, PendingRequest>();
+  private readonly readyWaiters = new Set<() => void>();
   private connected = false;
   private lastSeenAt?: string;
   private extensionId?: string;
@@ -155,6 +156,39 @@ export class ExtensionBridge {
       capabilities: this.capabilities,
       tabs: this.tabs,
     };
+  }
+
+  async waitForReady(timeoutMs = 1500): Promise<boolean> {
+    if (this.isReadyForRequests()) {
+      return true;
+    }
+    if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
+      return this.isReadyForRequests();
+    }
+
+    return await new Promise<boolean>((resolve) => {
+      let settled = false;
+      const finish = (value: boolean) => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        clearTimeout(timeout);
+        this.readyWaiters.delete(waiter);
+        resolve(value);
+      };
+      const waiter = () => {
+        if (this.isReadyForRequests()) {
+          finish(true);
+        }
+      };
+      const timeout = setTimeout(() => {
+        finish(this.isReadyForRequests());
+      }, timeoutMs);
+
+      this.readyWaiters.add(waiter);
+      waiter();
+    });
   }
 
   async request<T = unknown>(
@@ -498,6 +532,7 @@ export class ExtensionBridge {
             expected: 'drive.hello.capabilities',
           };
         }
+        this.flushReadyWaiters();
       }
     }
 
@@ -515,6 +550,25 @@ export class ExtensionBridge {
         listener(event);
       } catch (error) {
         console.debug('Debugger event listener failed.', error);
+      }
+    }
+  }
+
+  private isReadyForRequests(): boolean {
+    return this.connected && this.capabilityNegotiated;
+  }
+
+  private flushReadyWaiters(): void {
+    if (!this.isReadyForRequests() || this.readyWaiters.size === 0) {
+      return;
+    }
+    const waiters = Array.from(this.readyWaiters);
+    this.readyWaiters.clear();
+    for (const waiter of waiters) {
+      try {
+        waiter();
+      } catch (error) {
+        console.debug('Extension ready waiter failed.', error);
       }
     }
   }

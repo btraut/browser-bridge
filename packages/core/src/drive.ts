@@ -13,7 +13,8 @@ export type DriveResult<T> =
 
 const LOOPBACK_NAVIGATION_PREFLIGHT_TIMEOUT_MS = 1200;
 const POST_CLICK_SETTLE_MS = 75;
-const TRANSIENT_LOCATOR_RETRY_DELAY_MS = 150;
+const TRANSIENT_LOCATOR_RETRY_DELAYS_MS = [150, 300, 600] as const;
+const EXTENSION_READY_WAIT_MS = 1500;
 const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '::1']);
 const ACTIONS_WITH_OPTIONAL_TAB_ID = new Set<DriveAction>([
   'drive.navigate',
@@ -166,6 +167,21 @@ export class DriveController {
     await new Promise((resolve) => setTimeout(resolve, ms));
   }
 
+  private async waitForBridgeReady(): Promise<boolean> {
+    if (this.bridge.isConnected()) {
+      return true;
+    }
+    const waitForReady = (
+      this.bridge as ExtensionBridge & {
+        waitForReady?: (timeoutMs?: number) => Promise<boolean>;
+      }
+    ).waitForReady;
+    if (typeof waitForReady === 'function') {
+      return await waitForReady.call(this.bridge, EXTENSION_READY_WAIT_MS);
+    }
+    return this.bridge.isConnected();
+  }
+
   private isTransientLocatorError(
     action: DriveAction,
     error: DriveErrorInfo
@@ -221,7 +237,7 @@ export class DriveController {
         };
       }
 
-      if (!this.bridge.isConnected()) {
+      if (!(await this.waitForBridgeReady())) {
         const errorInfo: DriveErrorInfo = {
           code: 'EXTENSION_DISCONNECTED',
           message:
@@ -295,11 +311,12 @@ export class DriveController {
           };
 
           if (
-            attempt === 0 &&
+            attempt < TRANSIENT_LOCATOR_RETRY_DELAYS_MS.length &&
             this.isTransientLocatorError(action, errorInfo)
           ) {
+            const delayMs = TRANSIENT_LOCATOR_RETRY_DELAYS_MS[attempt] ?? 0;
             attempt += 1;
-            await this.sleep(TRANSIENT_LOCATOR_RETRY_DELAY_MS);
+            await this.sleep(delayMs);
             continue;
           }
 

@@ -9,6 +9,55 @@ const callPrivate = (bridge: ExtensionBridge, payload: unknown): void => {
 };
 
 describe('ExtensionBridge debugger routing', () => {
+  it('waits briefly for drive.hello before reporting ready', async () => {
+    vi.useFakeTimers();
+    try {
+      const bridge = new ExtensionBridge();
+      const writable = bridge as unknown as { connected: boolean };
+      writable.connected = true;
+
+      let ready = false;
+      const promise = bridge.waitForReady(500);
+      void promise.then((value) => {
+        ready = value;
+      });
+
+      await Promise.resolve();
+      expect(ready).toBe(false);
+
+      callPrivate(bridge, {
+        id: 'evt-hello',
+        action: 'drive.hello',
+        status: 'event',
+        params: {
+          version: '1.2.3',
+          protocol_version: DRIVE_WS_PROTOCOL_VERSION,
+          capabilities: {
+            'drive.navigate': true,
+          },
+          tabs: [],
+        },
+      });
+
+      await vi.runAllTimersAsync();
+      await expect(promise).resolves.toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('times out waitForReady when the extension never becomes request-ready', async () => {
+    vi.useFakeTimers();
+    try {
+      const bridge = new ExtensionBridge();
+      const promise = bridge.waitForReady(200);
+      await vi.advanceTimersByTimeAsync(250);
+      await expect(promise).resolves.toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('forwards debugger events', () => {
     const bridge = new ExtensionBridge();
     const handler = vi.fn();

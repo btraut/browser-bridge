@@ -66,14 +66,17 @@ const inspectReport = (
     inspectCapability?: boolean;
     extensionConnected?: boolean;
     extensionId?: string;
+    capabilityNegotiated?: boolean;
   } = {}
 ): DiagnosticReport => {
+  const capabilityNegotiated = options.capabilityNegotiated ?? true;
   const runtime =
     options.extensionId === undefined
       ? {}
       : {
           extension: {
             extension_id: options.extensionId,
+            capability_negotiated: capabilityNegotiated,
           },
         };
 
@@ -84,6 +87,10 @@ const inspectReport = (
     },
     runtime,
     checks: [
+      {
+        name: 'runtime.extension.capability_negotiated',
+        ok: capabilityNegotiated,
+      },
       {
         name: 'inspect.capability',
         ok: options.inspectCapability ?? false,
@@ -271,6 +278,54 @@ describe('dev commands', () => {
     const program = buildProgram();
     await program.parseAsync(['node', 'cli', 'dev', 'enable-inspect']);
 
+    expect(envelope).toEqual({
+      ok: true,
+      result: {
+        extensionId: 'connected-ext',
+        extensionIdSource: 'connected',
+        checkedWithDiagnostics: true,
+        host: '127.0.0.1',
+        port: 3210,
+        inspectAlwaysEnabled: true,
+      },
+    });
+  });
+
+  it('enable-inspect retries stale disconnected diagnostics before failing', async () => {
+    vi.mocked(createCoreClient).mockReturnValue({
+      baseUrl: 'http://127.0.0.1:3210',
+      ensureReady: vi.fn(async () => {}),
+      post: vi
+        .fn()
+        .mockResolvedValueOnce({
+          ok: true as const,
+          result: inspectReport({
+            inspectCapability: false,
+            extensionConnected: false,
+            capabilityNegotiated: false,
+          }),
+        })
+        .mockResolvedValueOnce({
+          ok: true as const,
+          result: inspectReport({
+            inspectCapability: true,
+            extensionConnected: true,
+            extensionId: 'connected-ext',
+          }),
+        }),
+    } as ReturnType<typeof createCoreClient>);
+
+    let envelope: unknown;
+    vi.mocked(runLocal).mockImplementation(async (_command, work) => {
+      envelope = await work({ json: false });
+    });
+
+    const program = buildProgram();
+    await program.parseAsync(['node', 'cli', 'dev', 'enable-inspect']);
+
+    const client = vi.mocked(createCoreClient).mock.results[0]
+      ?.value as ReturnType<typeof createCoreClient>;
+    expect(client.post).toHaveBeenCalledTimes(2);
     expect(envelope).toEqual({
       ok: true,
       result: {

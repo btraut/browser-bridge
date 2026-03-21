@@ -1,3 +1,5 @@
+import { getHittablePoint, pointHitsTarget } from './locator-point.js';
+
 const collectVisibleText = (
   node: Node,
   isVisible: (element: Element) => boolean
@@ -104,6 +106,19 @@ export const getRoleAccessibleName = (element: Element): string =>
       getRenderedText(element)
   );
 
+const getActionabilityScore = (
+  element: Element
+): { directHit: boolean; hittable: boolean } => {
+  if (!(element instanceof HTMLElement) || !isVisible(element)) {
+    return { directHit: false, hittable: false };
+  }
+  const point = getHittablePoint(element, { preferDirectHit: true });
+  return {
+    directHit: pointHitsTarget(element, point.x, point.y, { directOnly: true }),
+    hittable: pointHitsTarget(element, point.x, point.y),
+  };
+};
+
 export const scoreCandidates = (
   candidates: Element[],
   options?: {
@@ -120,15 +135,21 @@ export const scoreCandidates = (
     .filter(isVisible)
     .map((candidate) => {
       const text = getRenderedText(candidate);
+      const accessibleName = getRoleAccessibleName(candidate);
       const href = candidate.getAttribute('href') ?? '';
+      const actionability = getActionabilityScore(candidate);
       return {
         candidate,
-        exactText: queryText.length > 0 && text === queryText,
+        exactText:
+          queryText.length > 0 &&
+          (text === queryText || accessibleName === queryText),
         exactHref:
           queryHref.length > 0 &&
           (href === queryHref ||
             (candidate instanceof HTMLAnchorElement &&
               candidate.href === queryHref)),
+        directHit: actionability.directHit,
+        hittable: actionability.hittable,
         onScreen: isOnScreen(candidate),
         clickable: isClickable(candidate),
         textLength: text.length,
@@ -141,6 +162,12 @@ export const scoreCandidates = (
       }
       if (a.exactText !== b.exactText) {
         return a.exactText ? -1 : 1;
+      }
+      if (a.directHit !== b.directHit) {
+        return a.directHit ? -1 : 1;
+      }
+      if (a.hittable !== b.hittable) {
+        return a.hittable ? -1 : 1;
       }
       if (a.onScreen !== b.onScreen) {
         return a.onScreen ? -1 : 1;
@@ -166,6 +193,8 @@ export const findByText = (text: string): Element | null => {
     Element,
     {
       exact: boolean;
+      directHit: boolean;
+      hittable: boolean;
       onScreen: boolean;
       clickable: boolean;
       textLength: number;
@@ -206,8 +235,11 @@ export const findByText = (text: string): Element | null => {
 
     const preferredText = getRenderedText(preferredTarget);
     const currentBest = candidateMap.get(preferredTarget);
+    const actionability = getActionabilityScore(preferredTarget);
     const nextScore = {
       exact: preferredText === query || elementText === query,
+      directHit: actionability.directHit,
+      hittable: actionability.hittable,
       onScreen: isOnScreen(preferredTarget),
       clickable: isClickable(preferredTarget),
       textLength: preferredText.length || elementText.length,
@@ -218,15 +250,28 @@ export const findByText = (text: string): Element | null => {
       !currentBest ||
       Number(nextScore.exact) > Number(currentBest.exact) ||
       (nextScore.exact === currentBest.exact &&
+        Number(nextScore.directHit) > Number(currentBest.directHit)) ||
+      (nextScore.exact === currentBest.exact &&
+        nextScore.directHit === currentBest.directHit &&
+        Number(nextScore.hittable) > Number(currentBest.hittable)) ||
+      (nextScore.exact === currentBest.exact &&
+        nextScore.directHit === currentBest.directHit &&
+        nextScore.hittable === currentBest.hittable &&
         Number(nextScore.onScreen) > Number(currentBest.onScreen)) ||
       (nextScore.exact === currentBest.exact &&
+        nextScore.directHit === currentBest.directHit &&
+        nextScore.hittable === currentBest.hittable &&
         nextScore.onScreen === currentBest.onScreen &&
         Number(nextScore.clickable) > Number(currentBest.clickable)) ||
       (nextScore.exact === currentBest.exact &&
+        nextScore.directHit === currentBest.directHit &&
+        nextScore.hittable === currentBest.hittable &&
         nextScore.onScreen === currentBest.onScreen &&
         nextScore.clickable === currentBest.clickable &&
         nextScore.textLength < currentBest.textLength) ||
       (nextScore.exact === currentBest.exact &&
+        nextScore.directHit === currentBest.directHit &&
+        nextScore.hittable === currentBest.hittable &&
         nextScore.onScreen === currentBest.onScreen &&
         nextScore.clickable === currentBest.clickable &&
         nextScore.textLength === currentBest.textLength &&
@@ -244,6 +289,12 @@ export const findByText = (text: string): Element | null => {
     if (left.exact !== right.exact) {
       return left.exact ? -1 : 1;
     }
+    if (left.directHit !== right.directHit) {
+      return left.directHit ? -1 : 1;
+    }
+    if (left.hittable !== right.hittable) {
+      return left.hittable ? -1 : 1;
+    }
     if (left.onScreen !== right.onScreen) {
       return left.onScreen ? -1 : 1;
     }
@@ -255,6 +306,5 @@ export const findByText = (text: string): Element | null => {
     }
     return right.depth - left.depth;
   });
-
   return candidates[0]?.[0] ?? null;
 };
