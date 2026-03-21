@@ -18,6 +18,7 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 
 ### Fixed
 
+- Interactive AX snapshots now prune hover-hidden controls that fail live DOM visibility and pointer-event checks, so inspect stops advertising inert ManaVault-style quantity buttons as actionable.
 - Repo-local Codex skills now live under `.agents/skills`, and the CLI install/prepack flow now reads from that canonical repo path instead of the dead `skills/` directory.
 - Existing tabs now recover their content script on demand after extension updates, so `drive.wait_for` and other tab actions stop dying with `Receiving end does not exist` just because the tab predates the current build.
 - Inspect now evaluates in an isolated world on the top frame when available, which makes auth/passkey pages less likely to derail `extract_content`, `page_state`, and `evaluate` with extension-surface debugger context errors.

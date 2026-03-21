@@ -14,6 +14,7 @@ import type {
 } from '../drive-protocol';
 import {
   applyAxSnapshotFilters,
+  filterAxSnapshotByRefs,
   getAxName,
   getAxNodes,
   getAxRole,
@@ -265,21 +266,39 @@ export class InspectService {
           refMap,
           debuggerCommand
         );
+        let actionableRefs = refResult.appliedRefs;
+        let actionableBindings = refResult.appliedBindings;
+        const actionabilityWarnings: string[] = [];
+        if (input.interactive && refResult.appliedBindings.length > 0) {
+          const actionableResult = await this.collectActionableSnapshotRefs(
+            selection.tabId,
+            refResult.appliedBindings
+          );
+          actionabilityWarnings.push(...actionableResult.warnings);
+          if (actionableResult.actionableRefs) {
+            actionableRefs = actionableResult.actionableRefs;
+            actionableBindings = refResult.appliedBindings.filter((binding) =>
+              actionableRefs.has(binding.ref)
+            );
+            snapshot = filterAxSnapshotByRefs(snapshot, actionableRefs);
+          }
+        }
         const persistResult =
           refMap.size === 0
             ? { warnings: [] as string[] }
             : await persistSnapshotRefRegistry(
                 selection.tabId,
-                refResult.appliedBindings,
+                actionableBindings,
                 debuggerCommand
               );
-        pruneUnappliedRefsFromSnapshot(snapshot, refResult.appliedRefs);
+        pruneUnappliedRefsFromSnapshot(snapshot, actionableRefs);
         const warnings = [
           ...(selection.warnings ?? []),
           ...selectorWarnings,
           ...truncationWarnings,
           ...clearResult.warnings,
           ...refResult.warnings,
+          ...actionabilityWarnings,
           ...persistResult.warnings,
         ];
         return {
@@ -935,6 +954,94 @@ export class InspectService {
 
   private async enableAccessibility(tabId: number): Promise<void> {
     await this.debuggerCommand(tabId, 'Accessibility.enable', {});
+  }
+
+  private async collectActionableSnapshotRefs(
+    tabId: number,
+    bindings: Array<{ ref: string }>
+  ): Promise<{
+    actionableRefs?: Set<string>;
+    warnings: string[];
+  }> {
+    try {
+      const result = await this.debuggerCommand(tabId, 'Runtime.evaluate', {
+        expression: `(() => {
+          const refs = new Set(${JSON.stringify(
+            bindings.map((binding) => binding.ref)
+          )});
+          const isVisible = (element) => {
+            if (!(element instanceof HTMLElement)) {
+              return false;
+            }
+            const style = window.getComputedStyle(element);
+            if (style.visibility === 'hidden' || style.display === 'none') {
+              return false;
+            }
+            const rect = element.getBoundingClientRect();
+            if (rect.width === 0 && rect.height === 0) {
+              return false;
+            }
+            if (
+              element.offsetWidth === 0 &&
+              element.offsetHeight === 0 &&
+              element.getClientRects().length === 0
+            ) {
+              return false;
+            }
+            let current = element;
+            while (current) {
+              const currentStyle = window.getComputedStyle(current);
+              if (currentStyle.display === 'none') {
+                return false;
+              }
+              if (
+                currentStyle.visibility === 'hidden' ||
+                currentStyle.visibility === 'collapse'
+              ) {
+                return false;
+              }
+              const opacity = Number.parseFloat(currentStyle.opacity ?? '1');
+              if (Number.isFinite(opacity) && opacity <= 0) {
+                return false;
+              }
+              if (currentStyle.pointerEvents === 'none') {
+                return false;
+              }
+              current = current.parentElement;
+            }
+            return true;
+          };
+
+          return Array.from(document.querySelectorAll('[data-bv-ref]'))
+            .filter((element) => {
+              const ref = element.getAttribute('data-bv-ref');
+              return typeof ref === 'string' && refs.has(ref) && isVisible(element);
+            })
+            .map((element) => element.getAttribute('data-bv-ref'));
+        })() /* browser-bridge:collect-actionable-snapshot-refs */`,
+        returnByValue: true,
+        awaitPromise: true,
+      });
+      const rawRefs = (result as { value?: unknown }).value;
+      if (!Array.isArray(rawRefs)) {
+        return {
+          warnings: [
+            'Interactive AX snapshot could not verify live actionability.',
+          ],
+        };
+      }
+      const refs = rawRefs.filter(
+        (ref): ref is string => typeof ref === 'string'
+      );
+      return {
+        actionableRefs: new Set(refs),
+        warnings: [],
+      };
+    } catch {
+      return {
+        warnings: ['Interactive AX snapshot could not prune hidden controls.'],
+      };
+    }
   }
 
   private async waitForDomSettled(

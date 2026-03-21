@@ -3,6 +3,7 @@
 Short index of notable bug fixes. Keep entries symptom-first: bug label, one-line fix summary, and PR/commit reference.
 
 - `inspect-stale-noisy-reads` - `inspect.extract_content` now waits for DOM quiescence, `inspect.page_state` defaults to redacted summary data, and `inspect.console_list` filters stale pre-session tab history by default. Ref: pending commit
+- `interactive-ax-hidden-control-pruning` - Interactive AX snapshots now drop hover-hidden refs that fail live DOM visibility or pointer-event checks, so inspect stops surfacing inert controls like ManaVault's hidden quantity buttons as actionable. Ref: pending commit
 - `activate-missing-extension-id` - `dev activate` can now discover a connected Browser Bridge extension id and wait for a confirmed bind instead of failing before metadata exists. Ref: PR #45, `a619da3`
 - `activate-enable-inspect` - `dev activate --enable-inspect` now provides an automatable path to enable debugger-based inspect and exposes remediation metadata in diagnostics. Ref: PR #45, `a619da3`
 - `screenshot-permission-remediation` - Screenshot capture failures now classify `captureVisibleTab` permission and rate-limit problems with actionable remediation instead of generic errors. Ref: PR #45, `a619da3`

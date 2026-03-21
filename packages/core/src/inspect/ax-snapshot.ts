@@ -157,6 +157,15 @@ const filterAxSnapshot = (
   return replaceAxNodes(snapshot, filtered);
 };
 
+export const filterAxSnapshotByRefs = (
+  snapshot: unknown,
+  allowedRefs: Set<string>
+): unknown =>
+  filterAxSnapshot(snapshot, (node) => {
+    const ref = node.ref;
+    return typeof ref === 'string' && allowedRefs.has(ref);
+  });
+
 const collectKeptDescendants = (
   nodeId: string,
   nodeById: Map<string, AxNodeRecord>,

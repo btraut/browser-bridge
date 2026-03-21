@@ -438,6 +438,107 @@ describe('InspectService', () => {
     expect(nodes.every((node) => typeof node.ref === 'string')).toBe(true);
   });
 
+  it('prunes hover-hidden interactive controls from interactive AX snapshots', async () => {
+    const registry = new SessionRegistry();
+    const session = registry.create();
+
+    const axNodes = [
+      {
+        nodeId: '1',
+        backendDOMNodeId: 101,
+        role: 'button',
+        name: 'Increase maindeck count for Jace, the Mind Sculptor',
+        childIds: [],
+      },
+      {
+        nodeId: '2',
+        backendDOMNodeId: 102,
+        role: 'button',
+        name: 'Edit maindeck quantity for Jace, the Mind Sculptor',
+        childIds: [],
+      },
+    ];
+
+    const debuggerBridge = {
+      hasAttachments: () => true,
+      getLastError: () => undefined,
+      command: async (
+        _tabId: number,
+        method: string,
+        params?: Record<string, unknown>
+      ) => {
+        if (method === 'Accessibility.getFullAXTree') {
+          return { ok: true, result: { nodes: axNodes } };
+        }
+        if (method === 'DOM.describeNode') {
+          return {
+            ok: true,
+            result: {
+              node: {
+                nodeId: Number(params?.backendNodeId),
+                nodeType: 1,
+              },
+            },
+          };
+        }
+        if (method === 'Runtime.evaluate') {
+          const expression = String(params?.expression ?? '');
+          if (
+            expression.includes(
+              'browser-bridge:collect-actionable-snapshot-refs'
+            )
+          ) {
+            return {
+              ok: true,
+              result: {
+                value: ['@e2'],
+              },
+            };
+          }
+          return { ok: true, result: {} };
+        }
+        if (
+          method === 'Accessibility.enable' ||
+          method === 'DOM.enable' ||
+          method === 'Runtime.enable' ||
+          method === 'DOM.setAttributeValue'
+        ) {
+          return { ok: true, result: {} };
+        }
+        return { ok: true, result: {} };
+      },
+    } as unknown as DebuggerBridge;
+
+    const service = new InspectService({
+      registry,
+      extensionBridge: {
+        isConnected: () => true,
+        getStatus: () => ({
+          tabs: [DEFAULT_TAB],
+        }),
+      },
+      debuggerBridge,
+    });
+
+    const result = await service.domSnapshot({
+      sessionId: session.id,
+      format: 'ax',
+      consistency: 'best_effort',
+      interactive: true,
+    });
+
+    const nodes = getAxNodes(result.snapshot);
+    expect(nodes.map((node) => ({ role: node.role, name: node.name }))).toEqual(
+      [
+        {
+          role: 'button',
+          name: 'Edit maindeck quantity for Jace, the Mind Sculptor',
+        },
+      ]
+    );
+    expect(nodes.map((node) => node.ref)).toEqual(['@e2']);
+  });
+
   it('does not leak stale root ref warnings through inspect.find', async () => {
     const registry = new SessionRegistry();
     const session = registry.create();
