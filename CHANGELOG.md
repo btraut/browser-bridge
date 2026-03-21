@@ -8,6 +8,14 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 
 ### Added
 
+### Changed
+
+### Fixed
+
+## [0.15.0] - 2026-03-21
+
+### Added
+
 - Added first-class `permissions.*` support across Core, CLI, and MCP for reading allowlist/mode state and requesting allowlist/mode changes through a human approval flow in Chrome.
 - Added a repo-local `dev:loop` helper plus a matching local `dev-loop` skill for Browser Bridge contributors, so extension rebuild/relaunch/bypass setup can run from one command instead of the usual Chrome nonsense.
 
