@@ -143,8 +143,8 @@ export const registerInstallCommand = (program: Command): void => {
             const disabled = enabled
               ? false
               : wantsMcp
-              ? 'MCP install not supported yet'
-              : false;
+                ? 'MCP install not supported yet'
+                : false;
 
             // Keep labels minimal: only annotate when the row is "skill only"
             // while the user selected Skill+MCP.

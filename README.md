@@ -363,12 +363,10 @@ browser-bridge diagnostics doctor --json
 ```
 
 3. Open the extension popup and check `Connected`:
-
    - Green dot: extension is currently connected to Core.
    - Red dot: extension is disconnected or reconnecting.
 
 4. If caller/core/extension endpoints differ in the diagnostics report:
-
    - Remove custom host/port env overrides and retry (`BROWSER_BRIDGE_CORE_HOST`, `BROWSER_BRIDGE_CORE_PORT`).
    - If inspect capability is the missing piece, run `browser-bridge dev enable-inspect --extension-id <id>`.
 
