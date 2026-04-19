@@ -10,6 +10,8 @@ The format is based on "Keep a Changelog", and this project adheres to Semantic 
 
 ### Changed
 
+- Marked Browser Bridge as deprecated across the main README, packaged skill/install surfaces, CLI help text, npm package metadata, and extension manifest copy, and now point new users to Codex's browser plugin, `agent-browser`, or Playwright MCP.
+
 ### Fixed
 
 ## [0.15.0] - 2026-03-21

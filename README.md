@@ -1,14 +1,22 @@
+> [!WARNING] Browser Bridge is deprecated.
+>
+> - If you are using Codex, use Codex's built-in browser plugin instead.
+> - If you need a browser tool outside Codex, use [`agent-browser`](https://agent-browser.io/) or [Playwright MCP](https://github.com/microsoft/playwright-mcp).
+> - This repo stays up for legacy users and historical reference, but it is no longer the recommended path.
+
 <img src="https://raw.githubusercontent.com/btraut/browser-bridge/main/docs/assets/readme-header.png" alt="Browser Bridge header graphic" width="720" />
 
 [![npm version](https://img.shields.io/npm/v/@btraut/browser-bridge.svg)](https://www.npmjs.com/package/@btraut/browser-bridge) [![npm downloads](https://img.shields.io/npm/dm/@btraut/browser-bridge.svg)](https://www.npmjs.com/package/@btraut/browser-bridge) [![CI](https://github.com/btraut/browser-bridge/actions/workflows/ci.yml/badge.svg)](https://github.com/btraut/browser-bridge/actions/workflows/ci.yml) [![License](https://img.shields.io/github/license/btraut/browser-bridge.svg)](LICENSE)
 
-# Browser Bridge
+# Browser Bridge (Deprecated)
 
-**Reliable local Chrome control for coding agents.**
+**Legacy local Chrome control for coding agents.**
 
 Browser Bridge drives your real, local Chrome (not headless) and inspects page state through a Chrome extension plus a local daemon. You stay in the loop with your existing tabs and login state.
 
-## 🏁 Install + Quickstart (Do This First)
+## Legacy Install + Quickstart
+
+Only use this if you are maintaining an existing Browser Bridge setup. New users should stop here and use Codex's browser plugin, [`agent-browser`](https://agent-browser.io/), or [Playwright MCP](https://github.com/microsoft/playwright-mcp) instead.
 
 You need Node.js 20+ and Chrome (stable). Browser Bridge is local-only (binds to 127.0.0.1).
 
@@ -225,6 +233,8 @@ The CLI mirrors the MCP tool surface.
 
 ## 🧩 Skills (Agent Clients)
 
+This skill is also deprecated. Prefer Codex's browser plugin. If you need a general-purpose external browser tool, use [`agent-browser`](https://agent-browser.io/) or [Playwright MCP](https://github.com/microsoft/playwright-mcp).
+
 Browser Bridge skills work across many agent clients, including Codex and Claude Code.
 
 Easiest option (recommended):
@@ -353,10 +363,12 @@ browser-bridge diagnostics doctor --json
 ```
 
 3. Open the extension popup and check `Connected`:
+
    - Green dot: extension is currently connected to Core.
    - Red dot: extension is disconnected or reconnecting.
 
 4. If caller/core/extension endpoints differ in the diagnostics report:
+
    - Remove custom host/port env overrides and retry (`BROWSER_BRIDGE_CORE_HOST`, `BROWSER_BRIDGE_CORE_PORT`).
    - If inspect capability is the missing piece, run `browser-bridge dev enable-inspect --extension-id <id>`.
 

@@ -39,7 +39,9 @@ export const registerSkillCommands = (program: Command): void => {
 
   skill
     .command('install')
-    .description('Install the Browser Bridge skill into one or more clients')
+    .description(
+      'Install the legacy Browser Bridge skill into one or more clients (deprecated)'
+    )
     .option(
       '--client <id...>',
       'Client ids to install into (codex, claude, cursor, factory, opencode, gemini, github, ampcode)'
@@ -128,7 +130,9 @@ export const registerSkillCommands = (program: Command): void => {
 
   skill
     .command('status')
-    .description('Show Browser Bridge skill install status across clients')
+    .description(
+      'Show legacy Browser Bridge skill install status across clients'
+    )
     .action(async (_options, command: Command) => {
       await runLocal(command, async () => {
         const version = await readCliPackageVersion();

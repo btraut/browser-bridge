@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Browser Bridge",
   "version": "0.15.0",
-  "description": "Control Chrome for Browser Bridge: drive tabs and inspect pages for coding agents.",
+  "description": "DEPRECATED. Legacy Browser Bridge companion extension. Prefer Codex browser plugin, agent-browser, or Playwright MCP.",
   "icons": {
     "16": "assets/icons/icon-16.png",
     "32": "assets/icons/icon-32.png",

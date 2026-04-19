@@ -1,6 +1,7 @@
 {
   "name": "@btraut/browser-bridge",
   "version": "0.15.0",
+  "description": "DEPRECATED: Legacy local Chrome control for coding agents. Prefer Codex browser plugin, agent-browser, or Playwright MCP.",
   "license": "MIT",
   "engines": {
     "node": ">=20"

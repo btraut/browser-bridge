@@ -88,7 +88,9 @@ const getHarnessMarkerDir = (harness: HarnessId): string => {
 export const registerInstallCommand = (program: Command): void => {
   program
     .command('install')
-    .description('Install Browser Bridge integrations (Skill and/or MCP)')
+    .description(
+      'Install legacy Browser Bridge integrations (deprecated; prefer Codex browser plugin, agent-browser, or Playwright MCP)'
+    )
     .action(async (_options, command: Command) => {
       await runLocal(command, async ({ json }) => {
         if (json) {
@@ -97,7 +99,10 @@ export const registerInstallCommand = (program: Command): void => {
 
         requireTty();
 
-        console.log('Browser Bridge Installer');
+        console.log('Browser Bridge Installer (Deprecated)');
+        console.log(
+          "Prefer Codex's browser plugin. If you need an external option, use agent-browser (https://agent-browser.io/) or Playwright MCP (https://github.com/microsoft/playwright-mcp)."
+        );
 
         const setup = await checkboxPrompt<SetupItem>({
           message: "Choose what you'd like to install:",
@@ -138,8 +143,8 @@ export const registerInstallCommand = (program: Command): void => {
             const disabled = enabled
               ? false
               : wantsMcp
-                ? 'MCP install not supported yet'
-                : false;
+              ? 'MCP install not supported yet'
+              : false;
 
             // Keep labels minimal: only annotate when the row is "skill only"
             // while the user selected Skill+MCP.

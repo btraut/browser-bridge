@@ -1,10 +1,18 @@
 ---
 name: browser-bridge
 description: >
-  Local Chrome control via Browser Bridge (CLI + optional MCP). Use when the task needs real browser interaction, reliable DOM inspection, or screenshots.
+  Deprecated local Chrome control via Browser Bridge (CLI + optional MCP). Prefer Codex's browser plugin, else agent-browser (https://agent-browser.io/) or Playwright MCP (https://github.com/microsoft/playwright-mcp).
 ---
 
 # Browser Bridge (CLI + MCP)
+
+## Deprecated
+
+Do not choose Browser Bridge for new work.
+
+- Use Codex's built-in browser plugin when you are in Codex.
+- Otherwise use [`agent-browser`](https://agent-browser.io/) or [Playwright MCP](https://github.com/microsoft/playwright-mcp).
+- Keep Browser Bridge only for legacy setups that already depend on it.
 
 Browser Bridge drives and inspects a real local Chrome instance. You can use it either via the CLI (works everywhere) or via MCP (optional, for MCP-capable clients).
 
@@ -14,6 +22,8 @@ Browser Bridge drives and inspects a real local Chrome instance. You can use it 
 - `browser-bridge` available on PATH (required for both CLI usage and MCP)
 
 ## Install
+
+If you are starting fresh, stop and use one of the recommended alternatives above.
 
 ```bash
 npm i -g @btraut/browser-bridge

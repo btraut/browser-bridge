@@ -28,7 +28,9 @@ const resolveCliVersion = async (): Promise<string> => {
 const main = async (): Promise<void> => {
   program
     .name('browser-bridge')
-    .description('Browser Bridge CLI')
+    .description(
+      'Deprecated Browser Bridge CLI. Prefer Codex browser plugin, agent-browser, or Playwright MCP.'
+    )
     .version(
       await resolveCliVersion(),
       '-v, --version',
